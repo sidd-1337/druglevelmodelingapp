@@ -21,6 +21,7 @@ def test_all_presets_load_and_are_valid():
         "rivotril",
         "mirtazapine",
         "risperidone",
+        "ritalin",
     } <= ids
 
 
@@ -40,6 +41,9 @@ def test_specified_reference_values():
     assert get_drug("rivotril").t_half_h == 35.0 and get_drug("rivotril").mec == 0.02
     assert get_drug("mirtazapine").t_half_h == 26.0 and get_drug("mirtazapine").mtc == 0.15
     assert get_drug("risperidone").t_half_h == 20.0 and get_drug("risperidone").mtc == 0.08
+    rit = get_drug("ritalin")
+    assert (rit.t_half_h, rit.vd_l_per_kg, rit.bioavailability, rit.mec, rit.mtc) == (2.5, 2.65, 0.3, 0.005, 0.03)
+    assert rit.default_dose_mg == 10 and rit.default_interval_h == 8
 
 
 def test_to_pk_model_scales_vd_with_weight():

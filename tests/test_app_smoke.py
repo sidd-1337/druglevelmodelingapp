@@ -44,6 +44,35 @@ def test_app_sukl_search_integration():
     assert not at.exception
 
 
+def test_app_sukl_search_livizux_both_packages():
+    at = _run()
+    sukl_input = at.sidebar.text_input[0]
+    sukl_input.set_value("Livizux 70mg").run()
+    assert not at.exception
+    options = list(at.sidebar.selectbox[0].options)
+    assert len(options) >= 2
+    joined = " ".join(options)
+    assert "0265887" in joined and "0265888" in joined
+
+
+def test_app_sukl_search_ritalin_matches_preset():
+    at = _run()
+    sukl_input = at.sidebar.text_input[0]
+    sukl_input.set_value("Ritalin").run()
+    assert not at.exception
+    # Drug selectbox automatically switches to matched preset 'ritalin'
+    assert at.sidebar.selectbox[1].value == "ritalin"
+
+
+def test_app_sukl_search_ritalin_alias_code_matches_preset():
+    at = _run()
+    sukl_input = at.sidebar.text_input[0]
+    sukl_input.set_value("0015642").run()
+    assert not at.exception
+    assert at.sidebar.selectbox[1].value == "ritalin"
+
+
+
 def test_app_glossary_tab_and_tooltips():
     at = _run()
     # Check that KPI metrics have help tooltips

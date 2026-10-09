@@ -216,6 +216,24 @@
       "default_interval_h": 12,
       "dose_basis": "mg risperidon",
       "notes": "Atypické antipsychotikum. Modelována celková aktivní frakce (risperidon + 9-hydroxyrisperidon) s poločasem cca 20 h. AGNP terapeutické rozmezí 20–60 ng/mL (0.02–0.06 µg/mL), riziko EPS > 0.08 µg/mL."
+    },
+    {
+      "id": "ritalin",
+      "name": "Ritalin (methylfenidát)",
+      "category": "CNS stimulans / ADHD (inhibitor DAT/NET)",
+      "t_half_h": 2.5,
+      "t_half_range_h": [2.0, 3.5],
+      "vd_l_per_kg": 2.65,
+      "bioavailability": 0.3,
+      "ka_per_h": 1.8,
+      "mec": 0.005,
+      "mtc": 0.03,
+      "concentration_unit": "ug/mL",
+      "dose_conversion": 1.0,
+      "default_dose_mg": 10,
+      "default_interval_h": 8,
+      "dose_basis": "mg methylfenidát-hydrochlorid (Ritalin)",
+      "notes": "Methylfenidát-hydrochlorid (Ritalin). Krátkodobě působící stimulans CNS indikované při ADHD a narkolepsii. Rychlá absorpce (Tmax 1–2 h), nízká perorální biologická dostupnost (F ≈ 30 %) vlivem first-pass metabolismu. Krátký biologický poločas eliminace (t½ cca 2–3 h) vyžaduje podávání 2–3× denně (interval 6–8 h, obvykle ráno a v poledne). AGNP doporučené terapeutické rozmezí 5–20 ng/mL (0.005–0.020 µg/mL), nežádoucí a toxické hladiny > 0.030 µg/mL."
     }
   ]
 }
