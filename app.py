@@ -22,11 +22,17 @@ from core.pk_engine import (
     steady_state_summary,
     time_grid,
 )
+from core.sukl_client import query_sukl_api
 from ui.charts import build_figure
 from ui.i18n import LANGUAGES, make_translator
 from ui.reporting import build_dataframe, build_protocol
 
 st.set_page_config(page_title="PK/PD Simulator & TDM", page_icon="💊", layout="wide")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def search_sukl(query: str):
+    return query_sukl_api(query)
 
 
 def assessment_message(T, res, window: TherapeuticWindow, unit: str) -> tuple[str, str]:
@@ -52,9 +58,48 @@ with st.sidebar:
     T = make_translator(LANGUAGES[lang])
 
     st.header(T("sb_drug"))
+
+    sukl_query = st.text_input(
+        T("sukl_search_label"),
+        value="",
+        placeholder=T("sukl_search_placeholder"),
+        key="sukl_q",
+    )
+    sukl_med = None
+    if sukl_query.strip():
+        sukl_results = search_sukl(sukl_query.strip())
+        if sukl_results:
+            st.caption(T("sukl_found_count", n=len(sukl_results)))
+            chosen_sukl_idx = st.selectbox(
+                T("sukl_select_pkg"),
+                range(len(sukl_results)),
+                format_func=lambda i: sukl_results[i].display_name,
+                key="sukl_sel",
+            )
+            sukl_med = sukl_results[chosen_sukl_idx]
+            st.markdown(f"[{T('sukl_link')}]({sukl_med.sukl_url})")
+            if sukl_med.matched_preset_id:
+                st.success(T("sukl_matched_preset", name=sukl_med.nazev))
+            else:
+                st.info(T("sukl_no_preset"))
+
     presets = load_drugs() + [custom_drug()]
     by_id = {d.id: d for d in presets}
-    drug_id = st.selectbox(T("drug"), list(by_id), format_func=lambda i: by_id[i].name)
+    preset_ids = list(by_id)
+
+    default_idx = 0
+    if sukl_med and sukl_med.matched_preset_id and sukl_med.matched_preset_id in by_id:
+        default_idx = preset_ids.index(sukl_med.matched_preset_id)
+    elif sukl_med and not sukl_med.matched_preset_id:
+        default_idx = preset_ids.index(CUSTOM_ID)
+
+    drug_id = st.selectbox(
+        T("drug"),
+        preset_ids,
+        index=default_idx,
+        format_func=lambda i: by_id[i].name,
+        key=f"drug_sel_{sukl_med.kod_sukl if sukl_med else 'none'}",
+    )
     base = by_id[drug_id]
     k = drug_id  # per-drug widget keys: defaults reset when the drug changes
     if base.notes:
@@ -75,9 +120,30 @@ with st.sidebar:
         mtc = st.number_input(f"MTC [{unit}]", 0.0001, 10000.0, base.mtc, format="%g", key=f"mtc_{k}")
 
     st.header(T("sb_regimen"))
-    route = st.radio(T("route"), list(Route), format_func=lambda r: T("route_" + r.value), horizontal=True)
-    dose_mg = st.number_input(T("dose") + " [mg]", 0.1, 100000.0, float(base.default_dose_mg), format="%g", key=f"dose_{k}")
-    st.caption(base.dose_basis)
+    default_route_idx = 0
+    if sukl_med and any(t in (sukl_med.cesta_podani or "").lower() for t in ["intraven", "injek", "infuz", "i.v."]):
+        default_route_idx = 1
+    route = st.radio(
+        T("route"),
+        list(Route),
+        index=default_route_idx,
+        format_func=lambda r: T("route_" + r.value),
+        horizontal=True,
+        key=f"route_{k}_{sukl_med.kod_sukl if sukl_med else 'none'}",
+    )
+    suggested_dose = float(sukl_med.parsed_dose_mg) if sukl_med and sukl_med.parsed_dose_mg is not None else float(base.default_dose_mg)
+    dose_mg = st.number_input(
+        T("dose") + " [mg]",
+        0.1,
+        100000.0,
+        suggested_dose,
+        format="%g",
+        key=f"dose_{k}_{sukl_med.kod_sukl if sukl_med else 'none'}",
+    )
+    if sukl_med and sukl_med.parsed_dose_mg is not None:
+        st.caption(T("sukl_dose_set", dose=suggested_dose))
+    else:
+        st.caption(base.dose_basis)
     presets_tau = [6, 8, 12, 24]
     default_tau = base.default_interval_h
     tau_choice = st.selectbox(
@@ -140,11 +206,11 @@ st.title("💊 " + T("title"))
 st.caption(T("subtitle"))
 
 cols = st.columns(6)
-cols[0].metric("C_max", f"{metrics.cmax:.3g} {unit}")
-cols[1].metric("T_max", f"{metrics.tmax_h:.2f} h")
-cols[2].metric("AUC₀₋₂₄", f"{metrics.auc_0_24:.3g} {unit}·h")
-cols[3].metric(T("clearance"), f"{metrics.clearance_l_per_h:.2f} L/h")
-cols[4].metric("t½", f"{metrics.t_half_h:g} h")
+cols[0].metric("C_max", f"{metrics.cmax:.3g} {unit}", help=T("help_cmax"))
+cols[1].metric("T_max", f"{metrics.tmax_h:.2f} h", help=T("help_tmax"))
+cols[2].metric("AUC₀₋₂₄", f"{metrics.auc_0_24:.3g} {unit}·h", help=T("help_auc"))
+cols[3].metric(T("clearance"), f"{metrics.clearance_l_per_h:.2f} L/h", help=T("help_clearance"))
+cols[4].metric("t½", f"{metrics.t_half_h:g} h", help=T("help_thalf"))
 cols[5].metric(T("time_to_ss"), f"{ss.time_to_ss_h:.0f} h", help=T("tss_help"))
 
 show_alert(level, message)
@@ -158,21 +224,21 @@ fig = build_figure(
     missed_time=missed_time, show_zones=show_zones)
 st.plotly_chart(fig, width="stretch")
 
-tab_ss, tab_missed, tab_data, tab_model = st.tabs(
-    [T("tab_ss"), T("tab_missed"), T("tab_data"), T("tab_model")])
+tab_ss, tab_missed, tab_glossary, tab_data, tab_model = st.tabs(
+    [T("tab_ss"), T("tab_missed"), T("tab_glossary"), T("tab_data"), T("tab_model")])
 
 with tab_ss:
     r = st.columns(4)
-    r[0].metric("C_ss,max", f"{ss.cmax_ss:.3g} {unit}", help=f"t = {ss.tmax_ss_h:.2f} h")
-    r[1].metric("C_ss,min (trough)", f"{ss.cmin_ss:.3g} {unit}")
-    r[2].metric("C_ss,avg", f"{ss.cavg_ss:.3g} {unit}")
-    r[3].metric(T("accumulation") + " R", f"{ss.accumulation_index:.2f}")
+    r[0].metric("C_ss,max", f"{ss.cmax_ss:.3g} {unit}", help=f"{T('help_css_max')} (t = {ss.tmax_ss_h:.2f} h)")
+    r[1].metric("C_ss,min (trough)", f"{ss.cmin_ss:.3g} {unit}", help=T("help_css_min"))
+    r[2].metric("C_ss,avg", f"{ss.cavg_ss:.3g} {unit}", help=T("help_css_avg"))
+    r[3].metric(T("accumulation") + " R", f"{ss.accumulation_index:.2f}", help=T("help_r"))
     r = st.columns(4)
-    r[0].metric(T("fluctuation"), f"{ss.fluctuation_pct:.0f} %")
-    r[1].metric("AUC_τ,ss", f"{ss.cavg_ss * tau:.3g} {unit}·h")
+    r[0].metric(T("fluctuation"), f"{ss.fluctuation_pct:.0f} %", help=T("help_fluct"))
+    r[1].metric("AUC_τ,ss", f"{ss.cavg_ss * tau:.3g} {unit}·h", help=T("help_auc"))
     r[2].metric(T("time_to_ss"), f"{ss.time_to_ss_h:.0f} h",
                 help=f"{ss.time_to_ss_range_h[0]:.0f}–{ss.time_to_ss_range_h[1]:.0f} h (4–5 × t½)")
-    r[3].metric("τ", f"{tau:g} h")
+    r[3].metric("τ", f"{tau:g} h", help=T("help_tau"))
     ss_t = np.linspace(0.0, tau, 400)
     ss_c = steady_state_concentration(ss_t, amount, tau, model)
     ss_assess = assess_tdm(ss_t, ss_c, window)
@@ -202,6 +268,42 @@ with tab_missed:
             t, c, window, unit, T, log_scale=log_scale, reference=c_ref,
             dose_times=[e.time_h for e in active_events], missed_time=t_m, x_range=win,
             show_zones=show_zones, height=420), width="stretch")
+
+with tab_glossary:
+    st.markdown(f"### 📖 {T('tab_glossary')}")
+    st.caption(T("glossary_intro"))
+
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_cmax_title')}**")
+            st.write(T("glossary_cmax_desc"))
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_tmax_title')}**")
+            st.write(T("glossary_tmax_desc"))
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_thalf_title')}**")
+            st.write(T("glossary_thalf_desc"))
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_cl_title')}**")
+            st.write(T("glossary_cl_desc"))
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_vd_title')}**")
+            st.write(T("glossary_vd_desc"))
+
+    with col_g2:
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_css_title')}**")
+            st.write(T("glossary_css_desc"))
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_window_title')}**")
+            st.write(T("glossary_window_desc"))
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_auc_title')}**")
+            st.write(T("glossary_auc_desc"))
+        with st.container(border=True):
+            st.markdown(f"**{T('glossary_r_title')}**")
+            st.write(T("glossary_r_desc"))
 
 with tab_data:
     df = build_dataframe(t, c, window, unit, band=band, reference=c_ref if missed_on else None)

@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Plotly](https://img.shields.io/badge/Plotly-5.20+-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/python/)
-[![Tests](https://img.shields.io/badge/Pytest-54%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/Pytest-60%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function) and intravenous (IV) bolus administration, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.
@@ -73,6 +73,8 @@ $$\text{AUC}_{t_1 - t_2} = \sum_{i=1}^{N-1} \frac{C_i + C_{i+1}}{2} (t_{i+1} - t
 | **Missed Dose Simulation** | Evaluates clinical impact when a patient skips a dose or takes it delayed (+X hours). Calculates time to recover within $\pm 5\%$ of planned profile. |
 | **Patient Variability Bands** | Shaded confidence envelope reflecting clinical $t_{1/2}$ inter-individual differences. |
 | **Linear & Semi-Log Plotting** | Instant toggle between linear scale and semi-logarithmic ($\log_{10} C$ vs. $t$) view to inspect first-order elimination kinetics. |
+| **SÚKL Registry Integration** | Live query into the Czech State Institute for Drug Control (SÚKL) open database with auto-dosing and direct registry links. |
+| **Layperson Variable Guide** | Comprehensive glossary and interactive tooltips explaining all PK variables ($C_{\max}$, $C_{ss}$, $t_{1/2}$, $AUC$, etc.). |
 | **Preset Drug Library** | Pre-configured with validated literature parameters for high-impact molecules. |
 | **Audit & Protocol Export** | Download raw time-series to CSV and generate human-readable Markdown clinical dosing protocols. |
 | **Bilingual Interface** | Seamless live switching between **English** and **Čeština**. |
@@ -112,7 +114,8 @@ druglevelmodelingapp/
 │   ├── __init__.py
 │   ├── pk_engine.py            # Bateman function, IV bolus, superposition, AUC, Steady-State
 │   ├── drug_database.py        # Preset loader, validation, and PK model factory
-│   └── metrics.py              # Clinical metrics, TDM classification, crossing times & recovery
+│   ├── metrics.py              # Clinical metrics, TDM classification, crossing times & recovery
+│   └── sukl_client.py          # SÚKL public REST API client, dosage parser, and ATC mapping
 ├── ui/                         # Presentation layer
 │   ├── __init__.py
 │   ├── charts.py               # Interactive Plotly chart builders with shaded TDM zones
@@ -120,13 +123,14 @@ druglevelmodelingapp/
 │   └── i18n.py                 # Multi-language translations (EN, CS)
 ├── data/
 │   └── drugs.json              # Validated clinical pharmacokinetic presets
-├── tests/                      # Automated test suite (54 unit and smoke tests)
+├── tests/                      # Automated test suite (60 unit and smoke tests)
 │   ├── __init__.py
 │   ├── test_pk_engine.py       # Formula checks, ODE cross-validation, AUC and steady-state
 │   ├── test_metrics.py         # Metric calculation, TDM classification and recovery
 │   ├── test_drug_database.py   # Database consistency and unit conversion validation
+│   ├── test_sukl_client.py     # SÚKL REST queries, dose extraction, and preset matching
 │   ├── test_ui.py              # Plotly chart elements and i18n coverage
-│   └── test_app_smoke.py       # Headless Streamlit AppTest verification
+│   └── test_app_smoke.py       # Headless Streamlit smoke and UI interaction tests
 ├── docs/
 │   └── wireframes.md           # Text wireframes and UI component layout specifications
 ├── .streamlit/

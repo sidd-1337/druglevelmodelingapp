@@ -35,3 +35,18 @@ def test_app_missed_dose_and_semilog():
     assert not at.exception
     at.radio[2].set_value(True).run()  # semilog axis
     assert not at.exception
+
+
+def test_app_sukl_search_integration():
+    at = _run()
+    sukl_input = at.sidebar.text_input[0]
+    sukl_input.set_value("Livizux").run()
+    assert not at.exception
+
+
+def test_app_glossary_tab_and_tooltips():
+    at = _run()
+    # Check that KPI metrics have help tooltips
+    metrics_with_help = [m for m in at.metric if m.help]
+    assert len(metrics_with_help) >= 5
+
