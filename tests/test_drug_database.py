@@ -33,7 +33,8 @@ def test_specified_reference_values():
     li = get_drug("lithium")
     assert li.t_half_h == 24.0 and li.concentration_unit == "mmol/L" and li.mtc == 1.5
     assert get_drug("diazepam").t_half_h == 40.0
-    assert get_drug("livizux").t_half_h == 7.0 and get_drug("livizux").bioavailability == 1.0
+    assert get_drug("livizux").t_half_h == 11.0 and get_drug("livizux").dose_conversion == pytest.approx(0.294)
+    assert get_drug("levetiracetam").t_half_h == 7.0 and get_drug("levetiracetam").bioavailability == 1.0
     assert get_drug("pregabalin").t_half_h == 6.3 and get_drug("pregabalin").mec == 2.0
     assert get_drug("propranolol").t_half_h == 4.0 and get_drug("propranolol").bioavailability == 0.25
     assert get_drug("rivotril").t_half_h == 35.0 and get_drug("rivotril").mec == 0.02

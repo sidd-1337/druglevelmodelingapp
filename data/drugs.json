@@ -93,7 +93,25 @@
     },
     {
       "id": "livizux",
-      "name": "Livizux (levetiracetam)",
+      "name": "Livizux (lisdexamfetamin)",
+      "category": "CNS stimulans / ADHD (prodrug dextroamfetaminu)",
+      "t_half_h": 11.0,
+      "t_half_range_h": [9.0, 14.0],
+      "vd_l_per_kg": 4.0,
+      "bioavailability": 0.95,
+      "ka_per_h": 0.65,
+      "mec": 0.02,
+      "mtc": 0.1,
+      "concentration_unit": "ug/mL",
+      "dose_conversion": 0.294,
+      "default_dose_mg": 50,
+      "default_interval_h": 24,
+      "dose_basis": "mg lisdexamfetamin dimesilát (Livizux), 1 mg LDX ≈ 0.294 mg d-amfetaminu",
+      "notes": "Lisdexamfetamin dimesilát (Livizux). Proléčivo aktivního d-amfetaminu na ADHD. Užívá se 1× denně ráno. Enzymatická hydrolýza v krvi zajišťuje pozvolný nástup (Tmax cca 3.5–4 h) a trvání účinku 12–14 h. AGNP terapeutické rozmezí d-amfetaminu 20–80 ng/mL (0.02–0.08 µg/mL)."
+    },
+    {
+      "id": "levetiracetam",
+      "name": "Levetiracetam (Keppra)",
       "category": "Antiepileptikum / antiepileptic",
       "t_half_h": 7.0,
       "t_half_range_h": [6.0, 8.5],
@@ -106,8 +124,8 @@
       "dose_conversion": 1.0,
       "default_dose_mg": 500,
       "default_interval_h": 12,
-      "dose_basis": "mg levetiracetam (Livizux)",
-      "notes": "Levetiracetam (Livizux). Téměř 100% perorální biologická dostupnost. Terapeutické monitorování dle AGNP doporučení 12–46 µg/mL."
+      "dose_basis": "mg levetiracetam",
+      "notes": "Levetiracetam (Keppra). Téměř 100% perorální biologická dostupnost. Terapeutické monitorování dle AGNP doporučení 12–46 µg/mL."
     },
     {
       "id": "pregabalin",
