@@ -90,6 +90,12 @@ The application includes curated pharmacokinetic profiles in [`data/drugs.json`]
 | **Amoxicillin** | $\beta$-lactam Antibiotic | $1.2$ | $0.30$ | $0.80$ | $1.50$ | $2.0$ | $40.0$ | $\mu\text{g/mL}$ | Time-dependent killing ($T > \text{MIC}$); rapid renal clearance. |
 | **Lithium** | Mood Stabilizer | $24.0$ | $0.70$ | $0.95$ | $1.00$ | $0.6$ | $1.5$ | $\text{mmol/L}$ | **Narrow Therapeutic Index (NTI)**: severe toxicity $> 1.5\,\text{mmol/L}$. |
 | **Diazepam** | Long-acting Benzodiazepine | $40.0$ | $1.10$ | $0.93$ | $2.00$ | $0.2$ | $0.8$ | $\mu\text{g/mL}$ | Prolonged elimination; pronounced steady-state accumulation. |
+| **Livizux** | Antiepileptic (levetiracetam) | $7.0$ | $0.60$ | $1.00$ | $1.80$ | $12.0$ | $46.0$ | $\mu\text{g/mL}$ | Complete oral absorption; AGNP reference range 12–46 µg/mL. |
+| **Pregabalin** | Antiepileptic / Anxiolytic / Pain | $6.3$ | $0.56$ | $0.90$ | $1.80$ | $2.0$ | $8.0$ | $\mu\text{g/mL}$ | Linear renal clearance; low protein binding. AGNP target 2–5 µg/mL. |
+| **Propranolol** | Non-selective $\beta$-blocker | $4.0$ | $4.00$ | $0.25$ | $1.50$ | $0.02$ | $0.20$ | $\mu\text{g/mL}$ | High first-pass metabolism ($F \approx 25\%$), large $V_d$ ($4\,\text{L/kg}$). |
+| **Rivotril** | Benzodiazepine (clonazepam) | $35.0$ | $2.00$ | $0.90$ | $1.20$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | High accumulation at steady-state. AGNP range 20–70 ng/mL. |
+| **Mirtazapin** | Antidepressant (NaSSA) | $26.0$ | $1.50$ | $0.50$ | $1.00$ | $0.03$ | $0.15$ | $\mu\text{g/mL}$ | Once-daily dosing; AGNP therapeutic window 30–80 ng/mL. |
+| **Risperidon** | Atypical Antipsychotic | $20.0$ | $1.20$ | $0.70$ | $1.50$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | Modeled as total active moiety (risperidone + 9-OH); target 20–60 ng/mL. |
 | **Custom Drug** | User-defined | *custom* | *custom* | *custom* | *custom* | *custom* | *custom* | *custom* | Fully configurable for novel molecules and in-vitro data. |
 
 ---

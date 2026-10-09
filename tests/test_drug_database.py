@@ -9,7 +9,19 @@ from core.pk_engine import Route
 def test_all_presets_load_and_are_valid():
     drugs = load_drugs()
     ids = {d.id for d in drugs}
-    assert {"ibuprofen", "paracetamol", "amoxicillin", "lithium", "diazepam"} <= ids
+    assert {
+        "ibuprofen",
+        "paracetamol",
+        "amoxicillin",
+        "lithium",
+        "diazepam",
+        "livizux",
+        "pregabalin",
+        "propranolol",
+        "rivotril",
+        "mirtazapine",
+        "risperidone",
+    } <= ids
 
 
 def test_specified_reference_values():
@@ -21,6 +33,12 @@ def test_specified_reference_values():
     li = get_drug("lithium")
     assert li.t_half_h == 24.0 and li.concentration_unit == "mmol/L" and li.mtc == 1.5
     assert get_drug("diazepam").t_half_h == 40.0
+    assert get_drug("livizux").t_half_h == 7.0 and get_drug("livizux").bioavailability == 1.0
+    assert get_drug("pregabalin").t_half_h == 6.3 and get_drug("pregabalin").mec == 2.0
+    assert get_drug("propranolol").t_half_h == 4.0 and get_drug("propranolol").bioavailability == 0.25
+    assert get_drug("rivotril").t_half_h == 35.0 and get_drug("rivotril").mec == 0.02
+    assert get_drug("mirtazapine").t_half_h == 26.0 and get_drug("mirtazapine").mtc == 0.15
+    assert get_drug("risperidone").t_half_h == 20.0 and get_drug("risperidone").mtc == 0.08
 
 
 def test_to_pk_model_scales_vd_with_weight():
