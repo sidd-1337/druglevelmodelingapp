@@ -24,7 +24,12 @@ def test_all_keys_used_in_code_exist():
         src = (ROOT / rel).read_text(encoding="utf-8")
         used |= set(re.findall(r"\bT\(\s*\"([a-z_0-9]+)\"", src))
         used |= set(re.findall(r"T\(\s*'([a-z_0-9]+)'", src))
-    used |= {"route_oral", "route_iv_bolus", "mode_skip", "mode_delay"}
+    used |= {
+        "route_oral", "route_iv_bolus", "mode_skip", "mode_delay",
+        "sukl_status_rx", "sukl_status_otc", "sukl_status_blue_stripe",
+        "sukl_reimb_full", "sukl_reimb_partial", "sukl_reimb_none",
+        "sukl_shortage_active", "sukl_shortage_interrupted", "sukl_shortage_ended", "sukl_shortage_unknown",
+    }
     used = {k for k in used if not k.endswith("_")}  # dynamic prefixes covered above
     assert not (used - set(_TEXT["en"]))
 

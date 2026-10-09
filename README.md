@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Plotly](https://img.shields.io/badge/Plotly-5.20+-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/python/)
-[![Tests](https://img.shields.io/badge/Pytest-60%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/Pytest-64%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function) and intravenous (IV) bolus administration, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.

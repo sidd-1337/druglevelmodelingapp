@@ -22,7 +22,11 @@ from core.pk_engine import (
     steady_state_summary,
     time_grid,
 )
-from core.sukl_client import query_sukl_api
+from core.sukl_client import (
+    PRESET_DEFAULT_SUKL_CODES,
+    fetch_sukl_detail,
+    query_sukl_api,
+)
 from ui.charts import build_figure
 from ui.i18n import LANGUAGES, make_translator
 from ui.reporting import build_dataframe, build_protocol
@@ -33,6 +37,11 @@ st.set_page_config(page_title="PK/PD Simulator & TDM", page_icon="💊", layout=
 @st.cache_data(ttl=3600, show_spinner=False)
 def search_sukl(query: str):
     return query_sukl_api(query)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_sukl_detail(kod_sukl: str):
+    return fetch_sukl_detail(kod_sukl)
 
 
 def assessment_message(T, res, window: TherapeuticWindow, unit: str) -> tuple[str, str]:
@@ -205,6 +214,29 @@ level, message = assessment_message(T, assessment, window, unit)
 st.title("💊 " + T("title"))
 st.caption(T("subtitle"))
 
+active_sukl_code = sukl_med.kod_sukl if sukl_med else PRESET_DEFAULT_SUKL_CODES.get(drug_id)
+drug_detail = get_sukl_detail(active_sukl_code) if active_sukl_code else None
+
+if drug_detail:
+    c_disp, c_reimb, c_supp = st.columns(3)
+    disp_icon = "🔵" if drug_detail.zpusob_vydeje_kod == "blue_stripe" else ("💊" if drug_detail.zpusob_vydeje_kod == "rx" else "🟢")
+    disp_text = T("sukl_status_" + drug_detail.zpusob_vydeje_kod)
+    c_disp.info(f"{disp_icon} **{T('card_dispensing')}:** {disp_text}")
+
+    reimb_icon = "🟢" if drug_detail.uhrada_rezim == "full" else ("🟡" if drug_detail.uhrada_rezim == "partial" else "⚪")
+    reimb_text = T("sukl_reimb_" + drug_detail.uhrada_rezim)
+    if drug_detail.uhrada_rezim == "partial" and drug_detail.max_doplatek is not None:
+        reimb_detail = f" (doplatek {drug_detail.max_doplatek:.0f} Kč)"
+    elif drug_detail.uhrada_rezim == "none" and drug_detail.max_cena_lek is not None:
+        reimb_detail = f" (cena cca {drug_detail.max_cena_lek:.0f} Kč)"
+    else:
+        reimb_detail = ""
+    c_reimb.info(f"{reimb_icon} **{T('card_reimbursement')}:** {reimb_text}{reimb_detail}")
+
+    supp_icon = "✅" if drug_detail.dostupnost_status == "active" else ("⚠️" if drug_detail.dostupnost_status == "interrupted" else "❌")
+    supp_text = T("sukl_shortage_" + drug_detail.dostupnost_status)
+    c_supp.info(f"{supp_icon} **{T('card_supply_status')}:** {supp_text}")
+
 cols = st.columns(6)
 cols[0].metric("C_max", f"{metrics.cmax:.3g} {unit}", help=T("help_cmax"))
 cols[1].metric("T_max", f"{metrics.tmax_h:.2f} h", help=T("help_tmax"))
@@ -224,8 +256,8 @@ fig = build_figure(
     missed_time=missed_time, show_zones=show_zones)
 st.plotly_chart(fig, width="stretch")
 
-tab_ss, tab_missed, tab_glossary, tab_data, tab_model = st.tabs(
-    [T("tab_ss"), T("tab_missed"), T("tab_glossary"), T("tab_data"), T("tab_model")])
+tab_ss, tab_missed, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
+    [T("tab_ss"), T("tab_missed"), T("tab_sukl"), T("tab_glossary"), T("tab_data"), T("tab_model")])
 
 with tab_ss:
     r = st.columns(4)
@@ -268,6 +300,51 @@ with tab_missed:
             t, c, window, unit, T, log_scale=log_scale, reference=c_ref,
             dose_times=[e.time_h for e in active_events], missed_time=t_m, x_range=win,
             show_zones=show_zones, height=420), width="stretch")
+
+with tab_sukl:
+    if not drug_detail:
+        st.info(T("no_sukl_data"))
+    else:
+        st.markdown(f"### 🏛️ {T('sukl_detail_heading')}")
+        st.caption(f"**{drug_detail.nazev} {drug_detail.doplnek}** [SÚKL: `{drug_detail.kod_sukl}`]")
+        if drug_detail.drzitel:
+            st.write(f"🏢 **{T('sukl_holder')}:** {drug_detail.drzitel} | 📝 **{T('sukl_reg_no')}:** {drug_detail.registracni_cislo}")
+
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            with st.container(border=True):
+                st.markdown(f"#### 💰 {T('card_reimbursement')}")
+                c1, c2 = st.columns(2)
+                uhrada_str = f"{drug_detail.uhrada_zp:.2f} Kč" if drug_detail.uhrada_zp is not None else "0.00 Kč (0 %)"
+                c1.metric(T("reimb_zp"), uhrada_str)
+                doplatek_str = f"{drug_detail.max_doplatek:.2f} Kč" if drug_detail.max_doplatek is not None else "—"
+                c2.metric(T("copay_patient"), doplatek_str)
+
+                c3, c4 = st.columns(2)
+                max_cena_str = f"{drug_detail.max_cena_lek:.2f} Kč" if drug_detail.max_cena_lek is not None else "—"
+                c3.metric(T("max_price_pharmacy"), max_cena_str)
+                limit_str = f"{drug_detail.zapocitatelny_doplatek:.2f} Kč" if drug_detail.zapocitatelny_doplatek is not None else "0.00 Kč"
+                c4.metric(T("reimb_limit_copay"), limit_str)
+
+        with col_p2:
+            with st.container(border=True):
+                st.markdown(f"#### 🚨 {T('card_supply_status')} & {T('card_dispensing')}")
+                st.write(f"**{T('card_supply_status')}:** {T('sukl_shortage_' + drug_detail.dostupnost_status)} – *{drug_detail.dostupnost_text}*")
+                st.write(f"**{T('card_dispensing')}:** {T('sukl_status_' + drug_detail.zpusob_vydeje_kod)} – *{drug_detail.zpusob_vydeje_text}*")
+                st.divider()
+                doc_cols = st.columns(2)
+                if drug_detail.spc_url:
+                    doc_cols[0].markdown(f"📄 [{T('download_spc')}]({drug_detail.spc_url})")
+                if drug_detail.pil_url:
+                    doc_cols[1].markdown(f"📦 [{T('download_pil')}]({drug_detail.pil_url})")
+                st.markdown(f"🔗 [{T('sukl_link')}]({drug_detail.sukl_url})")
+
+        if drug_detail.preskripcni_omezeni or drug_detail.indikacni_omezeni:
+            with st.expander(f"🩺 {T('reimb_indications')} & {T('reimb_doctor')}", expanded=True):
+                if drug_detail.preskripcni_omezeni:
+                    st.markdown(f"**{T('reimb_doctor')}:** {drug_detail.preskripcni_omezeni}")
+                if drug_detail.indikacni_omezeni:
+                    st.markdown(f"**{T('reimb_indications')}:** {drug_detail.indikacni_omezeni}")
 
 with tab_glossary:
     st.markdown(f"### 📖 {T('tab_glossary')}")

@@ -1,6 +1,8 @@
 import pytest
 
 from core.sukl_client import (
+    PRESET_DEFAULT_SUKL_CODES,
+    fetch_sukl_detail,
     match_preset_id,
     parse_dose_mg,
     query_sukl_api,
@@ -42,3 +44,35 @@ def test_query_sukl_api_live_livizux():
         assert first.matched_preset_id == "livizux"
         assert first.parsed_dose_mg in (20.0, 30.0, 40.0, 50.0, 60.0, 70.0)
         assert first.kod_sukl != ""
+
+
+def test_fetch_sukl_detail_invalid():
+    assert fetch_sukl_detail("xyz") is None
+    assert fetch_sukl_detail("") is None
+    assert fetch_sukl_detail("999999999") is None
+
+
+def test_preset_default_sukl_codes():
+    assert "livizux" in PRESET_DEFAULT_SUKL_CODES
+    assert "levetiracetam" in PRESET_DEFAULT_SUKL_CODES
+    assert PRESET_DEFAULT_SUKL_CODES["livizux"] == "0265888"
+
+
+def test_fetch_sukl_detail_live_livizux():
+    detail = fetch_sukl_detail("0265888")
+    if detail:
+        assert detail.kod_sukl == "0265888"
+        assert "LIVIZUX" in detail.nazev.upper()
+        assert detail.zpusob_vydeje_kod in ("rx", "blue_stripe")
+        assert detail.uhrada_rezim == "none"  # Livizux is non-reimbursed in CZ
+
+
+def test_fetch_sukl_detail_live_levelanz_reimbursement():
+    detail = fetch_sukl_detail("0267073")
+    if detail:
+        assert detail.kod_sukl == "0267073"
+        assert detail.uhrada_zp is not None and detail.uhrada_zp > 0
+        assert detail.uhrada_rezim == "partial"
+        assert detail.preskripcni_omezeni is not None
+        assert "neurologie" in detail.preskripcni_omezeni.lower()
+
