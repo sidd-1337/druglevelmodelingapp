@@ -233,7 +233,60 @@
       "default_dose_mg": 10,
       "default_interval_h": 8,
       "dose_basis": "mg methylfenidát-hydrochlorid (Ritalin)",
-      "notes": "Methylfenidát-hydrochlorid (Ritalin). Krátkodobě působící stimulans CNS indikované při ADHD a narkolepsii. Rychlá absorpce (Tmax 1–2 h), nízká perorální biologická dostupnost (F ≈ 30 %) vlivem first-pass metabolismu. Krátký biologický poločas eliminace (t½ cca 2–3 h) vyžaduje podávání 2–3× denně (interval 6–8 h, obvykle ráno a v poledne). AGNP doporučené terapeutické rozmezí 5–20 ng/mL (0.005–0.020 µg/mL), nežádoucí a toxické hladiny > 0.030 µg/mL."
+      "notes": "Methylfenidát-hydrochlorid (Ritalin). Krátkodobě působící stimulans CNS indikované při ADHD a narkolepsii. Rychlá absorpce (Tmax 1–2 h), nízká perorální biologická dostupnost (F ≈ 30 %) vlivem first-pass metabolismu. Krátký biologický poločas eliminace (t½ cca 2–3 h) vyžaduje podávání 2–3× denně (interval 6–8 h, obvykle ráno a v poledne). AGNP doporučené terapeutické rozmezí 5–20 ng/mL (0.005–0.020 µg/mL), nežádoucí a toxické hladiny > 0.030 µg/mL.",
+      "routes": {
+        "oral": {"bioavailability": 0.3, "ka_per_h": 1.8},
+        "insufflated": {"bioavailability": 0.7, "ka_per_h": 4.5},
+        "smoked": {"bioavailability": 0.5, "ka_per_h": 10.0},
+        "iv_bolus": {"bioavailability": 1.0, "ka_per_h": 1.0}
+      }
+    },
+    {
+      "id": "mdma",
+      "name": "MDMA (ecstasy)",
+      "category": "Entaktogen / stimulans (Harm reduction)",
+      "t_half_h": 7.5,
+      "t_half_range_h": [6.0, 9.5],
+      "vd_l_per_kg": 5.0,
+      "bioavailability": 0.8,
+      "ka_per_h": 1.2,
+      "mec": 0.1,
+      "mtc": 0.5,
+      "concentration_unit": "ug/mL",
+      "dose_conversion": 1.0,
+      "default_dose_mg": 100,
+      "default_interval_h": 24,
+      "dose_basis": "mg MDMA",
+      "notes": "MDMA (3,4-methylendioxymetamfetamin). Nástup účinku perorálně 30–60 min (Tmax cca 2 h), nosně 5–15 min. Riziko hypertermie a hyponatrémie; doporučeno nekombinovat s jinými stimulancii a inhibitory MAO/SSRI.",
+      "routes": {
+        "oral": {"bioavailability": 0.8, "ka_per_h": 1.2},
+        "insufflated": {"bioavailability": 0.75, "ka_per_h": 3.5},
+        "iv_bolus": {"bioavailability": 1.0, "ka_per_h": 1.0}
+      }
+    },
+    {
+      "id": "ketamine",
+      "name": "Ketamin",
+      "category": "Disociativní anestetikum (Harm reduction)",
+      "t_half_h": 2.5,
+      "t_half_range_h": [1.8, 3.5],
+      "vd_l_per_kg": 3.0,
+      "bioavailability": 0.2,
+      "ka_per_h": 1.5,
+      "mec": 0.05,
+      "mtc": 0.5,
+      "concentration_unit": "ug/mL",
+      "dose_conversion": 1.0,
+      "default_dose_mg": 50,
+      "default_interval_h": 4,
+      "dose_basis": "mg ketamin",
+      "notes": "Ketamin. Výrazný first-pass efekt při perorálním užití (F ≈ 20 %). Nosní aplikace poskytuje F ≈ 50 % s rychlým nástupem (5–10 min). Nekombinovat s tlumivými látkami (alkohol, opioidy, benzodiazepiny).",
+      "routes": {
+        "oral": {"bioavailability": 0.2, "ka_per_h": 1.5},
+        "insufflated": {"bioavailability": 0.5, "ka_per_h": 4.5},
+        "smoked": {"bioavailability": 0.3, "ka_per_h": 10.0},
+        "iv_bolus": {"bioavailability": 1.0, "ka_per_h": 1.0}
+      }
     }
   ]
 }

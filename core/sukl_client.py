@@ -13,13 +13,14 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
-TIMEOUT_SECONDS = 5.0
-USER_AGENT = "DrugLevelModelingApp/2.0 (HealthTech PK Simulator)"
+TIMEOUT_SECONDS = 8.0
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 # Mapping of common SÚKL ATC active substances to internal drug preset IDs
 ATC_TO_PRESET_MAP: dict[str, str] = {
     "LISDEXAMFETAMIN": "livizux",
     "LISDEXAMFETAMINE": "livizux",
+    "LIVIZUX": "livizux",
     "LEVETIRACETAM": "levetiracetam",
     "PARACETAMOL": "paracetamol",
     "IBUPROFEN": "ibuprofen",
@@ -120,6 +121,12 @@ class SuklDrugDetail:
     spc_url: str | None
     pil_url: str | None
     sukl_url: str
+    atc_kod: str = ""
+    atc_nazev: str = ""
+    leciva_latka: str = ""
+    sila: str = ""
+    lekova_forma: str = ""
+    cesta_podani: str = ""
 
 
 def parse_dose_mg(text: str) -> float | None:
@@ -362,8 +369,38 @@ def fetch_sukl_detail(kod_sukl: str) -> SuklDrugDetail | None:
     nazev = _clean_str(data.get("nazevLP"))
     doplnek = _clean_str(data.get("doplnekNazvu"))
     reg_cislo = _clean_str(data.get("registracniCisloDisplay") or data.get("registracniCislo"))
-    drzitel_obj = data.get("registrace", {}).get("drzitelRozhodnuti") if isinstance(data.get("registrace"), dict) else {}
-    drzitel = _clean_str(drzitel_obj.get("nazev") if isinstance(drzitel_obj, dict) else "")
+    reg_obj = data.get("registrace") if isinstance(data.get("registrace"), dict) else {}
+    drzitel_obj = reg_obj.get("drzitel") or reg_obj.get("drzitelRozhodnuti") or data.get("drzitel") or {}
+    drzitel = _clean_str(drzitel_obj.get("nazev") if isinstance(drzitel_obj, dict) else drzitel_obj)
+
+    # ATC data
+    atc_obj = data.get("atc") or {}
+    if isinstance(atc_obj, dict):
+        atc_kod = _clean_str(atc_obj.get("kod"))
+        atc_nazev = _clean_str(atc_obj.get("nazev"))
+    else:
+        atc_kod = str(atc_obj).strip()
+        atc_nazev = ""
+
+    # Active substance (leciva latka)
+    lecive_latky = data.get("leciveLatky") or []
+    latka_names: list[str] = []
+    if isinstance(lecive_latky, list):
+        for latka in lecive_latky:
+            if isinstance(latka, dict):
+                ln = _clean_str(latka.get("nazev"))
+                if ln:
+                    latka_names.append(ln)
+            elif isinstance(latka, str):
+                latka_names.append(latka.strip())
+    leciva_latka = ", ".join(latka_names) if latka_names else atc_nazev
+
+    # Form, strength and route
+    sila_val = _clean_str(data.get("sila") or doplnek)
+    forma_obj = data.get("lekovaForma") or {}
+    lekova_forma_val = _clean_str(forma_obj.get("nazev") if isinstance(forma_obj, dict) else forma_obj)
+    cesta_obj = data.get("cestaPodani") or {}
+    cesta_podani_val = _clean_str(cesta_obj.get("nazev") if isinstance(cesta_obj, dict) else cesta_obj)
 
     # Vydej (Rx / OTC / Modry pruh)
     vydej_obj = data.get("zpusobVydeje") or {}
@@ -526,5 +563,11 @@ def fetch_sukl_detail(kod_sukl: str) -> SuklDrugDetail | None:
         spc_url=spc_url,
         pil_url=pil_url,
         sukl_url=sukl_url,
+        atc_kod=atc_kod,
+        atc_nazev=atc_nazev,
+        leciva_latka=leciva_latka,
+        sila=sila_val,
+        lekova_forma=lekova_forma_val,
+        cesta_podani=cesta_podani_val,
     )
 

@@ -1,17 +1,162 @@
-# 💊 Clinical Drug Level Modeling App
+# Clinical Drug Level Modeling App
 ### *Pharmacokinetic Simulation (PK/PD) & Therapeutic Drug Monitoring (TDM) Engine*
 
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Plotly](https://img.shields.io/badge/Plotly-5.20+-3F4F75?logo=plotly&logoColor=white)](https://plotly.com/python/)
-[![Tests](https://img.shields.io/badge/Pytest-72%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/Pytest-109%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function) and intravenous (IV) bolus administration, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.
+An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function), intravenous (IV) bolus, intranasal (insufflated), and inhaled/smoked administration routes, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.
+
+It is paired with live Czech State Institute for Drug Control (SÚKL) open registries for pricing, reimbursement, drug shortage notifications (Section 33), and harm reduction guidance.
+
+> **Languages**: English | [Čeština (README.cs.md)](README.cs.md)
 
 ---
 
-## 🔬 Scientific & Mathematical Foundation
+## Table of Contents
+
+- [Quickstart & Getting Started](#quickstart--getting-started)
+  - [Option A: Complete Stack via Docker Compose (Recommended)](#option-a-complete-stack-via-docker-compose-recommended)
+  - [Option B: Local Development Environment](#option-b-local-development-environment)
+- [Architecture & Codebase Structure](#architecture--codebase-structure)
+- [Key Capabilities](#key-capabilities)
+- [Scientific & Mathematical Foundation](#scientific--mathematical-foundation)
+  - [1. Oral Absorption – Bateman Function](#1-oral-absorption--bateman-function)
+  - [2. Intravenous (IV) Bolus Kinetics](#2-intravenous-iv-bolus-kinetics)
+  - [3. Multiple Dosing & Steady-State Accumulation](#3-multiple-dosing--steady-state-accumulation)
+  - [4. Area Under the Curve (AUC)](#4-area-under-the-curve-auc)
+- [Clinical Drug Presets Library](#clinical-drug-presets-library)
+- [Testing & Verification](#testing--verification)
+- [Medical Disclaimer](#medical-disclaimer)
+- [License](#license)
+
+---
+
+## Quickstart & Getting Started
+
+### Option A: Complete Stack via Docker Compose (Recommended)
+
+Run the complete multi-service production stack (Next.js web portal, FastAPI REST backend, and Streamlit deep laboratory) with a single command:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/sidd-1337/druglevelmodelingapp.git
+cd druglevelmodelingapp
+
+# 2. Build and launch all services in background
+docker compose up -d --build
+```
+
+#### Services overview:
+* **Web Portal (Next.js 15, Apple UI)**: [http://localhost:3000](http://localhost:3000)
+  * Drug autocomplete search, SÚKL DLP data, SPC/PIL PDFs, pricing and copay protection calculators, shortage alerts, and harm reduction calculator.
+* **REST API (FastAPI)**: [http://localhost:8000](http://localhost:8000)
+  * Interactive OpenAPI Swagger documentation available at [http://localhost:8000/docs](http://localhost:8000/docs).
+* **Clinical Laboratory (Streamlit)**: [http://localhost:8501](http://localhost:8501)
+  * Deep pharmacometric modeling: missed dose simulations, semi-logarithmic axes, confidence envelopes, and raw CSV exports.
+
+To stop the containers:
+```bash
+docker compose down
+```
+
+---
+
+### Option B: Local Development Environment
+
+#### 1. Python Backend & Core Setup
+
+```bash
+# Create and activate virtual environment
+# Linux / macOS:
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Windows (PowerShell):
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Run FastAPI backend (port 8000)
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# In a separate terminal: Run Streamlit simulator (port 8501)
+streamlit run app.py
+```
+
+#### 2. Next.js Frontend Setup
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Architecture & Codebase Structure
+
+The project follows a decoupled, clean architecture separating pure mathematical modeling from API orchestration and modern presentation layers:
+
+```
+druglevelmodelingapp/
+├── backend/                    # FastAPI production REST service
+│   ├── app/
+│   │   ├── main.py             # FastAPI entrypoint, CORS configuration
+│   │   ├── routers/            # Endpoint routers: /drugs, /pk
+│   │   └── schemas/            # Pydantic v2 validation models
+│   └── tests/                  # Integration tests for REST endpoints
+├── core/                       # Pure numerical and pharmacological core (zero UI dependencies)
+│   ├── pk_engine.py            # Bateman function, IV bolus, superposition, AUC, Steady-State
+│   ├── harm_reduction.py       # Safe redosing thresholds, dose stacking analysis, phase timings
+│   ├── drug_database.py        # Preset loader, validation, and PK model factory
+│   ├── metrics.py              # Clinical metrics, TDM classification, crossing times & recovery
+│   └── sukl_client.py          # SÚKL public REST API client, dosage parser, and ATC mapping
+├── frontend/                   # Modern Next.js 15 web portal (Apple / Nuxt UI design)
+│   ├── app/                    # App Router: /, /leky/[kod], /slovnik
+│   ├── components/             # Bento grid, PkChart (SVG), CopayCalculator, ThemeToggle
+│   └── lib/                    # Client-side API client, PK calculation engine, SÚKL cache
+├── ui/                         # Streamlit presentation components
+│   ├── charts.py               # Interactive Plotly chart builders with shaded TDM zones
+│   ├── reporting.py            # Tabular data exports and clinical dosing protocol generation
+│   └── i18n.py                 # Multi-language translations (EN, CS)
+├── data/
+│   └── drugs.json              # Validated clinical pharmacokinetic presets
+├── tests/                      # Automated test suite (109 unit and integration tests)
+├── docker-compose.yml          # Multi-container orchestration (backend, frontend, streamlit)
+├── Dockerfile                  # Streamlit container definition
+├── Dockerfile.backend          # FastAPI container definition
+└── README.md                   # Technical documentation
+```
+
+---
+
+## Key Capabilities
+
+| Feature | Description |
+| :--- | :--- |
+| **Exact PK Engine** | Bateman 1-compartment, IV bolus, and numerical ODE-validated profiles. |
+| **Multiple Routes of Administration** | Supports Oral ($p.o.$), Intravenous ($i.v.$ bolus), Insufflated (intranasal), and Smoked/Inhaled. |
+| **Steady-State Analytics** | Computes $C_{ss,\max}$, $C_{ss,\min}$, $C_{ss,\text{avg}}$, accumulation factor $R$, and peak-trough fluctuation $\%$. |
+| **Therapeutic Drug Monitoring (TDM)** | Real-time classification into **Toxic** ($> \text{MTC}$), **Therapeutic Window** ($\text{MEC}\text{--}\text{MTC}$), and **Sub-therapeutic** ($< \text{MEC}$). |
+| **Harm Reduction Calculator** | Safe redosing countdown timer, dose stacking prevention alerts, and phase timeline estimators. |
+| **Missed Dose Simulation** | Evaluates clinical impact when a patient skips a dose or takes it delayed (+X hours). Calculates recovery time. |
+| **Patient Variability Bands** | Shaded confidence envelope reflecting clinical $t_{1/2}$ inter-individual differences. |
+| **Linear & Semi-Log Plotting** | Instant toggle between linear scale and semi-logarithmic ($\log_{10} C$ vs. $t$) view to inspect first-order elimination kinetics. |
+| **SÚKL Registry Integration** | Live query into the Czech State Institute for Drug Control (SÚKL) open database with auto-dosing, shortage status, and reimbursement tiers. |
+| **Copay Limit Calculator** | Annual out-of-pocket statutory protection limit calculator (5 000 / 1 000 / 500 CZK). |
+| **Design Aesthetic** | Light & Night mode support with system preference auto-detection, zero-FOUC initialization, and accessible contrast. |
+
+---
+
+## Scientific & Mathematical Foundation
 
 The core modeling engine (`core/pk_engine.py`) models drug disposition using linear, time-invariant one-compartment pharmacokinetics.
 
@@ -56,32 +201,14 @@ Repeated administration at regular dosing interval $\tau$ leads to accumulation 
 
 * **Time to Steady State**: Reached after $4\text{--}5 \times t_{1/2}$ ($\approx 93.75\%\text{--}96.88\%$ of asymptotic equilibrium).
 
-### 4. Area Under the Curve ($\text{AUC}_{0\text{--}24}$)
+### 4. Area Under the Curve (AUC)
 Calculated using the linear trapezoidal integration method across discrete time intervals:
 
 $$\text{AUC}_{t_1 - t_2} = \sum_{i=1}^{N-1} \frac{C_i + C_{i+1}}{2} (t_{i+1} - t_i)$$
 
 ---
 
-## 🎯 Key Capabilities
-
-| Feature | Description |
-| :--- | :--- |
-| **Exact PK Engine** | Bateman 1-compartment, IV bolus, and numerical ODE-validated profiles. |
-| **Steady-State Analytics** | Computes $C_{ss,\max}$, $C_{ss,\min}$, $C_{ss,\text{avg}}$, accumulation factor $R$, and peak-trough fluctuation $\%$. |
-| **Therapeutic Drug Monitoring (TDM)** | Real-time classification into **Toxic** ($> \text{MTC}$), **Therapeutic Window** ($\text{MEC}\text{--}\text{MTC}$), and **Sub-therapeutic** ($< \text{MEC}$). |
-| **Missed Dose Simulation** | Evaluates clinical impact when a patient skips a dose or takes it delayed (+X hours). Calculates time to recover within $\pm 5\%$ of planned profile. |
-| **Patient Variability Bands** | Shaded confidence envelope reflecting clinical $t_{1/2}$ inter-individual differences. |
-| **Linear & Semi-Log Plotting** | Instant toggle between linear scale and semi-logarithmic ($\log_{10} C$ vs. $t$) view to inspect first-order elimination kinetics. |
-| **SÚKL Registry Integration** | Live query into the Czech State Institute for Drug Control (SÚKL) open database with auto-dosing and direct registry links. |
-| **Layperson Variable Guide** | Comprehensive glossary and interactive tooltips explaining all PK variables ($C_{\max}$, $C_{ss}$, $t_{1/2}$, $AUC$, etc.). |
-| **Preset Drug Library** | Pre-configured with validated literature parameters for high-impact molecules. |
-| **Audit & Protocol Export** | Download raw time-series to CSV and generate human-readable Markdown clinical dosing protocols. |
-| **Bilingual Interface** | Seamless live switching between **English** and **Čeština**. |
-
----
-
-## 💊 Clinical Drug Presets Library
+## Clinical Drug Presets Library
 
 The application includes curated pharmacokinetic profiles in [`data/drugs.json`](data/drugs.json):
 
@@ -104,134 +231,24 @@ The application includes curated pharmacokinetic profiles in [`data/drugs.json`]
 
 ---
 
-## 🏗️ Architecture & Codebase Structure
+## Testing & Verification
 
-The project adheres to clean architecture principles, decoupling numerical PK algorithms from UI presentation:
-
-```
-druglevelmodelingapp/
-├── app.py                      # Main Streamlit application and layout orchestration
-├── core/                       # Pure numerical and pharmacological engines (zero UI dependencies)
-│   ├── __init__.py
-│   ├── pk_engine.py            # Bateman function, IV bolus, superposition, AUC, Steady-State
-│   ├── drug_database.py        # Preset loader, validation, and PK model factory
-│   ├── metrics.py              # Clinical metrics, TDM classification, crossing times & recovery
-│   └── sukl_client.py          # SÚKL public REST API client, dosage parser, and ATC mapping
-├── ui/                         # Presentation layer
-│   ├── __init__.py
-│   ├── charts.py               # Interactive Plotly chart builders with shaded TDM zones
-│   ├── reporting.py            # Tabular data exports and clinical dosing protocol generation
-│   └── i18n.py                 # Multi-language translations (EN, CS)
-├── data/
-│   └── drugs.json              # Validated clinical pharmacokinetic presets
-├── tests/                      # Automated test suite (60 unit and smoke tests)
-│   ├── __init__.py
-│   ├── test_pk_engine.py       # Formula checks, ODE cross-validation, AUC and steady-state
-│   ├── test_metrics.py         # Metric calculation, TDM classification and recovery
-│   ├── test_drug_database.py   # Database consistency and unit conversion validation
-│   ├── test_sukl_client.py     # SÚKL REST queries, dose extraction, and preset matching
-│   ├── test_ui.py              # Plotly chart elements and i18n coverage
-│   └── test_app_smoke.py       # Headless Streamlit smoke and UI interaction tests
-├── docs/
-│   └── wireframes.md           # Text wireframes and UI component layout specifications
-├── .streamlit/
-│   └── config.toml             # HealthTech theme styling and server configurations
-├── .github/
-│   └── workflows/ci.yml        # Automated GitHub Actions test pipeline
-├── Dockerfile                  # Production containerization
-├── requirements.txt            # Explicit dependency pinning
-├── pytest.ini                  # Test discovery configuration
-├── LICENSE                     # MIT License
-└── README.md                   # Technical documentation
-```
-
----
-
-## 🚀 Quickstart
-
-### Option A: Local Python Environment
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/sidd-1337/druglevelmodelingapp.git
-   cd druglevelmodelingapp
-   ```
-
-2. **Create and activate a virtual environment:**
-   ```bash
-   # Linux / macOS
-   python3 -m venv .venv
-   source .venv/bin/activate
-
-   # Windows (PowerShell)
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Launch the application:**
-   ```bash
-   streamlit run app.py
-   ```
-   Open `http://localhost:8501` in your browser.
-
----
-
-### Option B: Docker Container
-
-Run with a single command without installing Python locally:
+The test suite covers numerical formulas, ODE cross-validation, SÚKL registry data extraction, and FastAPI REST endpoints across 109 automated tests:
 
 ```bash
-# Build the Docker image
-docker build -t druglevelmodelingapp .
-
-# Run the container
-docker run -d -p 8501:8501 --name druglevelmodelingapp druglevelmodelingapp
-```
-
-Then navigate to `http://localhost:8501`.
-
----
-
-## 🧪 Testing & Verification
-
-The mathematical formulas and UI components are covered by a suite of 54 automated pytest tests, including cross-validation against numerical ODE solvers (`scipy.integrate.solve_ivp`):
-
-```bash
-pytest -v
-```
-
-```
-============================== test session starts ==============================
-collected 54 items
-
-tests/test_app_smoke.py::test_app_runs_without_exception PASSED            [  1%]
-tests/test_app_smoke.py::test_app_all_drugs_both_languages PASSED          [  3%]
-tests/test_app_smoke.py::test_app_missed_dose_and_semilog PASSED           [  5%]
-tests/test_drug_database.py::test_all_presets_load_and_are_valid PASSED     [  7%]
-tests/test_drug_database.py::test_specified_reference_values PASSED        [  9%]
-tests/test_metrics.py::test_compute_metrics_single_dose PASSED             [ 11%]
-tests/test_metrics.py::test_assess_toxic_reports_time PASSED               [ 12%]
-tests/test_pk_engine.py::test_bateman_matches_ode_solution PASSED          [ 14%]
-tests/test_pk_engine.py::test_auc_inf_equals_fd_over_cl PASSED             [ 16%]
-tests/test_pk_engine.py::test_steady_state_matches_simulation PASSED       [ 18%]
-...
-============================== 54 passed in 4.5s ===============================
+# Run test suite
+pytest -q
 ```
 
 ---
 
-## 🛡️ Medical Disclaimer
+## Medical Disclaimer
 
 > **IMPORTANT NOTICE:**  
 > This software is intended strictly for educational, research, and exploratory simulation purposes. It is **not** a certified medical device and is **not** intended for primary clinical diagnosis, patient management, or definitive therapeutic dosing decisions. Real clinical dosing requires qualified physician and clinical pharmacist consultation, therapeutic drug monitoring assays, and comprehensive individual patient assessments (renal function, liver function, genetics, concomitant medications).
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).

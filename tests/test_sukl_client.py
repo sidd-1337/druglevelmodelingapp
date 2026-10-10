@@ -141,3 +141,19 @@ def test_fetch_sukl_detail_live_levelanz_reimbursement():
         assert "neurologie" in detail.preskripcni_omezeni.lower()
 
 
+def test_fetch_sukl_detail_parses_drzitel_and_substances_for_livizux():
+    detail = fetch_sukl_detail("0265887")
+    if detail:
+        assert "Egis Pharmaceuticals" in detail.drzitel
+        assert detail.atc_kod == "N06BA12"
+        assert "LISDEXAMFETAMIN" in detail.atc_nazev.upper()
+        assert "LISDEXAMFETAMIN" in detail.leciva_latka.upper()
+        assert detail.sila != ""
+
+
+def test_match_preset_id_livizux_trade_name():
+    assert match_preset_id("", "LIVIZUX") == "livizux"
+    assert match_preset_id("N06BA12", "LIVIZUX 70MG") == "livizux"
+    assert match_preset_id("LISDEXAMFETAMIN", "LIVIZUX") == "livizux"
+
+

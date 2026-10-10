@@ -18,9 +18,16 @@ from core.pk_engine import (
     apply_missed_dose,
     concentration_profile,
     regular_schedule,
+    single_dose_concentration,
     steady_state_concentration,
     steady_state_summary,
     time_grid,
+)
+from core.harm_reduction import (
+    assess_dose_stacking,
+    compute_safe_redosing_interval_h,
+    get_harm_reduction_guidelines,
+    get_route_timeline,
 )
 from core.sukl_client import (
     PRESET_DEFAULT_SUKL_CODES,
@@ -61,6 +68,24 @@ def show_alert(level: str, text: str) -> None:
     {"error": st.error, "warning": st.warning, "success": st.success}[level](text)
 
 
+# Parse incoming URL query parameters (e.g. from Next.js portal)
+qp = st.query_params
+qp_drug = str(qp.get("drug") or "").lower()
+qp_sukl = str(qp.get("sukl") or "")
+try:
+    qp_dose = float(qp.get("dose")) if qp.get("dose") else None
+except (ValueError, TypeError):
+    qp_dose = None
+try:
+    qp_interval = float(qp.get("interval")) if qp.get("interval") else None
+except (ValueError, TypeError):
+    qp_interval = None
+try:
+    qp_weight = int(float(qp.get("weight"))) if qp.get("weight") else 90
+except (ValueError, TypeError):
+    qp_weight = 90
+qp_route = str(qp.get("route") or "").lower()
+
 # ------------------------------------------------------------------ sidebar
 with st.sidebar:
     lang = st.radio("Language / Jazyk", list(LANGUAGES), horizontal=True)
@@ -68,9 +93,10 @@ with st.sidebar:
 
     st.header(T("sb_drug"))
 
+    init_sukl = qp_sukl if "sukl_q" not in st.session_state else st.session_state.get("sukl_q", "")
     sukl_query = st.text_input(
         T("sukl_search_label"),
-        value="",
+        value=init_sukl,
         placeholder=T("sukl_search_placeholder"),
         key="sukl_q",
     )
@@ -97,7 +123,9 @@ with st.sidebar:
     preset_ids = list(by_id)
 
     default_idx = 0
-    if sukl_med and sukl_med.matched_preset_id and sukl_med.matched_preset_id in by_id:
+    if qp_drug and qp_drug in by_id:
+        default_idx = preset_ids.index(qp_drug)
+    elif sukl_med and sukl_med.matched_preset_id and sukl_med.matched_preset_id in by_id:
         default_idx = preset_ids.index(sukl_med.matched_preset_id)
     elif sukl_med and not sukl_med.matched_preset_id:
         default_idx = preset_ids.index(CUSTOM_ID)
@@ -114,7 +142,8 @@ with st.sidebar:
     if base.notes:
         st.caption(base.notes)
 
-    weight = st.slider(T("body_weight") + " [kg]", 30, 150, 70, key="weight")
+    init_weight = qp_weight if 30 <= qp_weight <= 150 else 70
+    weight = st.slider(T("body_weight") + " [kg]", 30, 150, init_weight, key="weight")
 
     with st.expander(T("sb_params")):
         t_half = st.number_input("t½ [h]", 0.1, 500.0, base.t_half_h, 0.1, key=f"th_{k}")
@@ -129,18 +158,28 @@ with st.sidebar:
         mtc = st.number_input(f"MTC [{unit}]", 0.0001, 10000.0, base.mtc, format="%g", key=f"mtc_{k}")
 
     st.header(T("sb_regimen"))
-    default_route_idx = 0
-    if sukl_med and any(t in (sukl_med.cesta_podani or "").lower() for t in ["intraven", "injek", "infuz", "i.v."]):
+    route_choices = list(Route)
+    route_vals = [r.value for r in route_choices]
+    if qp_route in route_vals:
+        default_route_idx = route_vals.index(qp_route)
+    elif sukl_med and any(t in (sukl_med.cesta_podani or "").lower() for t in ["intraven", "injek", "infuz", "i.v."]):
         default_route_idx = 1
+    else:
+        default_route_idx = 0
     route = st.radio(
         T("route"),
-        list(Route),
+        route_choices,
         index=default_route_idx,
         format_func=lambda r: T("route_" + r.value),
         horizontal=True,
         key=f"route_{k}_{sukl_med.kod_sukl if sukl_med else 'none'}",
     )
-    suggested_dose = float(sukl_med.parsed_dose_mg) if sukl_med and sukl_med.parsed_dose_mg is not None else float(base.default_dose_mg)
+    if qp_dose is not None:
+        suggested_dose = float(qp_dose)
+    elif sukl_med and sukl_med.parsed_dose_mg is not None:
+        suggested_dose = float(sukl_med.parsed_dose_mg)
+    else:
+        suggested_dose = float(base.default_dose_mg)
     dose_mg = st.number_input(
         T("dose") + " [mg]",
         0.1,
@@ -154,7 +193,7 @@ with st.sidebar:
     else:
         st.caption(base.dose_basis)
     presets_tau = [6, 8, 12, 24]
-    default_tau = base.default_interval_h
+    default_tau = qp_interval if qp_interval is not None else base.default_interval_h
     tau_choice = st.selectbox(
         T("interval"), presets_tau + ["custom"],
         index=presets_tau.index(default_tau) if default_tau in presets_tau else len(presets_tau),
@@ -214,6 +253,13 @@ level, message = assessment_message(T, assessment, window, unit)
 st.title("💊 " + T("title"))
 st.caption(T("subtitle"))
 
+if qp_sukl or qp_drug:
+    ref_code = qp_sukl or (active_sukl_code if "active_sukl_code" in locals() else "")
+    st.info(
+        f"🔗 **Propojeno z Lékového Portálu ČR** (SÚKL: `{ref_code}`, Lék: `{base.name}`). "
+        f"[← Zpět na moderní portál](http://localhost:3000/leky/{ref_code})"
+    )
+
 active_sukl_code = sukl_med.kod_sukl if sukl_med else PRESET_DEFAULT_SUKL_CODES.get(drug_id)
 drug_detail = get_sukl_detail(active_sukl_code) if active_sukl_code else None
 
@@ -256,8 +302,8 @@ fig = build_figure(
     missed_time=missed_time, show_zones=show_zones)
 st.plotly_chart(fig, width="stretch")
 
-tab_ss, tab_missed, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
-    [T("tab_ss"), T("tab_missed"), T("tab_sukl"), T("tab_glossary"), T("tab_data"), T("tab_model")])
+tab_ss, tab_missed, tab_hr, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
+    [T("tab_ss"), T("tab_missed"), T("tab_hr"), T("tab_sukl"), T("tab_glossary"), T("tab_data"), T("tab_model")])
 
 with tab_ss:
     r = st.columns(4)
@@ -300,6 +346,93 @@ with tab_missed:
             t, c, window, unit, T, log_scale=log_scale, reference=c_ref,
             dose_times=[e.time_h for e in active_events], missed_time=t_m, x_range=win,
             show_zones=show_zones, height=420), width="stretch")
+
+with tab_hr:
+    st.markdown(f"### 🛡️ {T('hr_heading')}")
+    st.caption("Interaktivní kalkulačka bezpečného rozestupu mezi dávkami a prevence kumulativního předávkování (dose stacking).")
+
+    col_hr1, col_hr2 = st.columns(2)
+    with col_hr1:
+        elapsed_val = st.slider(
+            T("hr_elapsed_slider"),
+            0.0,
+            float(max(24.0, math.ceil(model.t_half_h * 5))),
+            float(round(tau, 1)),
+            0.5,
+            key=f"hr_elapsed_{k}",
+        )
+    with col_hr2:
+        redose_mg = st.number_input(
+            T("hr_redose_amount"),
+            0.1,
+            100000.0,
+            float(dose_mg),
+            format="%g",
+            key=f"hr_redose_{k}",
+        )
+        redose_amount = drug.amount_from_dose_mg(redose_mg)
+
+    safe_interval_h = compute_safe_redosing_interval_h(
+        amount, model, window, redose_amount=redose_amount
+    )
+
+    assessment = assess_dose_stacking(
+        amount, elapsed_val, model, window, unit=unit, redose_amount=redose_amount
+    )
+
+    h_cols = st.columns(4)
+    h_cols[0].metric(T("hr_safe_interval_metric"), f"{safe_interval_h:.1f} h", help="Minimální doporučený odstup pro zamezení kumulace")
+    h_cols[1].metric(T("hr_current_level_metric"), f"{assessment.current_level:.3g} {unit}", help="Zbytková koncentrace z předchozí dávky")
+    h_cols[2].metric(T("hr_stacking_metric"), f"{assessment.stacked_peak:.3g} {unit}", help="Předpokládaný součet při podání další dávky")
+    remaining_to_safe = max(0.0, safe_interval_h - elapsed_val)
+    h_cols[3].metric("Do bezpečného užití", f"{remaining_to_safe:.1f} h" if remaining_to_safe > 0 else "0.0 h (Bezpečné)")
+
+    if assessment.risk_level == "critical_toxic":
+        st.error(f"🚨 **{assessment.risk_headline}**\n\n{assessment.risk_explanation}")
+    elif assessment.risk_level == "high":
+        st.warning(f"⚠️ **{assessment.risk_headline}**\n\n{assessment.risk_explanation}")
+    elif assessment.risk_level == "moderate":
+        st.info(f"ℹ️ **{assessment.risk_headline}**\n\n{assessment.risk_explanation}")
+    else:
+        st.success(f"✅ **{assessment.risk_headline}**\n\n{assessment.risk_explanation}")
+
+    # Simulated curve of stacking
+    t_hr = np.linspace(0.0, max(24.0, elapsed_val + 3 * model.t_half_h), 500)
+    c_base = single_dose_concentration(t_hr, amount, model)
+    c_redose = single_dose_concentration(t_hr - elapsed_val, redose_amount, model)
+    c_stacked = c_base + c_redose
+    fig_hr = build_figure(
+        t_hr, c_stacked, window, unit, T,
+        log_scale=log_scale,
+        dose_times=[0.0, elapsed_val],
+        show_zones=show_zones,
+        height=380,
+    )
+    st.plotly_chart(fig_hr, width="stretch")
+
+    st.markdown(f"#### ⏱️ {T('hr_routes_title')}")
+    r_cols = st.columns(4)
+    for idx, r_val in enumerate([Route.ORAL, Route.IV_BOLUS, Route.INSUFFLATED, Route.SMOKED]):
+        tl = get_route_timeline(r_val, amount, model, drug=drug)
+        with r_cols[idx]:
+            with st.container(border=True):
+                st.markdown(f"**{tl.route_name_cs if lang == 'Čeština' else tl.route_name_en}**")
+                st.write(f"⚡ **Nástup:** {tl.onset_minutes_range[0]}–{tl.onset_minutes_range[1]} min")
+                st.write(f"📈 **Vrchol (Tmax):** {tl.tmax_h:.2f} h")
+                st.write(f"⏳ **Trvání:** {tl.duration_hours_range[0]:.1f}–{tl.duration_hours_range[1]:.1f} h")
+                st.write(f"💧 **Biolog. dostupnost (F):** {tl.bioavailability_pct:.0f} %")
+                st.caption(tl.description_cs if lang == 'Čeština' else tl.description_en)
+
+    st.markdown(f"#### 📋 {T('hr_principles_title')}")
+    guidelines = get_harm_reduction_guidelines(drug.id)
+    g_cols = st.columns(len(guidelines))
+    for idx, g in enumerate(guidelines):
+        with g_cols[idx]:
+            with st.container(border=True):
+                title = g["title_cs"] if lang == "Čeština" else g["title_en"]
+                desc = g["desc_cs"] if lang == "Čeština" else g["desc_en"]
+                st.markdown(f"**{title}**")
+                st.caption(desc)
 
 with tab_sukl:
     if not drug_detail:

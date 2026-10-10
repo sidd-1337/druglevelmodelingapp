@@ -201,8 +201,36 @@ def test_missed_dose_lowers_then_recovers():
         dict(t_half_h=2, vd_l=-1),
         dict(t_half_h=2, vd_l=10, bioavailability=1.5),
         dict(t_half_h=2, vd_l=10, ka_per_h=0),
+        dict(t_half_h=2, vd_l=10, ka_per_h=0, route=Route.INSUFFLATED),
+        dict(t_half_h=2, vd_l=10, ka_per_h=0, route=Route.SMOKED),
     ],
 )
 def test_model_validation(kwargs):
     with pytest.raises(ValueError):
         PKModel(**kwargs)
+
+
+def test_routes_pk_kinetics_ordering():
+    dose = 200.0
+    t_half = 3.0
+    vd = 30.0
+    oral = PKModel(t_half_h=t_half, vd_l=vd, bioavailability=0.6, ka_per_h=1.2, route=Route.ORAL)
+    nasal = PKModel(t_half_h=t_half, vd_l=vd, bioavailability=0.75, ka_per_h=3.5, route=Route.INSUFFLATED)
+    smoked = PKModel(t_half_h=t_half, vd_l=vd, bioavailability=0.55, ka_per_h=8.0, route=Route.SMOKED)
+    iv = PKModel(t_half_h=t_half, vd_l=vd, route=Route.IV_BOLUS)
+
+    tmax_iv = tmax_single_dose(iv)
+    tmax_smk = tmax_single_dose(smoked)
+    tmax_nas = tmax_single_dose(nasal)
+    tmax_or = tmax_single_dose(oral)
+
+    assert tmax_iv == 0.0
+    assert 0.0 < tmax_smk < tmax_nas < tmax_or
+
+    # AUC conservation: AUC_inf = F * Dose / CL
+    t = np.linspace(0, 300, 300001)
+    for model in (nasal, smoked):
+        c = single_dose_concentration(t, dose, model)
+        expected_auc = model.f_eff * dose / model.clearance_l_per_h
+        assert auc_trapezoid(t, c) == pytest.approx(expected_auc, rel=1e-3)
+

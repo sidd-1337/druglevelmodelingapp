@@ -25,6 +25,8 @@ TSS_HALF_LIVES = 4.5  # midpoint of the textbook 4-5 half-lives rule
 class Route(str, Enum):
     ORAL = "oral"
     IV_BOLUS = "iv_bolus"
+    INSUFFLATED = "insufflated"
+    SMOKED = "smoked"
 
 
 @dataclass(frozen=True)
@@ -38,14 +40,29 @@ class PKModel:
     route: Route = Route.ORAL
 
     def __post_init__(self) -> None:
+        r = self.route
+        if isinstance(r, str) and not isinstance(r, Route):
+            r_str = r.strip().lower()
+            if r_str in ("inhaled", "smoked"):
+                r = Route.SMOKED
+            elif r_str in ("iv", "iv_bolus", "intravenous"):
+                r = Route.IV_BOLUS
+            elif r_str in ("insufflated", "nasal", "snorted"):
+                r = Route.INSUFFLATED
+            elif r_str in ("oral", "po", "peroral"):
+                r = Route.ORAL
+            else:
+                r = Route(r_str)
+            object.__setattr__(self, "route", r)
+
         if self.t_half_h <= 0:
             raise ValueError("t_half_h must be > 0")
         if self.vd_l <= 0:
             raise ValueError("vd_l must be > 0")
         if not 0 < self.bioavailability <= 1:
             raise ValueError("bioavailability must be in (0, 1]")
-        if self.route is Route.ORAL and self.ka_per_h <= 0:
-            raise ValueError("ka_per_h must be > 0 for oral administration")
+        if self.route != Route.IV_BOLUS and self.ka_per_h <= 0:
+            raise ValueError(f"ka_per_h must be > 0 for {self.route.value} administration")
 
     @property
     def ke(self) -> float:
