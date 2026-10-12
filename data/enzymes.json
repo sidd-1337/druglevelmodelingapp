@@ -152,9 +152,9 @@
       "index_substrate": "tizanidine",
       "index_auc_ratio": 10.0,
       "index_fm": 0.97,
-      "source": "https://medlibrary.org/lib/rx/meds/zanaflex/page/2/",
-      "verified": false,
-      "note": "Index substrate: Lower bound from the 33-fold AUC rise with fluvoxamine (range 14-103x)."
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=60c27d35-7349-4fc6-86ad-70fffdbe3e08",
+      "verified": true,
+      "note": "Zanaflex label and Granfors 2004 (abstract): ciprofloxacin 500 mg b.i.d. for 3 days, single 4 mg tizanidine, n=10, AUC 10-fold (FDA index table: 9.74). FDA classes ciprofloxacin as a moderate CYP1A2 inhibitor that can act as a strong one with highly sensitive substrates such as tizanidine. Index substrate tizanidine, fm 0.97 = 1 - 1/33, a lower bound from the fluvoxamine study. Orally dosed, so the ratio includes first-pass loss."
     },
     {
       "name": "Fluvoxamine",
@@ -164,9 +164,9 @@
       "index_substrate": "tizanidine",
       "index_auc_ratio": 33.0,
       "index_fm": 0.97,
-      "source": "https://medlibrary.org/lib/rx/meds/tizanidine-hydrochloride-4/page/4/",
-      "verified": false,
-      "note": "Range 14-103x. Index substrate: Lower bound from the 33-fold AUC rise with fluvoxamine (range 14-103x)."
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=60c27d35-7349-4fc6-86ad-70fffdbe3e08",
+      "verified": true,
+      "note": "Zanaflex label and Granfors 2004 (abstract): fluvoxamine 100 mg once daily for 4 days, single 4 mg tizanidine, n=10, AUC 33-fold (range 14-103; FDA index table: 32.73). Index substrate tizanidine, fm 0.97 = 1 - 1/33, a lower bound from the fluvoxamine study. Orally dosed, so the ratio includes first-pass loss."
     },
     {
       "name": "Ketoconazole 200 mg b.i.d.",
@@ -176,9 +176,9 @@
       "index_substrate": "midazolam (oral)",
       "index_auc_ratio": 15.9,
       "index_fm": 0.96,
-      "source": "https://ebmconsult.com/articles/medications-inhibitors-classification-weak-moderate-strong-cyp3a4",
+      "source": "https://www.fda.gov/media/99924/download",
       "verified": false,
-      "note": "Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+      "note": "FDA index-substrate table: oral midazolam AUC ratio 15.90 with ketoconazole (Olkkola 1994: 400 mg once daily for 4 days, n=9; midazolam syrup label +1490 %). Tsunoda 1999 gave 16-fold with 200 mg doses, the regimen in this entry's name (same daily dose). Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic."
     },
     {
       "name": "Clarithromycin",
@@ -188,9 +188,9 @@
       "index_substrate": "midazolam (oral)",
       "index_auc_ratio": 8.4,
       "index_fm": 0.96,
-      "source": "https://ebmconsult.com/articles/medications-inhibitors-classification-weak-moderate-strong-cyp3a4",
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b98b02bb-2609-49a0-b29f-e5911aa0cbc1",
       "verified": false,
-      "note": "Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+      "note": "Primaries disagree on the same study (Gorski 1998, clarithromycin 500 mg b.i.d. for 7 days): the clarithromycin label gives oral midazolam AUC +600 % (x7.0), FDA's index-inhibitor table x9.61, and Quinney 2008 restates x8.1 (its elderly cohort: x8.0). The stored 8.4 matches none exactly. Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic."
     },
     {
       "name": "Diltiazem",
@@ -200,9 +200,9 @@
       "index_substrate": "midazolam (oral)",
       "index_auc_ratio": 3.75,
       "index_fm": 0.96,
-      "source": "https://medlibrary.org/lib/rx/meds/midazolam-hydrochloride-16/page/3/",
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=a833c24b-6dca-44d7-a0d6-20012fa1ea77",
       "verified": false,
-      "note": "Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+      "note": "Midazolam syrup label Table 2 and Backman 1994 (abstract): diltiazem 60 mg t.i.d. for 2 days, oral midazolam 15 mg, n=9, AUC +275 % (45/12 = 3.75); FDA class moderate. Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic."
     },
     {
       "name": "Carbamazepine 400 mg b.i.d.",
@@ -212,9 +212,9 @@
       "index_substrate": "midazolam (oral)",
       "index_auc_ratio": 0.282,
       "index_fm": 0.96,
-      "source": "https://www.citedrive.com/en/discovery/assessment-of-the-cyp3a4-induction-potential-by-carbamazepine-insights-from-two-clinical-ddi-studies-and-pbpk-modeling",
+      "source": "https://doi.org/10.1002/cpt.3151",
       "verified": false,
-      "note": "Induction builds over about two weeks and wanes similarly. Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+      "note": "Kanefendt 2024 (abstract only): carbamazepine 300 mg b.i.d. for 10 days after titration (this name says 400 mg b.i.d., the regimen of the paired mirtazapine study), healthy volunteers, midazolam AUC ratio 0.282 (second study 0.323). In chronically treated patients the midazolam label gives -94 % (x0.06). Induction takes at least 2 weeks to build and to wane (Czech risperidone SPC 4.5). Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic."
     },
     {
       "name": "Rifampicin",
@@ -222,11 +222,11 @@
       "enzyme": "CYP3A4",
       "drug_class": "inducer",
       "index_substrate": "midazolam (oral)",
-      "index_auc_ratio": 0.18,
+      "index_auc_ratio": 0.04,
       "index_fm": 0.96,
-      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9755915",
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=a833c24b-6dca-44d7-a0d6-20012fa1ea77",
       "verified": false,
-      "note": "Reported ratios span 0.016-0.18; the clinical 7-day value is used as the conservative choice. Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+      "note": "Midazolam syrup label Table 3: rifampin 600 mg/day, oral midazolam AUC -96 % (x0.04; Backman 1996: 0.42/10.2 = 0.041, n=10, during dosing). Replaces 0.18, which no primary reports; the previous source was a PBPK simulation. FDA's index table gives 0.016 with midazolam one day after the last dose (Backman 1998). Because oral midazolam carries gut-wall induction, the hepatic effect derived from 0.04 is large: see the derived diazepam estimate against its SPC (clearance about 4x). Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic."
     }
   ]
 }
