@@ -5,12 +5,15 @@ import pytest
 
 from core.drug_database import custom_drug, get_drug
 from core.pk_engine import Route, steady_state_summary
+from core.drug_database import load_drugs
 from core.population import (
+    RENAL,
     Z_90,
     clearance_factor,
     cockcroft_gault,
     exposure_band_models,
     log_sd,
+    pathway_clearance_factor,
 )
 
 
@@ -93,3 +96,59 @@ def test_drug_band_falls_back_to_half_life_range_scaled_by_covariates():
     scale = m.t_half_h / d.t_half_h
     assert (lo.t_half_h, hi.t_half_h) == pytest.approx((band[0] * scale, band[1] * scale))
     assert np.isfinite(lo.clearance_l_per_h)
+
+
+# ------------------------------------------------------------------ pathways
+@pytest.mark.parametrize("weight", [30.0, 55.0, 70.0, 95.0, 140.0])
+@pytest.mark.parametrize("crcl", [None, 20.0, 50.0, 100.0, 160.0])
+@pytest.mark.parametrize("fe", [0.0, 0.2, 0.7, 0.95, 1.0])
+def test_renal_pathway_reproduces_the_scalar_form(weight, crcl, fe):
+    """The pathway form must be algebraically identical to the renal-only one."""
+    expected = clearance_factor(weight, crcl, fe)
+    assert pathway_clearance_factor(weight, {RENAL: fe}, crcl) == pytest.approx(expected, abs=1e-12)
+
+
+def test_reference_patient_is_exactly_one():
+    assert pathway_clearance_factor(70.0, {"CYP2D6": 0.3, RENAL: 0.5}, 100.0) == 1.0
+    assert pathway_clearance_factor(70.0) == 1.0
+
+
+def test_renal_clearance_gets_no_allometric_term():
+    # CrCl already carries body size, so a wholly renal drug at normal CrCl is unscaled.
+    assert pathway_clearance_factor(140.0, {RENAL: 1.0}, 100.0) == pytest.approx(1.0)
+    # ... while a wholly metabolic drug does scale.
+    assert pathway_clearance_factor(140.0, {"CYP3A4": 1.0}, 100.0) == pytest.approx(2 ** 0.75)
+
+
+def test_unassigned_remainder_scales_with_size():
+    # 40 % CYP2D6 abolished, 60 % unattributed and still size-scaled.
+    assert pathway_clearance_factor(70.0, {"CYP2D6": 0.4}, None, {"CYP2D6": 0.0}) == pytest.approx(0.6)
+
+
+def test_enzyme_activity_scales_only_its_own_pathway():
+    pathways = {"CYP2D6": 0.3, RENAL: 0.5}
+    half = pathway_clearance_factor(70.0, pathways, 100.0, {"CYP2D6": 0.5})
+    assert half == pytest.approx(0.3 * 0.5 + 0.5 + 0.2)
+
+
+@pytest.mark.parametrize("bad", [{"a": 0.6, "b": 0.6}, {"a": 1.2}, {"a": -0.1}])
+def test_invalid_pathways_rejected(bad):
+    with pytest.raises(ValueError):
+        pathway_clearance_factor(70.0, bad)
+
+
+def test_every_preset_keeps_fe_renal_and_pathways_consistent():
+    for d in load_drugs():
+        if d.pathways is not None:
+            assert d.pathways.get(RENAL, 0.0) == pytest.approx(d.fe_renal)
+            assert sum(d.pathways.values()) <= 1 + 1e-9
+
+
+def test_enzyme_activity_does_not_touch_a_renally_cleared_drug():
+    li = get_drug("lithium")  # wholly renal: abolishing a CYP must change nothing
+    assert li.to_pk_model(70, enzyme_activity={"CYP2D6": 0.0}).t_half_h == pytest.approx(li.t_half_h)
+
+
+def test_halving_an_enzyme_doubles_the_half_life_of_a_drug_cleared_by_it():
+    d = get_drug("lithium").with_overrides(pathways={"CYP2D6": 1.0}, fe_renal=0.0)
+    assert d.to_pk_model(70, enzyme_activity={"CYP2D6": 0.5}).t_half_h == pytest.approx(2 * d.t_half_h)

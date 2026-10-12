@@ -5,9 +5,16 @@ import json
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
+from typing import Mapping
 
 from core.pk_engine import PKModel, Route
-from core.population import REFERENCE_WEIGHT_KG, clearance_factor, exposure_band_models
+from core.population import (
+    REFERENCE_WEIGHT_KG,
+    RENAL,
+    clearance_factor,
+    exposure_band_models,
+    pathway_clearance_factor,
+)
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "drugs.json"
 CUSTOM_ID = "custom"
@@ -36,6 +43,10 @@ class Drug:
     cv_cl: float | None = None  # inter-individual CV of clearance (log-normal)
     cv_f: float = 0.0  # inter-individual CV of bioavailability
     fe_renal: float = 0.0  # fraction of clearance that scales with CrCl
+    # Fraction of clearance per elimination pathway (enzyme name or "renal"); the
+    # unassigned remainder is size-scaled and genotype-free. Kept consistent with
+    # fe_renal, which is the "renal" entry.
+    pathways: dict[str, float] | None = None
     km: float | None = None  # Michaelis-Menten constant, concentration unit
     saturable_fraction: float = 0.0  # share of low-concentration CL that saturates
     v1_fraction: float = 1.0  # central / steady-state volume (< 1: two compartments)
@@ -65,6 +76,13 @@ class Drug:
             raise ValueError(f"{self.id}: cv_cl and cv_f must be >= 0")
         if not 0 <= self.fe_renal <= 1:
             raise ValueError(f"{self.id}: fe_renal must be in [0, 1]")
+        if self.pathways is not None:
+            if any(not 0 <= v <= 1 for v in self.pathways.values()):
+                raise ValueError(f"{self.id}: pathway fractions must be in [0, 1]")
+            if sum(self.pathways.values()) > 1 + 1e-9:
+                raise ValueError(f"{self.id}: pathway fractions must sum to <= 1")
+            if abs(self.pathways.get(RENAL, 0.0) - self.fe_renal) > 1e-9:
+                raise ValueError(f"{self.id}: pathways[{RENAL!r}] must equal fe_renal")
         if self.km is not None and (self.km <= 0 or not 0 < self.saturable_fraction <= 1):
             raise ValueError(f"{self.id}: km must be > 0 and saturable_fraction in (0, 1]")
 
@@ -99,8 +117,17 @@ class Drug:
         body_weight_kg: float,
         route: Route | str = Route.ORAL,
         crcl_ml_min: float | None = None,
+        genotypes: Mapping[str, str] | None = None,
+        enzyme_activity: Mapping[str, float] | None = None,
     ) -> PKModel:
-        """PK model for a patient; t1/2 reflects allometric weight and renal function."""
+        """PK model for a patient; t1/2 reflects weight, renal function and genotype.
+
+        ``genotypes`` maps an enzyme to a phenotype label (resolved through
+        ``core.enzymes``); ``enzyme_activity`` sets activities directly and wins
+        where both are given. Inhibitors do NOT belong here - they are applied as
+        an :class:`~core.interactions.Interaction`, so their effect is never
+        counted twice.
+        """
         if body_weight_kg <= 0:
             raise ValueError("body_weight_kg must be > 0")
         if isinstance(route, str):
@@ -137,7 +164,16 @@ class Drug:
             ka = 1.0
 
         # V scales with weight, CL (and Q) with clearance_factor: t1/2 = ln2 * V / CL.
-        cl_rel = clearance_factor(body_weight_kg, crcl_ml_min, self.fe_renal)
+        if genotypes:
+            from core.enzymes import resolve_enzyme_activity  # local: avoids a cycle via data loading
+
+            activity = dict(resolve_enzyme_activity(genotypes))
+        else:
+            activity = {}
+        activity.update(enzyme_activity or {})
+        cl_rel = pathway_clearance_factor(
+            body_weight_kg, self.pathways or ({RENAL: self.fe_renal} if self.fe_renal else None),
+            crcl_ml_min, activity)
         t_half = self.t_half_h * (body_weight_kg / REFERENCE_WEIGHT_KG) / cl_rel
         # The engine's t1/2 is the fresh-enzyme value: CL_fresh = CL_inactivated / (1 - fm).
         t_half *= 1.0 - self.inactivation_fraction
@@ -150,6 +186,7 @@ class Drug:
             km=self.km,
             saturable_fraction=self.saturable_fraction if self.km is not None else 0.0,
             v1_fraction=self.v1_fraction,
+            # Q is organ blood flow, not metabolism: pure allometric scaling.
             q_l_per_h=self.q_l_per_h * clearance_factor(body_weight_kg),
             tlag_h=self.tlag_h if route is Route.ORAL else 0.0,
             inactivation_fraction=self.inactivation_fraction,
@@ -209,8 +246,23 @@ def custom_drug() -> Drug:
     )
 
 
+def _parse_pathways(entry: dict) -> tuple[dict[str, float] | None, float]:
+    """(pathways, fe_renal) from an ``elimination`` block, or from a bare ``fe_renal``.
+
+    Either spelling works: the renal fraction is always both ``fe_renal`` and the
+    ``renal`` pathway, so readers of either stay correct.
+    """
+    elimination = entry.get("elimination")
+    if elimination:
+        pathways = {str(k): float(v) for k, v in elimination["pathways"].items()}
+        return pathways, pathways.get(RENAL, 0.0)
+    fe_renal = float(entry.get("fe_renal", 0.0))
+    return ({RENAL: fe_renal} if fe_renal else None), fe_renal
+
+
 def _parse(entry: dict) -> Drug:
     rng = entry.get("t_half_range_h")
+    pathways, fe_renal = _parse_pathways(entry)
     return Drug(
         id=entry["id"],
         name=entry["name"],
@@ -232,7 +284,8 @@ def _parse(entry: dict) -> Drug:
         formulations=entry.get("formulations"),
         cv_cl=float(entry["cv_cl"]) if "cv_cl" in entry else None,
         cv_f=float(entry.get("cv_f", 0.0)),
-        fe_renal=float(entry.get("fe_renal", 0.0)),
+        fe_renal=fe_renal,
+        pathways=pathways,
         km=float(sat["km"]) if (sat := entry.get("saturable")) else None,
         saturable_fraction=float(sat["fraction"]) if sat else 0.0,
         v1_fraction=float(two["v1_fraction"]) if (two := entry.get("two_compartment")) else 1.0,
