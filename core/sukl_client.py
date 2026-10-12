@@ -65,19 +65,40 @@ PRESET_DEFAULT_SUKL_CODES: dict[str, str] = {
     "livizux": "0265888",        # LIVIZUX 70MG CPS DUR 100
     "ritalin": SuklCode("0268766"),  # RITALIN 10MG TBL NOB 30 (aliases 0015642 / 0015643)
     "rivotril": "0014957",       # RIVOTRIL 0,5MG TBL NOB 50
-    "pregabalin": "0211488",     # PRAGIOLA 75MG CPS DUR 56
+    "pregabalin": "0211488",     # PRAGIOLA 25MG CPS DUR 56
     "propranolol": "0284404",    # PROPRANOLOL 80MG CPS PRO 28
-    "mirtazapine": "0127760",    # MIRZATEN 30MG TBL FLM 30
-    "risperidone": "0102963",    # MEDORISPER 1MG TBL FLM 60
-    "lithium": "0207946",        # LITHIUM CARBONICUM SLOVAKOFARMA 300MG
+    "mirtazapine": "0127760",    # MIRZATEN ORO TAB 15MG POR TBL DIS 30
+    # was 0102963, MEDORISPER 0,5MG: marketing ended and no SPC on file
+    "risperidone": "0102979",    # MEDORISPER 2MG TBL FLM 60
+    "lithium": "0207946",        # LITHIUM CARBONICUM SLOVAKOFARMA 300MG TBL NOB 100
     "levetiracetam": "0267073",  # LEVELANZ 250MG TBL FLM 56 II
-    "ibuprofen": "0254292",      # IBALGIN 400 400MG TBL FLM 100
-    # paracetamol has no entry: it was mapped to 0254292, which is the IBALGIN 400 above
-    # (ATC M01AE01, ibuprofen), not Paralen. That showed ibuprofen's price, dispensing
-    # status and shortage state under paracetamol, and would have had spc_check.py verify
-    # paracetamol against an ibuprofen SPC. Re-add it with a real Paralen code.
-    "amoxicillin": "0203097",    # AMOKSIKLAV 1G TBL FLM 21
-    "diazepam": "0002479",       # DIAZEPAM SLOVAKOFARMA 5MG TBL NOB 20
+    "ibuprofen": "0254292",      # IBALGIN 200MG TBL FLM 10
+    # was 0254292, the IBALGIN above (ATC M01AE01, ibuprofen)
+    "paracetamol": "0254048",    # PARALEN 500MG TBL NOB 24
+    # was 0203097, AMOKSIKLAV: amoxicillin + clavulanate (J01CR02), a different product
+    "amoxicillin": "0264857",    # DUOMOX 500MG TBL SUS 20
+    # was 0002479, which is DITHIADEN 2MG (bisulepin, R06AX), an antihistamine
+    "diazepam": "0248671",       # DIAZEPAM STADA 5MG TBL NOB 20
+}
+
+# ATC code each preset's default product must carry. Checked live by
+# tests/test_sukl_client.py, because a code that resolves to the wrong substance
+# shows another drug's price and supply state and has spc_check.py verify our
+# values against the wrong SPC - diazepam and paracetamol both did.
+PRESET_ATC_CODES: dict[str, str] = {
+    "livizux": "N06BA12",
+    "ritalin": "N06BA04",
+    "rivotril": "N03AE01",
+    "pregabalin": "N02BF02",
+    "propranolol": "C07AA05",
+    "mirtazapine": "N06AX11",
+    "risperidone": "N05AX08",
+    "lithium": "N05AN01",
+    "levetiracetam": "N03AX14",
+    "ibuprofen": "M01AE01",
+    "paracetamol": "N02BE01",
+    "amoxicillin": "J01CA04",
+    "diazepam": "N05BA01",
 }
 
 
@@ -527,16 +548,21 @@ def fetch_sukl_detail(kod_sukl: str) -> SuklDrugDetail | None:
         or None
     )
 
-    # Dokumenty SPC a PIL
+    # Dokumenty SPC a PIL. Served by document id; the old sukl.cz download.php?file=
+    # URL now returns an HTML page pointing at prehledy.sukl.cz, not the PDF.
     dokumenty = data.get("dokumenty") if isinstance(data.get("dokumenty"), list) else []
     spc_url, pil_url = None, None
     for doc in dokumenty:
+        if not isinstance(doc, dict):
+            continue
         typ = str(doc.get("typDokumentu") or "").upper()
-        nazev_doc = _clean_str(doc.get("nazev"))
-        if typ == "SPC" and nazev_doc and not spc_url:
-            spc_url = f"https://www.sukl.cz/modules/medication/download.php?file={nazev_doc}&type=spc"
-        elif typ == "PIL" and nazev_doc and not pil_url:
-            pil_url = f"https://www.sukl.cz/modules/medication/download.php?file={nazev_doc}&type=pil"
+        doc_url = _clean_str(doc.get("link")) or (
+            f"https://prehledy.sukl.cz/prehledy/v1/dokumenty/{doc['id']}" if doc.get("id") else ""
+        )
+        if typ == "SPC" and doc_url and not spc_url:
+            spc_url = doc_url
+        elif typ == "PIL" and doc_url and not pil_url:
+            pil_url = doc_url
 
     sukl_url = f"https://prehledy.sukl.cz/prehled_leciv.html#/detail/dlp/{fetch_kod}"
 

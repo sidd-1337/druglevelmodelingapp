@@ -1,7 +1,12 @@
+import time
+import urllib.request
+
 import pytest
 
 from core.sukl_client import (
+    PRESET_ATC_CODES,
     PRESET_DEFAULT_SUKL_CODES,
+    USER_AGENT,
     fetch_sukl_detail,
     match_preset_id,
     parse_dose_mg,
@@ -94,6 +99,51 @@ def test_every_default_code_belongs_to_a_real_preset():
 
     known = {d.id for d in load_drugs()}
     assert set(PRESET_DEFAULT_SUKL_CODES) <= known
+
+
+def test_every_default_code_declares_the_atc_it_must_resolve_to():
+    assert set(PRESET_ATC_CODES) == set(PRESET_DEFAULT_SUKL_CODES)
+
+
+def _detail(code: str):
+    """fetch_sukl_detail, retried: SÚKL sometimes resets a connection, and None then means transport, not data."""
+    for attempt in range(4):
+        detail = fetch_sukl_detail(code)
+        if detail is not None:
+            return detail
+        time.sleep(1 + attempt)
+    return None
+
+
+@pytest.mark.network
+@pytest.mark.parametrize("preset_id", sorted(PRESET_DEFAULT_SUKL_CODES))
+def test_default_code_is_the_presets_substance(requires_sukl, preset_id):
+    """diazepam's code was DITHIADEN (bisulepin) and amoxicillin's was co-amoxiclav; the ATC catches both."""
+    code = PRESET_DEFAULT_SUKL_CODES[preset_id]
+    detail = _detail(code)
+    assert detail is not None, f"SÚKL returned nothing for {preset_id} code {code}"
+    assert detail.atc_kod == PRESET_ATC_CODES[preset_id], (
+        f"{preset_id} code {code} is {detail.nazev} {detail.doplnek}, ATC {detail.atc_kod}"
+    )
+    assert detail.spc_url, f"{preset_id} code {code} has no SPC on file"
+
+
+@pytest.mark.network
+def test_spc_link_serves_the_pdf(requires_sukl):
+    """The old sukl.cz download.php link answered 200 with an HTML notice instead of the PDF."""
+    detail = _detail(PRESET_DEFAULT_SUKL_CODES["lithium"])
+    assert detail is not None and detail.spc_url
+    for attempt in range(4):
+        try:
+            req = urllib.request.Request(detail.spc_url, headers={"User-Agent": USER_AGENT, "Range": "bytes=0-1023"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                head = resp.read(8)
+            break
+        except OSError:
+            if attempt == 3:
+                raise
+            time.sleep(1 + attempt)
+    assert head.startswith(b"%PDF"), head
 
 
 def test_fetch_sukl_detail_live_livizux():

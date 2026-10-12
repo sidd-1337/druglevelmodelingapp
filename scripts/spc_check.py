@@ -2,7 +2,7 @@
 
 Usage:  pip install pypdf && python scripts/spc_check.py [report.md]
 
-Needs network access to prehledy.sukl.cz and www.sukl.cz. The report is a checklist
+Needs network access to prehledy.sukl.cz. The report is a checklist
 for a person: confirm or correct each value in data/reference_pk.json and set
 "verified": true once it matches the SPC.
 """
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import sys
+import time
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
@@ -21,12 +22,29 @@ from core.sukl_client import PRESET_DEFAULT_SUKL_CODES, USER_AGENT, fetch_sukl_d
 from core.validation import load_references  # noqa: E402
 
 
+def _retry(fn, *args, attempts: int = 4):
+    """Call fn, retrying transport failures; SÚKL connections are sometimes reset mid-request."""
+    for i in range(attempts):
+        try:
+            result = fn(*args)
+        except OSError:
+            if i == attempts - 1:
+                raise
+        else:
+            if result is not None or i == attempts - 1:
+                return result
+        time.sleep(1 + i)
+
+
 def _pdf_text(url: str) -> str:
     from pypdf import PdfReader  # optional dependency, only needed for this script
 
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=30) as resp:
-        reader = PdfReader(io.BytesIO(resp.read()))
+        body = resp.read()
+    if not body.startswith(b"%PDF"):
+        raise ValueError(f"not a PDF ({body[:40]!r}) - the SPC URL is probably stale")
+    reader = PdfReader(io.BytesIO(body))
     return "\n".join(page.extract_text() or "" for page in reader.pages)
 
 
@@ -37,13 +55,13 @@ def main(out_path: str = "spc_check_report.md") -> None:
     lines = ["# SPC section 5.2 check", ""]
     for drug_id, code in PRESET_DEFAULT_SUKL_CODES.items():
         lines.append(f"## {drug_id} (SÚKL {code})")
-        detail = fetch_sukl_detail(code)
+        detail = _retry(fetch_sukl_detail, code)
         if detail is None or not detail.spc_url:
             lines += ["SPC not found (network blocked or no SPC listed).", ""]
             continue
         lines.append(f"Product: {detail.nazev} {detail.doplnek} - [SPC]({detail.spc_url})")
         try:
-            section = extract_section_52(_pdf_text(detail.spc_url))
+            section = extract_section_52(_retry(_pdf_text, detail.spc_url))
         except Exception as exc:  # network or PDF parsing failure: report and continue
             lines += [f"Download/parse failed: {exc}", ""]
             continue
