@@ -77,7 +77,7 @@ def predict(drug_id: str, metric: str, dose_mg: float, interval_h: float | None 
             raise ValueError(f"{metric} needs interval_h (time between the doses)")
         return _redosing_ratio(metric, amount, interval_h, model)
     if metric == "auc_inf":
-        if not model.is_nonlinear:
+        if not model.needs_integration:
             return model.f_eff * amount / model.clearance_l_per_h
         horizon = 20.0 * model.terminal_half_life_h
     elif metric == "auc_0_24":

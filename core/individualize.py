@@ -132,7 +132,7 @@ def individual_band(
     n_samples: int | None = None, seed: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """5th-95th percentile (for z = 1.645) of the patient's profile given the fit uncertainty."""
-    n = n_samples or (60 if fit.model.is_nonlinear else 300)
+    n = n_samples or (60 if fit.model.needs_integration else 300)
     rng = np.random.default_rng(seed)
     etas = rng.multivariate_normal(np.array(fit.eta), np.array(fit.cov), size=n)
     curves = np.array([concentration_profile(t, events, _apply_eta(fit.population_model, e)) for e in etas])

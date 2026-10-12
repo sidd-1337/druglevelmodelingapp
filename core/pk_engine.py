@@ -67,6 +67,7 @@ class PKModel:
     ki: float = 1.0
     kdeg_per_h: float = 0.0
     tlag_h: float = 0.0  # absorption lag (extravascular routes only)
+    metabolite: Metabolite | None = None
 
     def __post_init__(self) -> None:
         r = self.route
@@ -130,8 +131,22 @@ class PKModel:
 
     @property
     def is_nonlinear(self) -> bool:
-        """Needs numerical integration (no superposition)."""
+        """Elimination depends on concentration (saturation or enzyme inactivation)."""
         return self.km is not None or self.inactivation_fraction > 0
+
+    @property
+    def needs_integration(self) -> bool:
+        """Cannot be superposed, so the profile is integrated numerically.
+
+        A linear parent-plus-metabolite is still a sum of exponentials, so this is
+        deliberately wider than :attr:`is_nonlinear`, which keeps its narrower
+        meaning for linearisation and for closed-form AUC.
+        """
+        return self.is_nonlinear or self.metabolite is not None
+
+    @property
+    def reported_quantity(self) -> str:
+        return self.metabolite.reported if self.metabolite else "parent"
 
     @property
     def is_two_compartment(self) -> bool:
@@ -166,15 +181,56 @@ class PKModel:
 
     @property
     def terminal_half_life_h(self) -> float:
-        """Half-life of the elimination phase. With enzyme inactivation this is the
-        inactivated-enzyme value, which is what follows any usual dose."""
+        """Half-life of the elimination phase of the REPORTED quantity.
+
+        With enzyme inactivation this is the inactivated-enzyme value, which is what
+        follows any usual dose. When a slow metabolite is reported, it is that
+        metabolite that governs the tail - getting this wrong would truncate every
+        horizon derived from it.
+        """
         rate = min(self.disposition_rates)
         if self.inactivation_fraction:
             rate *= 1.0 - self.inactivation_fraction
+        if self.metabolite is not None and self.metabolite.reported != "parent":
+            rate = min(rate, self.metabolite.ke)
         return LN2 / rate
 
     def with_half_life(self, t_half_h: float) -> "PKModel":
         return replace(self, t_half_h=t_half_h)
+
+
+@dataclass(frozen=True)
+class Metabolite:
+    """A single active metabolite formed from the parent's clearance.
+
+    ``formation_fraction`` is the share of parent clearance that yields it;
+    ``molar_ratio`` converts metabolite to parent-equivalent mass (MW_parent /
+    MW_metabolite); ``potency_ratio`` weights it when the reported quantity is the
+    sum. ``reported`` says which quantity the preset's concentrations and
+    therapeutic window refer to.
+    """
+
+    name: str
+    t_half_h: float
+    vd_l: float
+    formation_fraction: float = 1.0
+    molar_ratio: float = 1.0
+    potency_ratio: float = 1.0
+    reported: str = "parent"  # "parent" | "metabolite" | "sum"
+
+    def __post_init__(self) -> None:
+        if self.t_half_h <= 0 or self.vd_l <= 0:
+            raise ValueError("metabolite t_half_h and vd_l must be > 0")
+        if not 0 < self.formation_fraction <= 1:
+            raise ValueError("formation_fraction must be in (0, 1]")
+        if self.molar_ratio <= 0 or self.potency_ratio < 0:
+            raise ValueError("molar_ratio must be > 0 and potency_ratio >= 0")
+        if self.reported not in ("parent", "metabolite", "sum"):
+            raise ValueError(f"unknown reported quantity {self.reported!r}")
+
+    @property
+    def ke(self) -> float:
+        return LN2 / self.t_half_h
 
 
 @dataclass(frozen=True)
@@ -208,7 +264,7 @@ def single_dose_concentration(t: np.ndarray | float, amount: float, model: PKMod
 
     Oral: Bateman function; IV bolus: C0 * exp(-ke t) with C0 = D / Vd.
     """
-    if model.is_nonlinear:
+    if model.needs_integration:
         return _nonlinear_profile(t, (DoseEvent(0.0, amount),), model)
     t = np.asarray(t, dtype=float) - model.lag_h
     tp = np.clip(t, 0.0, None)
@@ -238,7 +294,7 @@ def tmax_single_dose(model: PKModel, amount: float | None = None) -> float:
     """
     if model.route is Route.IV_BOLUS:
         return 0.0
-    if model.is_nonlinear and amount is not None:
+    if model.needs_integration and amount is not None:
         return _nonlinear_single_peak(amount, model)[0]
     if model.is_two_compartment:
         return _linear_single_peak(_linearized(model))[0]
@@ -249,7 +305,7 @@ def tmax_single_dose(model: PKModel, amount: float | None = None) -> float:
 
 
 def cmax_single_dose(amount: float, model: PKModel) -> float:
-    if model.is_nonlinear:
+    if model.needs_integration:
         return _nonlinear_single_peak(amount, model)[1]
     if model.is_two_compartment:
         return amount * _linear_single_peak(model)[1]
@@ -283,7 +339,7 @@ def _exp_terms(model: PKModel, amount: float) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _linearized(model: PKModel) -> PKModel:
-    return replace(model, km=None, saturable_fraction=0.0, inactivation_fraction=0.0)
+    return replace(model, km=None, saturable_fraction=0.0, inactivation_fraction=0.0, metabolite=None)
 
 
 @lru_cache(maxsize=256)
@@ -334,7 +390,7 @@ def concentration_profile(
 
     Saturable models are integrated numerically over the whole schedule instead.
     """
-    if model.is_nonlinear:
+    if model.needs_integration:
         return _nonlinear_profile(t, tuple(events), model)
     t = np.asarray(t, dtype=float)
     total = np.zeros_like(t)
@@ -393,7 +449,7 @@ def steady_state_concentration(
         # At steady state the lagged profile is the unlagged one shifted by the lag.
         unlagged = replace(model, tlag_h=0.0)
         return steady_state_concentration(np.mod(t - model.lag_h, tau_h), amount, tau_h, unlagged)
-    if model.is_nonlinear:
+    if model.needs_integration:
         ss = _nonlinear_steady_state(amount, tau_h, model)
         phase = np.mod(t, tau_h)
         phase = np.where((phase == 0) & (t > 0), tau_h, phase)  # t = k*tau is the trough
@@ -432,7 +488,7 @@ def steady_state_summary(amount: float, tau_h: float, model: PKModel) -> SteadyS
     if model.lag_h:
         ss = steady_state_summary(amount, tau_h, replace(model, tlag_h=0.0))
         return replace(ss, tmax_ss_h=(ss.tmax_ss_h + model.lag_h) % tau_h)
-    if model.is_nonlinear:
+    if model.needs_integration:
         return _nonlinear_steady_state(amount, tau_h, model).summary
     if model.is_two_compartment:
         grid = np.linspace(0.0, tau_h, 2001)
@@ -470,8 +526,10 @@ def steady_state_summary(amount: float, tau_h: float, model: PKModel) -> SteadyS
     )
 
 
-# ------------------------------------------------------ nonlinear (numerical)
-# State: [depot amount, central amount, peripheral amount, active enzyme fraction].
+# ----------------------------------------- integrated profiles (numerical)
+# State: [depot, central, peripheral, active enzyme fraction, metabolite amount].
+# The metabolite amount is carried in parent-equivalent mass, the molar conversion
+# being applied as it forms, so parent and metabolite can simply be added.
 def _nonlinear_rhs(model: PKModel):
     v1 = model.v1_l
     cl = model.clearance_l_per_h
@@ -479,6 +537,9 @@ def _nonlinear_rhs(model: PKModel):
     ka = 0.0 if model.route is Route.IV_BOLUS else model.ka_per_h
     f_sat, km = model.saturable_fraction, model.km
     fm, kinact, ki, kdeg = model.inactivation_fraction, model.kinact_per_h, model.ki, model.kdeg_per_h
+    met = model.metabolite
+    f_form = met.formation_fraction * met.molar_ratio if met else 0.0
+    ke_met = met.ke if met else 0.0
 
     def rhs(_t, y):
         c = max(y[1], 0.0) / v1
@@ -487,13 +548,34 @@ def _nonlinear_rhs(model: PKModel):
         else:
             elim = ((1.0 - fm) + fm * y[3]) * cl * c
         d_enzyme = kdeg * (1.0 - y[3]) - kinact * c / (ki + c) * y[3] if fm else 0.0
-        return [-ka * y[0], ka * y[0] - elim - k12 * y[1] + k21 * y[2], k12 * y[1] - k21 * y[2], d_enzyme]
+        d_met = f_form * elim - ke_met * y[4] if met else 0.0
+        return [-ka * y[0], ka * y[0] - elim - k12 * y[1] + k21 * y[2], k12 * y[1] - k21 * y[2],
+                d_enzyme, d_met]
 
     return rhs
 
 
 def _initial_state() -> np.ndarray:
-    return np.array([0.0, 0.0, 0.0, 1.0])
+    return np.array([0.0, 0.0, 0.0, 1.0, 0.0])
+
+
+def _concentrations(states: np.ndarray, model: PKModel) -> tuple[np.ndarray, np.ndarray]:
+    """(parent, metabolite) concentrations from a state matrix; metabolite is 0 without one."""
+    parent = np.clip(states[1] / model.v1_l, 0.0, None)
+    if model.metabolite is None:
+        return parent, np.zeros_like(parent)
+    return parent, np.clip(states[4] / model.metabolite.vd_l, 0.0, None)
+
+
+def _reported(states: np.ndarray, model: PKModel) -> np.ndarray:
+    """The quantity the preset's concentrations and therapeutic window refer to."""
+    parent, met = _concentrations(states, model)
+    reported = model.reported_quantity
+    if reported == "parent":
+        return parent
+    if reported == "metabolite":
+        return met
+    return parent + model.metabolite.potency_ratio * met
 
 
 def _dose_into(state: np.ndarray, amount: float, model: PKModel) -> np.ndarray:
@@ -507,7 +589,7 @@ def _dose_into(state: np.ndarray, amount: float, model: PKModel) -> np.ndarray:
 
 
 def _atol(amount_scale: float) -> np.ndarray:
-    return np.array([1e-10 * amount_scale] * 3 + [1e-10])
+    return np.array([1e-10 * amount_scale] * 3 + [1e-10] + [1e-10 * amount_scale])
 
 
 def _integrate(rhs, y0: np.ndarray, t0: float, t1: float, t_eval: np.ndarray, atol):
@@ -553,7 +635,20 @@ def _nonlinear_profile(t, events: tuple[DoseEvent, ...], model: PKModel) -> np.n
     order = np.argsort(flat)
     _, states = _nonlinear_states(flat, events, model)
     out = np.empty_like(flat)
-    out[order] = np.clip(states[1] / model.v1_l, 0.0, None)
+    out[order] = _reported(states, model)
+    return out.reshape(t_arr.shape)
+
+
+def metabolite_profile(t, events: Iterable[DoseEvent], model: PKModel) -> np.ndarray:
+    """Metabolite concentration over ``t``, in parent-equivalent units."""
+    t_arr = np.asarray(t, dtype=float)
+    if model.metabolite is None:
+        return np.zeros_like(t_arr)
+    flat = t_arr.reshape(-1)
+    order = np.argsort(flat)
+    _, states = _nonlinear_states(flat, tuple(events), model)
+    out = np.empty_like(flat)
+    out[order] = _concentrations(states, model)[1]
     return out.reshape(t_arr.shape)
 
 
@@ -576,7 +671,11 @@ def _nonlinear_single_peak(amount: float, model: PKModel) -> tuple[float, float]
     if model.route is Route.IV_BOLUS:
         return 0.0, amount / model.v1_l
     lin_tmax = tmax_single_dose(_linearized(model))
-    coarse = np.linspace(0.0, max(4.0 * lin_tmax, model.lag_h + 1.0), 801)
+    # A slowly formed, slowly cleared metabolite peaks long after the parent does.
+    horizon = max(4.0 * lin_tmax, model.lag_h + 1.0)
+    if model.metabolite is not None and model.metabolite.reported != "parent":
+        horizon = max(horizon, 2.0 * model.metabolite.t_half_h)
+    coarse = np.linspace(0.0, horizon, 801)
     c = _nonlinear_profile(coarse, (DoseEvent(0.0, amount),), model)
     i = int(np.argmax(c))
     lo, hi = coarse[max(i - 1, 0)], coarse[min(i + 1, len(coarse) - 1)]
@@ -605,7 +704,7 @@ def _nonlinear_steady_state(amount: float, tau_h: float, model: PKModel) -> _Non
     for _ in range(2000):
         y = _dose_into(y, amount, model)
         y, ys = _integrate(rhs, y, 0.0, tau_h, grid, atol)
-        c = np.clip(ys[1] / model.v1_l, 0.0, None)
+        c = _reported(ys, model)
         if first_auc is None:
             first_auc = auc_trapezoid(grid, c)
         troughs.append(float(c[-1]))

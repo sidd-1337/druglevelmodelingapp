@@ -113,7 +113,7 @@ def compute_safe_redosing_interval_h(
     else:
         safe_time = 5.0 * model.terminal_half_life_h
 
-    if model.is_nonlinear:
+    if model.needs_integration:
         # Residual + new peak understates a saturable stack: wait until the
         # simulated stacked peak is under the ceiling too.
         safe_time = _first_safe_stack_time(amount, new_dose, model, ceiling, safe_time, horizon)

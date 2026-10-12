@@ -4,8 +4,11 @@ import numpy as np
 import pytest
 from scipy.integrate import solve_ivp
 
+from dataclasses import replace
+
 from core.pk_engine import (
     DoseEvent,
+    Metabolite,
     PKModel,
     Route,
     accumulation_index,
@@ -391,3 +394,71 @@ def test_enzyme_inactivation_validation():
     with pytest.raises(ValueError):
         PKModel(2.0, 300.0, km=1.0, saturable_fraction=0.5, inactivation_fraction=0.8, kinact_per_h=1.0, ki=0.1,
                 kdeg_per_h=0.01)
+
+
+# ------------------------------------------------------------- metabolites
+PARENT_ONLY = PKModel(44.0, 83.0, 0.93, 4.0)
+NORDAZEPAM = Metabolite("nordazepam", t_half_h=65.0, vd_l=87.0, formation_fraction=0.5,
+                        molar_ratio=1.052, reported="parent")
+WITH_MET = PKModel(44.0, 83.0, 0.93, 4.0, metabolite=NORDAZEPAM)
+
+
+def test_metabolite_needs_integration_without_being_nonlinear():
+    # A linear parent plus metabolite is still a sum of exponentials; it just cannot be superposed.
+    assert WITH_MET.needs_integration and not WITH_MET.is_nonlinear
+    assert not PARENT_ONLY.needs_integration
+    assert hash(WITH_MET)  # must stay hashable: the engine lru_caches on the model
+
+
+def test_reporting_the_parent_is_numerically_a_no_op():
+    t = np.linspace(0.0, 400.0, 2001)
+    np.testing.assert_allclose(single_dose_concentration(t, 10.0, WITH_MET),
+                               single_dose_concentration(t, 10.0, PARENT_ONLY), atol=1e-7)
+    assert cmax_single_dose(10.0, WITH_MET) == pytest.approx(cmax_single_dose(10.0, PARENT_ONLY), rel=1e-5)
+    ss_a = steady_state_summary(10.0, 24.0, WITH_MET)
+    ss_b = steady_state_summary(10.0, 24.0, PARENT_ONLY)
+    assert ss_a.cavg_ss == pytest.approx(ss_b.cavg_ss, rel=1e-3)
+
+
+def test_metabolite_mass_balance():
+    """Everything formed must be eliminated: AUC_m = f * molar * CL_p * AUC_p / (ke_m * V_m)."""
+    from core.pk_engine import metabolite_profile
+    t = np.linspace(0.0, 2000.0, 20001)
+    parent = single_dose_concentration(t, 10.0, WITH_MET)
+    met = metabolite_profile(t, [DoseEvent(0.0, 10.0)], WITH_MET)
+    expected = (NORDAZEPAM.formation_fraction * NORDAZEPAM.molar_ratio
+                * WITH_MET.clearance_l_per_h * auc_trapezoid(t, parent)
+                / (NORDAZEPAM.ke * NORDAZEPAM.vd_l))
+    assert auc_trapezoid(t, met) == pytest.approx(expected, rel=1e-3)
+
+
+def test_a_slow_metabolite_peaks_long_after_the_parent():
+    from core.pk_engine import metabolite_profile
+    t = np.linspace(0.0, 400.0, 4001)
+    met = metabolite_profile(t, [DoseEvent(0.0, 10.0)], WITH_MET)
+    assert t[int(met.argmax())] > 10 * tmax_single_dose(PARENT_ONLY)
+
+
+@pytest.mark.parametrize("reported, expected_t_half", [("parent", 44.0), ("metabolite", 65.0), ("sum", 65.0)])
+def test_terminal_half_life_follows_the_reported_quantity(reported, expected_t_half):
+    m = PKModel(44.0, 83.0, 0.93, 4.0, metabolite=replace(NORDAZEPAM, reported=reported))
+    assert m.terminal_half_life_h == pytest.approx(expected_t_half)
+    assert m.reported_quantity == reported
+
+
+def test_sum_exceeds_parent_and_tracks_potency():
+    t = np.linspace(0.0, 400.0, 2001)
+    as_sum = PKModel(44.0, 83.0, 0.93, 4.0, metabolite=replace(NORDAZEPAM, reported="sum"))
+    half_potency = replace(as_sum, metabolite=replace(NORDAZEPAM, reported="sum", potency_ratio=0.5))
+    c_parent = single_dose_concentration(t, 10.0, PARENT_ONLY)
+    c_sum = single_dose_concentration(t, 10.0, as_sum)
+    c_half = single_dose_concentration(t, 10.0, half_potency)
+    assert auc_trapezoid(t, c_sum) > auc_trapezoid(t, c_half) > auc_trapezoid(t, c_parent)
+
+
+@pytest.mark.parametrize("kwargs", [
+    dict(t_half_h=0.0), dict(vd_l=-1.0), dict(formation_fraction=0.0),
+    dict(formation_fraction=1.5), dict(molar_ratio=0.0), dict(reported="nonsense")])
+def test_metabolite_validation(kwargs):
+    with pytest.raises(ValueError):
+        replace(NORDAZEPAM, **kwargs)
