@@ -66,6 +66,14 @@ reports a **complete** parameter set for the structure it fitted — generating 
 one-compartment curve from a paper that fitted two compartments invents a curve the
 paper does not support, and tests nothing but the assumption you just made.
 
+The same trap applies to lifting a single parameter. A multiple-dose oral diazepam
+study in healthy volunteers reports an absorption half-life of 32 min, i.e. ka ≈
+1.3/h, against this preset's 4.0/h — an apparent 3-fold error. But that study fitted
+two compartments, where the distribution phase carries part of the early rise. Moving
+its ka into this one-compartment preset makes it do both jobs and predicts Tmax at
+3.37 h against the label's measured 1.25 h, a 2.7-fold miss; the preset's own 4.0/h
+gives 1.37 h. The preset is right and the "correction" is an artefact of structure.
+
 ## Early samples and absorption lag
 
 Several presets carry an absorption lag (`tlag_h`), and before it the model predicts
