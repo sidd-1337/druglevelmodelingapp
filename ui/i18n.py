@@ -89,6 +89,12 @@ _TEXT: dict[str, dict[str, str]] = {
                         "between these drugs. That is not proof there is none.",
         "multi_alone": "{name} alone", "multi_with": "{name} with co-medication",
         "multi_table_title": "Documented interactions",
+        "multi_evidence": "Evidence", "multi_measured": "measured", "multi_estimated": "estimated",
+        "multi_estimated_help": "Rows marked *estimated* have no published study for that pair. They are "
+                                "calculated from the fraction of the drug cleared by the affected enzyme and "
+                                "how much of that enzyme's activity the other drug leaves. Where a study does "
+                                "exist, the measured value is used instead. Tested against the measured pairs "
+                                "it can address, this calculation is accurate to about 1.25-fold.",
         "multi_perpetrator": "Caused by", "multi_effect": "Effect on exposure", "multi_site": "Acts on",
         "multi_onset": "Full effect after", "multi_site_clearance": "clearance", "multi_site_bioavailability":
         "bioavailability", "multi_qualitative": "direction only, no number",
@@ -282,6 +288,12 @@ _TEXT: dict[str, dict[str, str]] = {
         "multi_no_interaction": "Mezi těmito léčivy není doložena kvantifikovaná interakce. To neznamená, že žádná neexistuje.",
         "multi_alone": "{name} samostatně", "multi_with": "{name} se souběžnou medikací",
         "multi_table_title": "Doložené interakce",
+        "multi_evidence": "Doklad", "multi_measured": "změřeno", "multi_estimated": "odhad",
+        "multi_estimated_help": "Řádky označené *odhad* nemají pro danou dvojici publikovanou studii. Počítají "
+                                "se z podílu léčiva odbouraného dotčeným enzymem a z toho, kolik aktivity "
+                                "tohoto enzymu druhé léčivo ponechá. Tam, kde studie existuje, se použije "
+                                "změřená hodnota. Proti dvojicím, které umí popsat, je tento výpočet přesný "
+                                "zhruba na 1,25násobek.",
         "multi_perpetrator": "Způsobeno", "multi_effect": "Vliv na expozici", "multi_site": "Působí na",
         "multi_onset": "Plný účinek za", "multi_site_clearance": "clearance", "multi_site_bioavailability":
         "biologickou dostupnost", "multi_qualitative": "pouze směr, bez čísla",

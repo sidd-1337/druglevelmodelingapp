@@ -6,6 +6,12 @@ bioavailability (half-life unchanged). Effects of several perpetrators multiply.
 
 The factors describe the full effect of the stated perpetrator regimen; the onset
 (days to weeks for enzyme induction) is documented but not simulated.
+
+Measured factors always win. Where no study exists for a pair, one can be derived
+from the victim's fraction metabolised and the perpetrator's residual enzyme
+activity (:mod:`core.enzymes`); such entries are marked ``estimated`` and carry
+the inputs they came from in ``basis``. Derived entries only ever act on
+clearance - a first-pass effect needs a gut model this does not have.
 """
 from __future__ import annotations
 
@@ -33,6 +39,8 @@ class Interaction:
     qualitative: bool = False
     verified: bool = False
     note: str = ""
+    estimated: bool = False  # derived from fm x residual activity, not measured
+    basis: str = ""  # how a derived factor was obtained
 
     def __post_init__(self) -> None:
         if self.site not in (CLEARANCE, BIOAVAILABILITY):
@@ -71,10 +79,40 @@ def interactions_for(drug_id: str, path: str | Path = DEFAULT_INTERACTIONS_PATH)
 
 
 def find(drug_id: str, perpetrators: Iterable[str],
-         path: str | Path = DEFAULT_INTERACTIONS_PATH) -> list[Interaction]:
-    """Interactions on ``drug_id`` from the named perpetrators (exact ``perpetrator`` strings)."""
+         path: str | Path = DEFAULT_INTERACTIONS_PATH, drug=None) -> list[Interaction]:
+    """Interactions on ``drug_id`` from the named perpetrators (exact ``perpetrator`` strings).
+
+    With a ``drug`` (a :class:`~core.drug_database.Drug`), pairs that have no
+    measured study also get a derived estimate, where the perpetrator's enzyme is
+    one the drug is actually cleared by.
+    """
     wanted = set(perpetrators)
-    return [i for i in interactions_for(drug_id, path) if i.perpetrator in wanted]
+    measured = [i for i in interactions_for(drug_id, path) if i.perpetrator in wanted]
+    if drug is None:
+        return measured
+    covered = {i.perpetrator for i in measured}
+    return measured + derived_interactions(drug, wanted - covered)
+
+
+def derived_interactions(drug, perpetrator_names: Iterable[str]) -> list[Interaction]:
+    """Mechanistic estimates for perpetrators acting on a pathway the drug uses."""
+    from core.enzymes import derived_exposure_factor, find_perpetrators  # avoids an import cycle
+
+    out = []
+    for p in find_perpetrators(perpetrator_names):
+        fm = (drug.pathways or {}).get(p.enzyme, 0.0)
+        if fm <= 0:
+            continue
+        residual = p.residual_activity
+        out.append(Interaction(
+            victim_id=drug.id, perpetrator=p.name, perpetrator_cs=p.name_cs, site=CLEARANCE,
+            source=p.source, exposure_factor=derived_exposure_factor(fm, residual),
+            verified=False, estimated=True,
+            basis=(f"{p.enzyme} carries {100 * fm:.0f} % of this drug's clearance; {p.name} leaves "
+                   f"{residual:.2f} of that activity, derived from a {p.index_auc_ratio:g}x AUC change "
+                   f"in {p.index_substrate}"),
+            note="Estimated from the mechanism, not measured for this pair."))
+    return out
 
 
 def combined_factor(interactions: Sequence[Interaction], site: str) -> float:

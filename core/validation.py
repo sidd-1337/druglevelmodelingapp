@@ -105,6 +105,68 @@ def _redosing_ratio(metric: str, amount: float, gap_h: float, model) -> float:
     return float(both[second].max() / both[first].max())
 
 
+@dataclass(frozen=True)
+class InteractionValidationRow:
+    """A measured interaction factor next to the one the mechanism predicts."""
+
+    victim_id: str
+    perpetrator: str
+    enzyme: str
+    fm: float
+    residual: float
+    observed: float
+    predicted: float
+    source: str
+    max_fold: float = 2.0
+
+    @property
+    def ratio(self) -> float:
+        return self.predicted / self.observed
+
+    @property
+    def fold_error(self) -> float:
+        r = self.ratio
+        return max(r, 1.0 / r)
+
+    @property
+    def within(self) -> bool:
+        return self.fold_error <= self.max_fold
+
+
+def validate_interactions(
+    interactions_path: str | Path | None = None, db_path: str | Path = DEFAULT_DB_PATH,
+) -> list[InteractionValidationRow]:
+    """Back-test: predict each MEASURED interaction factor from fm x residual activity.
+
+    Only pairs the mechanism can even address are covered - a quantified clearance
+    effect, a perpetrator in the enzyme registry, and an enzyme the victim is
+    actually cleared by. Renal handling, transporter and first-pass interactions are
+    out of scope by construction, not by omission.
+    """
+    from core.enzymes import derived_exposure_factor, load_perpetrators
+    from core.interactions import CLEARANCE, load_interactions
+
+    by_name = {p.name: p for p in load_perpetrators()}
+    kwargs = {"path": interactions_path} if interactions_path else {}
+    rows = []
+    for measured in load_interactions(**kwargs):
+        if measured.qualitative or measured.site != CLEARANCE or measured.estimated:
+            continue
+        perpetrator = by_name.get(measured.perpetrator)
+        if perpetrator is None:
+            continue
+        fm = (get_drug(measured.victim_id, db_path).pathways or {}).get(perpetrator.enzyme, 0.0)
+        if fm <= 0:
+            continue
+        residual = perpetrator.residual_activity
+        rows.append(InteractionValidationRow(
+            victim_id=measured.victim_id, perpetrator=measured.perpetrator,
+            enzyme=perpetrator.enzyme, fm=fm, residual=residual,
+            observed=measured.exposure_factor,
+            predicted=derived_exposure_factor(fm, residual), source=measured.source))
+    return rows
+
+
 def load_references(path: str | Path = REFERENCE_PATH) -> list[dict]:
     with open(path, encoding="utf-8") as fh:
         return json.load(fh)["references"]
@@ -171,6 +233,19 @@ def main() -> None:
     print()
     for name, g in summarize(rows).items():
         print(f"{name:9} {g.within}/{g.n} within tolerance, geometric mean fold error {g.geometric_mean_fold_error:.2f}")
+
+    ddi = validate_interactions()
+    print(f"\n--- mechanistic back-test of measured interaction factors ---")
+    if not ddi:
+        print("no measured pair is addressable by the mechanism (needs fm and a known perpetrator)")
+        return
+    print(f"{'victim':14} {'perpetrator':30} {'enzyme':9} {'fm':>5} {'resid':>6} "
+          f"{'observed':>9} {'predicted':>10} {'pred/obs':>9}  ok")
+    for r in ddi:
+        print(f"{r.victim_id:14} {r.perpetrator:30} {r.enzyme:9} {r.fm:>5.2f} {r.residual:>6.3f} "
+              f"{r.observed:>9.2f} {r.predicted:>10.2f} {r.ratio:>9.2f}  {'yes' if r.within else 'NO'}")
+    gm = float(np.exp(np.mean([np.log(r.fold_error) for r in ddi])))
+    print(f"\n{sum(r.within for r in ddi)}/{len(ddi)} within 2x, geometric mean fold error {gm:.2f}")
 
 
 if __name__ == "__main__":

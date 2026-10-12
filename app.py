@@ -8,7 +8,13 @@ import streamlit as st
 
 from core.drug_database import CUSTOM_ID, custom_drug, formulation_from_dosage_form, load_drugs
 from core.individualize import Observation, fit_individual, individual_band
-from core.interactions import apply_interactions, find, interactions_for, load_interactions
+from core.interactions import (
+    apply_interactions,
+    derived_interactions,
+    find,
+    interactions_for,
+    load_interactions,
+)
 from core.validation import regimen_label, summarize, validate
 from core.population import clearance_factor, cockcroft_gault
 from core.metrics import (
@@ -442,7 +448,9 @@ with tab_multi:
         rows = []
         for d, amt, tau_i, base_model, route_i in regimen:
             acting = [i for i in interactions_for(d.id) if i.perpetrator in all_names - {d.name}]
-            acting += [i for i in find(d.id, co_perps) if i not in acting]
+            acting += [i for i in find(d.id, co_perps, drug=d) if i not in acting]
+            acting += [i for i in derived_interactions(d, all_names - {d.name})
+                       if i.perpetrator not in {a.perpetrator for a in acting}]
             affected = apply_interactions(base_model, acting)
             events_i = regular_schedule(amt, tau_i, duration_h)
             c_alone = concentration_profile(t, events_i, base_model)
@@ -465,9 +473,14 @@ with tab_multi:
                 effect = (T("multi_qualitative") if i.exposure_factor is None
                           else f"x{i.exposure_factor:.2f} ({100 * (i.exposure_factor - 1):+.0f} %)")
                 rows.append({T("drug"): d.name, T("multi_perpetrator"): i.name(lang_code),
-                             T("multi_effect"): effect, T("multi_site"): T("multi_site_" + i.site),
+                             T("multi_effect"): effect,
+                             T("multi_evidence"): T("multi_estimated") if i.estimated else T("multi_measured"),
+                             T("multi_site"): T("multi_site_" + i.site),
                              T("multi_onset"): f"{i.onset_h / 24:.0f} d" if i.onset_h >= 24 else f"{i.onset_h:.0f} h",
-                             T("validation_source"): i.source, T("validation_note"): i.note})
+                             T("validation_source"): i.source,
+                             T("validation_note"): (i.basis or i.note) if i.estimated else i.note})
+        if any(i for i in rows if i[T("multi_evidence")] == T("multi_estimated")):
+            st.info(T("multi_estimated_help"))
         if rows:
             st.markdown(f"#### {T('multi_table_title')}")
             st.dataframe(rows, hide_index=True, width="stretch",

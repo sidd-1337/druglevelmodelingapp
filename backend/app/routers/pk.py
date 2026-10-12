@@ -41,7 +41,7 @@ from core.harm_reduction import (
     get_route_timeline,
 )
 from core.individualize import Observation, fit_individual, individual_band
-from core.interactions import apply_interactions, find, interactions_for
+from core.interactions import apply_interactions, derived_interactions, find, interactions_for
 from core.metrics import (
     TDMAssessment,
     TherapeuticWindow,
@@ -179,6 +179,8 @@ def list_presets() -> list[DrugPreset]:
             cv_cl=d.cv_cl,
             cv_f=d.cv_f,
             fe_renal=d.fe_renal,
+            pathways=d.pathways,
+            fu=d.fu,
             km=d.km,
             saturable_fraction=d.saturable_fraction,
             v1_fraction=d.v1_fraction,
@@ -458,7 +460,7 @@ def _interaction_response(i) -> InteractionResponse:
     return InteractionResponse(
         victim_id=i.victim_id, perpetrator=i.perpetrator, perpetrator_cs=i.perpetrator_cs, site=i.site,
         exposure_factor=i.exposure_factor, direction=i.direction, onset_h=i.onset_h, qualitative=i.qualitative,
-        source=i.source, verified=i.verified, note=i.note)
+        source=i.source, verified=i.verified, note=i.note, estimated=i.estimated, basis=i.basis)
 
 
 @router.get("/interactions/{drug_id}", response_model=list[InteractionResponse])
@@ -497,7 +499,11 @@ def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
     series = []
     for item, drug in entries:
         others = co_names - {drug.name, drug.id}
-        acting = [i for i in interactions_for(drug.id) if i.perpetrator in others] + find(drug.id, named)
+        acting = [i for i in interactions_for(drug.id) if i.perpetrator in others]
+        acting += find(drug.id, named, drug=drug)
+        # mechanistic estimates for the other simulated drugs too, where no study exists
+        acting += [i for i in derived_interactions(drug, others)
+                   if i.perpetrator not in {a.perpetrator for a in acting}]
         acting = list({(i.perpetrator, i.site): i for i in acting}.values())
         used_perpetrators |= {i.perpetrator for i in acting}
 

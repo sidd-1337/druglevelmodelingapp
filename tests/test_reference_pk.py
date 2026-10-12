@@ -1,8 +1,10 @@
 """Presets must reproduce published PK data (data/reference_pk.json) within tolerance."""
 import pytest
 
+import numpy as np
+
 from core.drug_database import load_drugs
-from core.validation import load_references, validate
+from core.validation import load_references, validate, validate_interactions
 
 ROWS = validate()
 
@@ -30,3 +32,32 @@ def test_references_cite_a_source():
 def test_saturable_exposure_rises_more_than_dose():
     auc = {r.dose_mg: r.predicted for r in ROWS if r.drug_id == "mdma" and r.metric == "auc_0_24"}
     assert auc[125] / auc[75] > 125 / 75
+
+
+# --------------------------------------------- mechanistic interaction back-test
+DDI = validate_interactions()
+# Pinned from the first run: 3 pairs, geometric mean fold error 1.25. Raise the
+# ceiling only with a reason; never by tuning fm to fit.
+MAX_DDI_GMFE = 1.5
+
+
+@pytest.mark.parametrize("row", DDI, ids=lambda r: f"{r.victim_id}-{r.perpetrator.split()[0]}")
+def test_mechanism_reproduces_each_measured_factor(row):
+    assert row.within, (
+        f"{row.victim_id} + {row.perpetrator}: measured {row.observed:.2f}, "
+        f"mechanism predicts {row.predicted:.2f} from fm={row.fm:.2f} x residual={row.residual:.3f}")
+
+
+def test_mechanistic_back_test_stays_within_its_pinned_error():
+    assert DDI, "the mechanism can address no measured pair at all"
+    gmfe = float(np.exp(np.mean([np.log(r.fold_error) for r in DDI])))
+    assert gmfe <= MAX_DDI_GMFE, f"geometric mean fold error {gmfe:.2f} exceeds the pinned {MAX_DDI_GMFE}"
+
+
+def test_back_test_only_covers_pairs_the_mechanism_can_address():
+    # Renal handling, transporter and first-pass interactions are out of scope by
+    # construction - they must not silently count as mechanistic successes.
+    covered = {(r.victim_id, r.perpetrator) for r in DDI}
+    assert ("lithium", "Ibuprofen") not in covered  # renal clearance, not an enzyme
+    assert ("amoxicillin", "Probenecid") not in covered  # tubular secretion
+    assert ("ketamine", "Rifampicin") not in covered  # first-pass bioavailability

@@ -1,0 +1,232 @@
+{
+  "_comment": "Enzyme activity registry. enzymes: genotype_activity is the clearance multiplier for that phenotype relative to a normal metaboliser, back-derived where possible from the AUC ratio of a sensitive substrate that is named in the note; phenotype_frequency is European. perpetrators: residual enzyme activity is NOT stored - it is derived at load time from index_auc_ratio and the index substrate's own index_fm, as residual = (1/ratio - (1 - fm)) / fm, and checked against the FDA class band. Reading a residual straight off the AUC ratio would overstate the remaining activity. CAVEAT: ratios measured on ORALLY dosed index substrates include gut-wall inhibition and loss of first-pass extraction, so residuals derived from them overstate the purely hepatic effect; this applies to every CYP3A4 entry here. All values are from search excerpts of the cited sources and are unverified.",
+  "enzymes": {
+    "CYP2D6": {
+      "genotype_activity": {
+        "poor": 0.12,
+        "intermediate": 0.5,
+        "normal": 1.0,
+        "ultrarapid": 1.4
+      },
+      "phenotype_frequency": {
+        "poor": 0.07,
+        "intermediate": 0.11,
+        "normal": 0.8,
+        "ultrarapid": 0.02
+      },
+      "source": "https://medlibrary.org/lib/rx/meds/strattera-3/page/7/",
+      "verified": false,
+      "note": "Poor-metaboliser activity back-derived from atomoxetine, whose AUC is about 10-fold higher in poor metabolisers (a PBPK re-analysis gives 7.8-fold). Risperidone is deliberately NOT the anchor: its active moiety is CYP2D6-independent. Ultrarapid from the nortriptyline gene-copy series. Intermediate rests on the CPIC activity score of 0.5, not a measured AUC ratio. Frequencies are European and vary with a north-south gradient; reported poor-metaboliser rates span 1.5-7 %."
+    },
+    "CYP2C19": {
+      "genotype_activity": {
+        "poor": 0.11,
+        "intermediate": 0.5,
+        "normal": 1.0,
+        "rapid": 1.5,
+        "ultrarapid": 2.1
+      },
+      "phenotype_frequency": {
+        "poor": 0.02,
+        "intermediate": 0.26,
+        "normal": 0.4,
+        "rapid": 0.27,
+        "ultrarapid": 0.05
+      },
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4932617",
+      "verified": false,
+      "note": "Poor-metaboliser activity back-derived from omeprazole (AUC 7.5-fold in one study, 12-fold in another); ultrarapid (*17/*17) from a 2.1-fold LOWER omeprazole AUC. Intermediate and rapid rest on CPIC activity scores. European frequencies."
+    },
+    "CYP2C9": {
+      "genotype_activity": {
+        "poor": 0.14,
+        "intermediate": 0.5,
+        "normal": 1.0
+      },
+      "phenotype_frequency": {
+        "poor": 0.025,
+        "intermediate": 0.26,
+        "normal": 0.715
+      },
+      "source": "https://files.cpicpgx.org/data/guideline/publication/NSAID/2020/32189324.pdf",
+      "verified": false,
+      "note": "Poor-metaboliser activity derived from a roughly 7-fold higher celecoxib steady-state exposure in *3/*3 (secondary source, unconfirmed). CPIC reclassified *2/*2 from poor to intermediate in 2020. Nordic European frequencies."
+    },
+    "CYP3A4": {
+      "genotype_activity": {
+        "normal": 1.0
+      },
+      "phenotype_frequency": {},
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10409991/table/T1",
+      "verified": false,
+      "note": "No poor/intermediate/ultrarapid system exists for CYP3A4, so there is no genotype selector - only inhibition and induction. CYP3A5 expresser status is a separate axis not modelled here."
+    },
+    "CYP1A2": {
+      "genotype_activity": {
+        "normal": 1.0
+      },
+      "phenotype_frequency": {},
+      "source": "https://www.knmp.nl/sites/default/files/2023-11/CYP1A2_English.pdf",
+      "verified": false,
+      "note": "No validated genotype-based activity multiplier; the *1F effect appears only alongside an inducer such as smoking, so no genotype selector is offered."
+    }
+  },
+  "perpetrators": [
+    {
+      "name": "Paroxetine 20 mg/day",
+      "name_cs": "Paroxetin 20 mg/den",
+      "enzyme": "CYP2D6",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "desipramine",
+      "index_auc_ratio": 4.8,
+      "index_fm": 0.85,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/14730412/",
+      "verified": false,
+      "note": "Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+    },
+    {
+      "name": "Fluoxetine 20 mg/day",
+      "name_cs": "Fluoxetin 20 mg/den",
+      "enzyme": "CYP2D6",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "desipramine",
+      "index_auc_ratio": 4.8,
+      "index_fm": 0.85,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2881853/table/T3",
+      "verified": false,
+      "note": "Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+    },
+    {
+      "name": "Bupropion",
+      "name_cs": "Bupropion",
+      "enzyme": "CYP2D6",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "desipramine",
+      "index_auc_ratio": 5.0,
+      "index_fm": 0.85,
+      "source": "https://medlibrary.org/lib/rx/meds/bupropion-hydrochloride-12/page/6/",
+      "verified": false,
+      "note": "Effect persists at least 7 days after stopping. Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+    },
+    {
+      "name": "Terbinafine",
+      "name_cs": "Terbinafin",
+      "enzyme": "CYP2D6",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "desipramine",
+      "index_auc_ratio": 5.0,
+      "index_fm": 0.85,
+      "source": "https://medlibrary.org/lib/rx/meds/terbinafine-14/page/2/",
+      "verified": false,
+      "note": "Effect persists about 4 weeks after stopping. Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+    },
+    {
+      "name": "Fluvoxamine 100-150 mg/day",
+      "name_cs": "Fluvoxamin 100-150 mg/den",
+      "enzyme": "CYP2C19",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "omeprazole",
+      "index_auc_ratio": 5.62,
+      "index_fm": 0.85,
+      "source": "https://www.bps.ac.uk/publishing/our-journals/british-journal-of-clinical-pharmacology/volume-57/issue-4/different-inhibitory-effect-of-fluvoxamine-on-omep",
+      "verified": false,
+      "note": "Index substrate: Reported in-vivo value whose primary URL could not be resolved; a fluconazole study implies at least 0.88. The value is phenotype-dependent."
+    },
+    {
+      "name": "Fluconazole",
+      "name_cs": "Flukonazol",
+      "enzyme": "CYP2C19",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "omeprazole",
+      "index_auc_ratio": 6.29,
+      "index_fm": 0.85,
+      "source": "https://go.drugbank.com/articles/A38608",
+      "verified": false,
+      "note": "Also inhibits CYP3A4 and CYP2C9, which this entry does not cover. Index substrate: Reported in-vivo value whose primary URL could not be resolved; a fluconazole study implies at least 0.88. The value is phenotype-dependent."
+    },
+    {
+      "name": "Ciprofloxacin",
+      "name_cs": "Ciprofloxacin",
+      "enzyme": "CYP1A2",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "tizanidine",
+      "index_auc_ratio": 10.0,
+      "index_fm": 0.97,
+      "source": "https://medlibrary.org/lib/rx/meds/zanaflex/page/2/",
+      "verified": false,
+      "note": "Index substrate: Lower bound from the 33-fold AUC rise with fluvoxamine (range 14-103x)."
+    },
+    {
+      "name": "Fluvoxamine",
+      "name_cs": "Fluvoxamin",
+      "enzyme": "CYP1A2",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "tizanidine",
+      "index_auc_ratio": 33.0,
+      "index_fm": 0.97,
+      "source": "https://medlibrary.org/lib/rx/meds/tizanidine-hydrochloride-4/page/4/",
+      "verified": false,
+      "note": "Range 14-103x. Index substrate: Lower bound from the 33-fold AUC rise with fluvoxamine (range 14-103x)."
+    },
+    {
+      "name": "Ketoconazole 200 mg b.i.d.",
+      "name_cs": "Ketokonazol 200 mg 2x denně",
+      "enzyme": "CYP3A4",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "midazolam (oral)",
+      "index_auc_ratio": 15.9,
+      "index_fm": 0.96,
+      "source": "https://ebmconsult.com/articles/medications-inhibitors-classification-weak-moderate-strong-cyp3a4",
+      "verified": false,
+      "note": "Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+    },
+    {
+      "name": "Clarithromycin",
+      "name_cs": "Klarithromycin",
+      "enzyme": "CYP3A4",
+      "drug_class": "strong_inhibitor",
+      "index_substrate": "midazolam (oral)",
+      "index_auc_ratio": 8.4,
+      "index_fm": 0.96,
+      "source": "https://ebmconsult.com/articles/medications-inhibitors-classification-weak-moderate-strong-cyp3a4",
+      "verified": false,
+      "note": "Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+    },
+    {
+      "name": "Diltiazem",
+      "name_cs": "Diltiazem",
+      "enzyme": "CYP3A4",
+      "drug_class": "moderate_inhibitor",
+      "index_substrate": "midazolam (oral)",
+      "index_auc_ratio": 3.75,
+      "index_fm": 0.96,
+      "source": "https://medlibrary.org/lib/rx/meds/midazolam-hydrochloride-16/page/3/",
+      "verified": false,
+      "note": "Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+    },
+    {
+      "name": "Carbamazepine 400 mg b.i.d.",
+      "name_cs": "Karbamazepin 400 mg 2x denně",
+      "enzyme": "CYP3A4",
+      "drug_class": "inducer",
+      "index_substrate": "midazolam (oral)",
+      "index_auc_ratio": 0.282,
+      "index_fm": 0.96,
+      "source": "https://www.citedrive.com/en/discovery/assessment-of-the-cyp3a4-induction-potential-by-carbamazepine-insights-from-two-clinical-ddi-studies-and-pbpk-modeling",
+      "verified": false,
+      "note": "Induction builds over about two weeks and wanes similarly. Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+    },
+    {
+      "name": "Rifampicin",
+      "name_cs": "Rifampicin",
+      "enzyme": "CYP3A4",
+      "drug_class": "inducer",
+      "index_substrate": "midazolam (oral)",
+      "index_auc_ratio": 0.18,
+      "index_fm": 0.96,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9755915",
+      "verified": false,
+      "note": "Reported ratios span 0.016-0.18; the clinical 7-day value is used as the conservative choice. Index substrate: Published static-model value. ORAL ratios also carry gut-wall CYP3A4 (ketoconazole raises oral midazolam 11-20x but intravenous only 2.7-4.7x), so a residual derived from an oral ratio OVERSTATES the hepatic effect on drugs whose fm is hepatic."
+    }
+  ]
+}

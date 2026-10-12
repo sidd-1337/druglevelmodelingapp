@@ -124,3 +124,13 @@ def test_app_co_medication_tab_applies_interaction():
     at.multiselect[0].set_value(["ibuprofen"]).run()
     assert not at.exception
     assert any("1.15x" in m.value for m in at.metric)
+
+
+def test_app_co_medication_shows_a_derived_estimate():
+    at = _run()
+    at.selectbox[0].set_value("mirtazapine").run()
+    at.multiselect[1].set_value(["Clarithromycin"]).run()  # no study for this pair
+    assert not at.exception
+    cells = [str(v).lower() for df in at.dataframe for v in df.value.to_numpy().ravel()]
+    assert any(c == "estimated" for c in cells)
+    assert any("carries 35 % of this drug's clearance" in c for c in cells)

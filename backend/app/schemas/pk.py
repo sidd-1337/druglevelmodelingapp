@@ -33,6 +33,8 @@ class DrugPreset(BaseModel):
     cv_cl: float | None = None
     cv_f: float = 0.0
     fe_renal: float = 0.0
+    pathways: dict[str, float] | None = None
+    fu: float = 1.0
     km: float | None = None
     saturable_fraction: float = 0.0
     v1_fraction: float = 1.0
@@ -293,6 +295,8 @@ class InteractionResponse(BaseModel):
     source: str
     verified: bool
     note: str = ""
+    estimated: bool = Field(default=False, description="Derived from the mechanism, not measured for this pair")
+    basis: str = ""
 
 
 class MultiDrugSeriesResponse(BaseModel):

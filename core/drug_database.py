@@ -47,6 +47,9 @@ class Drug:
     # unassigned remainder is size-scaled and genotype-free. Kept consistent with
     # fe_renal, which is the "renal" entry.
     pathways: dict[str, float] | None = None
+    # Unbound fraction. Recorded for reference only: every therapeutic range here is a
+    # total plasma concentration, so no prediction depends on it.
+    fu: float = 1.0
     km: float | None = None  # Michaelis-Menten constant, concentration unit
     saturable_fraction: float = 0.0  # share of low-concentration CL that saturates
     v1_fraction: float = 1.0  # central / steady-state volume (< 1: two compartments)
@@ -286,6 +289,7 @@ def _parse(entry: dict) -> Drug:
         cv_f=float(entry.get("cv_f", 0.0)),
         fe_renal=fe_renal,
         pathways=pathways,
+        fu=float(binding["fu"]) if (binding := entry.get("protein_binding")) else 1.0,
         km=float(sat["km"]) if (sat := entry.get("saturable")) else None,
         saturable_fraction=float(sat["fraction"]) if sat else 0.0,
         v1_fraction=float(two["v1_fraction"]) if (two := entry.get("two_compartment")) else 1.0,
