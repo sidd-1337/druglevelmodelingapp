@@ -72,7 +72,8 @@ def test_app_sukl_search_integration():
     assert not at.exception
 
 
-def test_app_sukl_search_livizux_both_packages():
+@pytest.mark.network
+def test_app_sukl_search_livizux_both_packages(requires_sukl):
     at = _run()
     sukl_input = at.sidebar.text_input[0]
     sukl_input.set_value("Livizux 70mg").run()
@@ -83,7 +84,8 @@ def test_app_sukl_search_livizux_both_packages():
     assert "0265887" in joined and "0265888" in joined
 
 
-def test_app_sukl_search_ritalin_matches_preset():
+@pytest.mark.network
+def test_app_sukl_search_ritalin_matches_preset(requires_sukl):
     at = _run()
     sukl_input = at.sidebar.text_input[0]
     sukl_input.set_value("Ritalin").run()
@@ -92,7 +94,8 @@ def test_app_sukl_search_ritalin_matches_preset():
     assert at.sidebar.selectbox[1].value == "ritalin"
 
 
-def test_app_sukl_search_ritalin_alias_code_matches_preset():
+@pytest.mark.network
+def test_app_sukl_search_ritalin_alias_code_matches_preset(requires_sukl):
     at = _run()
     sukl_input = at.sidebar.text_input[0]
     sukl_input.set_value("0015642").run()

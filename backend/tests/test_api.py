@@ -269,7 +269,8 @@ def test_simulate_validation_errors():
     assert res.status_code == 404
 
 
-def test_drugs_detail_livizux_30_caps_package():
+@pytest.mark.network
+def test_drugs_detail_livizux_30_caps_package(requires_sukl):
     res = client.get("/api/v1/drugs/0265887")
     assert res.status_code == 200
     data = res.json()
