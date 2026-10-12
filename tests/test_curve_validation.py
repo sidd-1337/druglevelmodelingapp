@@ -136,6 +136,19 @@ def test_molar_units_work_for_lithium():
     assert validate_curve(meq).fit.aafe == pytest.approx(1.0, abs=1e-9)
 
 
+def test_lithium_printed_as_mass_of_li_converts_only_with_its_molar_mass():
+    """FDA reviews print lithium as ug/mL of Li+; mmol/L is that divided by 6.941."""
+    mmol = _curve_from_model("lithium", 300.0)
+    ug_li = {**mmol, "unit": "ug/mL", "molar_mass_g_per_mol": 6.941,
+             "points": [[t, c * 6.941] for t, c in mmol["points"]]}
+    assert validate_curve(ug_li).fit.aafe == pytest.approx(1.0, abs=1e-9)
+    ng_li = {**ug_li, "unit": "ng/mL", "points": [[t, c * 1000.0] for t, c in ug_li["points"]]}
+    assert validate_curve(ng_li).fit.aafe == pytest.approx(1.0, abs=1e-9)
+    # Read as lithium carbonate the same numbers would be tenfold low - so no default.
+    with pytest.raises(ValueError, match="molar_mass_g_per_mol"):
+        validate_curve({k: v for k, v in ug_li.items() if k != "molar_mass_g_per_mol"})
+
+
 def test_an_unknown_unit_pair_raises_instead_of_guessing():
     with pytest.raises(ValueError, match="no conversion"):
         convert_concentration([1.0], "nmol/L", "ug/mL")

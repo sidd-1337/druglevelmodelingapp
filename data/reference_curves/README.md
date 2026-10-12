@@ -46,13 +46,16 @@ One curve per file; the filename stem becomes the `curve_id`.
 | `route` | no | `oral` (default), `iv_bolus`, `insufflated`, `smoked` |
 | `body_weight_kg` | no | 70 by default |
 | `lloq` | no | in `unit`; points at or below it are dropped before scoring |
+| `molar_mass_g_per_mol` | only for a mass unit against a molar preset | molar mass of the species the paper weighed: 6.941 for lithium printed as Li+, never lithium carbonate's 73.89 |
 | `max_aafe` | no | fold tolerance on AAFE, 1.5 by default |
 | `source` | yes | URL or citation |
 | `verified` | no | `true` only once checked against the primary document, not a search excerpt |
 | `n_subjects`, `statistic`, `label`, `note` | no | metadata; recorded, not used in scoring |
 
 Supported units are in `core.validation.UNIT_FACTORS`. An unlisted pair raises rather
-than guessing — a silent 1000-fold slip would look exactly like a model failure.
+than guessing — a silent 1000-fold slip would look exactly like a model failure. Mass
+to molar (ug/mL of Li+ against lithium's mmol/L) also needs `molar_mass_g_per_mol`,
+because the unit never says which species was weighed; without it, it raises too.
 
 ## `observed` versus `published_model`
 

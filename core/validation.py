@@ -200,11 +200,24 @@ UNIT_FACTORS: dict[tuple[str, str], float] = {
 CURVE_KINDS = ("observed", "published_model")
 
 
-def convert_concentration(values, from_unit: str, to_unit: str):
+# Mass to molar needs the molar mass of the species the paper weighed, which the
+# unit alone never says: lithium is printed as ug/mL of Li+ (6.94 g/mol), and reading
+# it as lithium carbonate (73.89 g/mol) would be a silent tenfold error. So the curve
+# file must state it, and without it the pair still raises.
+MASS_UNITS_IN_MG_PER_L = {"mg/L": 1.0, "ug/mL": 1.0, "ng/mL": 1e-3, "ug/L": 1e-3}
+MOLAR_UNITS_IN_MMOL_PER_L = {"mmol/L": 1.0, "umol/L": 1e-3}
+
+
+def convert_concentration(values, from_unit: str, to_unit: str, molar_mass_g_per_mol: float | None = None):
     """Concentrations in ``from_unit`` expressed in ``to_unit``."""
-    if (from_unit, to_unit) not in UNIT_FACTORS:
-        raise ValueError(f"no conversion from {from_unit!r} to {to_unit!r}")
-    return np.asarray(values, dtype=float) * UNIT_FACTORS[(from_unit, to_unit)]
+    values = np.asarray(values, dtype=float)
+    if (from_unit, to_unit) in UNIT_FACTORS:
+        return values * UNIT_FACTORS[(from_unit, to_unit)]
+    if molar_mass_g_per_mol and from_unit in MASS_UNITS_IN_MG_PER_L and to_unit in MOLAR_UNITS_IN_MMOL_PER_L:
+        # mg/L divided by g/mol is mmol/L
+        return values * MASS_UNITS_IN_MG_PER_L[from_unit] / molar_mass_g_per_mol / MOLAR_UNITS_IN_MMOL_PER_L[to_unit]
+    hint = " (a mass unit needs molar_mass_g_per_mol)" if to_unit in MOLAR_UNITS_IN_MMOL_PER_L else ""
+    raise ValueError(f"no conversion from {from_unit!r} to {to_unit!r}{hint}")
 
 
 @dataclass(frozen=True)
@@ -311,11 +324,12 @@ def validate_curve(curve: dict, db_path: str | Path = DEFAULT_DB_PATH) -> CurveV
         raise ValueError(f"{curve.get('curve_id')}: kind must be one of {CURVE_KINDS}")
     points = sorted((float(t), float(c)) for t, c in curve["points"])
     drug = get_drug(curve["drug_id"], db_path)
-    obs = convert_concentration([c for _, c in points], curve["unit"], drug.concentration_unit)
+    molar_mass = curve.get("molar_mass_g_per_mol")
+    obs = convert_concentration([c for _, c in points], curve["unit"], drug.concentration_unit, molar_mass)
     times = np.array([t for t, _ in points])
     # Below the assay's limit of quantification a "concentration" is a rounding
     # artefact; scoring it would let one unquantifiable tail point dominate the fit.
-    keep = obs > convert_concentration(curve.get("lloq", 0.0), curve["unit"], drug.concentration_unit)
+    keep = obs > convert_concentration(curve.get("lloq", 0.0), curve["unit"], drug.concentration_unit, molar_mass)
     if not keep.any():
         raise ValueError(f"{curve.get('curve_id')}: every point is at or below the LLOQ")
     times, obs = times[keep], obs[keep]
