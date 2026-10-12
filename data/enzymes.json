@@ -1,5 +1,5 @@
 {
-  "_comment": "Enzyme activity registry. enzymes: genotype_activity is the clearance multiplier for that phenotype relative to a normal metaboliser, back-derived where possible from the AUC ratio of a sensitive substrate that is named in the note; phenotype_frequency is European. perpetrators: residual enzyme activity is NOT stored - it is derived at load time from index_auc_ratio and the index substrate's own index_fm, as residual = (1/ratio - (1 - fm)) / fm, and checked against the FDA class band. Reading a residual straight off the AUC ratio would overstate the remaining activity. CAVEAT: ratios measured on ORALLY dosed index substrates include gut-wall inhibition and loss of first-pass extraction, so residuals derived from them overstate the purely hepatic effect; this applies to every CYP3A4 entry here. All values are from search excerpts of the cited sources and are unverified.",
+  "_comment": "Enzyme activity registry. enzymes: genotype_activity is the clearance multiplier for that phenotype relative to a normal metaboliser, back-derived where possible from the AUC ratio of a sensitive substrate that is named in the note; phenotype_frequency is European. perpetrators: residual enzyme activity is NOT stored - it is derived at load time from index_auc_ratio and the index substrate's own index_fm, as residual = (1/ratio - (1 - fm)) / fm, and checked against the FDA class band. Reading a residual straight off the AUC ratio would overstate the remaining activity. CAVEAT: every index substrate here (desipramine, omeprazole, tizanidine, midazolam) was dosed ORALLY, so the ratios include gut-wall inhibition and loss of first-pass extraction and residuals derived from them overstate the purely hepatic effect - most for CYP3A4. A second caveat for genotype_activity: it is applied to one pathway, but several values were read off whole-drug exposure ratios without an fm correction; see each note. verified=true: the value was checked against the primary document named in source - an SPC or regulator label, the original study's full text (or its abstract, where the note says 'abstract only'), or a registry's posted results - and the note says where. verified=false: no primary could be reached, primaries disagree, or a field is calibrated rather than observed; the note says which. Drug-information aggregators and label mirrors are never a source for a verified value (tests/test_data_provenance.py).",
   "enzymes": {
     "CYP2D6": {
       "genotype_activity": {
@@ -14,9 +14,9 @@
         "normal": 0.8,
         "ultrarapid": 0.02
       },
-      "source": "https://medlibrary.org/lib/rx/meds/strattera-3/page/7/",
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=309de576-c318-404a-bc15-660c2b1876fb",
       "verified": false,
-      "note": "Poor-metaboliser activity back-derived from atomoxetine, whose AUC is about 10-fold higher in poor metabolisers (a PBPK re-analysis gives 7.8-fold). Risperidone is deliberately NOT the anchor: its active moiety is CYP2D6-independent. Ultrarapid from the nortriptyline gene-copy series. Intermediate rests on the CPIC activity score of 0.5, not a measured AUC ratio. Frequencies are European and vary with a north-south gradient; reported poor-metaboliser rates span 1.5-7 %."
+      "note": "Not verifiable as a single number. Strattera label: atomoxetine AUC about 10-fold higher in poor metabolisers (1/10 = 0.10); its PK table, corrected for bioavailability (63 % vs 94 %), gives a clearance ratio of 0.128. Ultrarapid: the nortriptyline gene-copy series (Dalen 1998) implies about 1.33. Intermediate is the CPIC activity score 0.5, not a measured ratio. CAVEAT: the multiplier is applied to one pathway but derived from whole-drug ratios without an fm correction. Frequencies: phenotypic PM 7.0 % (Sachse 1997, 589 Germans); genotype-predicted European PM 5.44 % (Gaedigk 2017). Risperidone is deliberately not the anchor: its active moiety is CYP2D6-independent."
     },
     "CYP2C19": {
       "genotype_activity": {
@@ -27,15 +27,15 @@
         "ultrarapid": 2.1
       },
       "phenotype_frequency": {
-        "poor": 0.02,
+        "poor": 0.03,
         "intermediate": 0.26,
         "normal": 0.4,
         "rapid": 0.27,
         "ultrarapid": 0.05
       },
-      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4932617",
+      "source": "https://pubmed.ncbi.nlm.nih.gov/17203292/",
       "verified": false,
-      "note": "Poor-metaboliser activity back-derived from omeprazole (AUC 7.5-fold in one study, 12-fold in another); ultrarapid (*17/*17) from a 2.1-fold LOWER omeprazole AUC. Intermediate and rapid rest on CPIC activity scores. European frequencies."
+      "note": "Not verifiable as stated. Poor: oral omeprazole AUC ratios (7.5-fold, Klotz) are confounded by bioavailability; the IV arm of PMID 17203292 gives clearance multipliers of 0.23 (PM) and 0.58 (heterozygous EM). Ultrarapid 2.1 is exact (Baldwin 2008: *17/*17 omeprazole AUC 1973 vs 4151). The '12-fold' figure could not be traced. Poor-metaboliser frequency 0.03: Prilosec label, 'approximately 3% of Caucasians'. CPIC does not use activity scores for CYP2C19."
     },
     "CYP2C9": {
       "genotype_activity": {
@@ -48,9 +48,9 @@
         "intermediate": 0.26,
         "normal": 0.715
       },
-      "source": "https://files.cpicpgx.org/data/guideline/publication/NSAID/2020/32189324.pdf",
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2d6675e4-5859-4be2-8037-a20ce9f707aa",
       "verified": false,
-      "note": "Poor-metaboliser activity derived from a roughly 7-fold higher celecoxib steady-state exposure in *3/*3 (secondary source, unconfirmed). CPIC reclassified *2/*2 from poor to intermediate in 2020. Nordic European frequencies."
+      "note": "Celebrex label: celecoxib systemic levels 3- to 7-fold higher in *3/*3 than in a pooled *1/*1 or *1/*3 group, so 0.14-0.33 and, against *1/*1 alone, lower. CPIC NSAID guideline: *3/*3 ratio of means 4.16. Intermediate 0.5 lumps *1/*2 (no effect) with *1/*3 (x1.62). No preset uses a CYP2C9 pathway."
     },
     "CYP3A4": {
       "genotype_activity": {
@@ -59,7 +59,7 @@
       "phenotype_frequency": {},
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10409991/table/T1",
       "verified": false,
-      "note": "No poor/intermediate/ultrarapid system exists for CYP3A4, so there is no genotype selector - only inhibition and induction. CYP3A5 expresser status is a separate axis not modelled here."
+      "note": "No poor/intermediate/ultrarapid system exists for CYP3A4, so there is no genotype selector - only inhibition and induction. 'normal' = 1.0 is the loader's normalisation, not a datum. The cited table is from a CYP3A4*22/tacrolimus meta-analysis and does not address phenotype classes. CYP3A5 expresser status is a separate axis not modelled here."
     },
     "CYP1A2": {
       "genotype_activity": {
@@ -68,7 +68,7 @@
       "phenotype_frequency": {},
       "source": "https://www.knmp.nl/sites/default/files/2023-11/CYP1A2_English.pdf",
       "verified": false,
-      "note": "No validated genotype-based activity multiplier; the *1F effect appears only alongside an inducer such as smoking, so no genotype selector is offered."
+      "note": "No validated genotype-based activity multiplier; the *1F effect appears only alongside an inducer such as smoking (KNMP/DPWG background text, a guideline rather than a primary), so no genotype selector is offered."
     }
   },
   "perpetrators": [
@@ -81,8 +81,8 @@
       "index_auc_ratio": 4.8,
       "index_fm": 0.85,
       "source": "https://pubmed.ncbi.nlm.nih.gov/14730412/",
-      "verified": false,
-      "note": "Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+      "verified": true,
+      "note": "Laine 2004 (abstract): paroxetine 20 mg/day for 8 days, single 100 mg desipramine, n=15, AUC x4.8. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss."
     },
     {
       "name": "Fluoxetine 20 mg/day",
@@ -92,9 +92,9 @@
       "index_substrate": "desipramine",
       "index_auc_ratio": 4.8,
       "index_fm": 0.85,
-      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2881853/table/T3",
-      "verified": false,
-      "note": "Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+      "source": "https://pubmed.ncbi.nlm.nih.gov/8195463/",
+      "verified": true,
+      "note": "Preskorn 1994 (abstract): fluoxetine 20 mg/day, desipramine 50 mg/day at steady state, 18 healthy extensive metabolisers, AUC0-24 x4.8. The previously cited review table has no numbers. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss."
     },
     {
       "name": "Bupropion",
@@ -104,9 +104,9 @@
       "index_substrate": "desipramine",
       "index_auc_ratio": 5.0,
       "index_fm": 0.85,
-      "source": "https://medlibrary.org/lib/rx/meds/bupropion-hydrochloride-12/page/6/",
-      "verified": false,
-      "note": "Effect persists at least 7 days after stopping. Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=cbc8c074-f080-4489-a5ae-207b5fadeba3",
+      "verified": true,
+      "note": "Wellbutrin SR label: bupropion 150 mg b.i.d. with a single 50 mg desipramine, AUC 'approximately' 5-fold; the effect persists at least 7 days after the last dose. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss."
     },
     {
       "name": "Terbinafine",
@@ -116,21 +116,21 @@
       "index_substrate": "desipramine",
       "index_auc_ratio": 5.0,
       "index_fm": 0.85,
-      "source": "https://medlibrary.org/lib/rx/meds/terbinafine-14/page/2/",
-      "verified": false,
-      "note": "Effect persists about 4 weeks after stopping. Index substrate: Derived from clearance 102 L/h in extensive vs 15 L/h in poor metabolisers; no published fm was found."
+      "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2019/020539s033lbl.pdf",
+      "verified": true,
+      "note": "Lamisil label 7.1: desipramine AUC 5-fold (Madani 2002: 482 -> 2383 ng*h/mL, x4.94, terbinafine 250 mg/day for 21 days); still present at the last observation 4 weeks after stopping. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss."
     },
     {
-      "name": "Fluvoxamine 100-150 mg/day",
-      "name_cs": "Fluvoxamin 100-150 mg/den",
+      "name": "Fluvoxamine 50 mg/day",
+      "name_cs": "Fluvoxamin 50 mg/den",
       "enzyme": "CYP2C19",
       "drug_class": "strong_inhibitor",
       "index_substrate": "omeprazole",
       "index_auc_ratio": 5.62,
       "index_fm": 0.85,
-      "source": "https://www.bps.ac.uk/publishing/our-journals/british-journal-of-clinical-pharmacology/volume-57/issue-4/different-inhibitory-effect-of-fluvoxamine-on-omep",
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884483/",
       "verified": false,
-      "note": "Index substrate: Reported in-vivo value whose primary URL could not be resolved; a fluconazole study implies at least 0.88. The value is phenotype-dependent."
+      "note": "Yasui-Furukori 2004 (Br J Clin Pharmacol 57:487) Table 1: fluvoxamine 25 mg b.i.d. (50 mg/day, not 100-150) for 6 days, single 40 mg omeprazole, homozygous extensive metabolisers, AUC ratio of geometric means 8340/1483 = 5.62 (the text's 6.2-fold is a mean of individual ratios). Inhibition is dose-dependent. Index substrate omeprazole: fm 0.85 is not established by any primary; the primaries bracket it at 0.84-0.90 (1 - 1/6.29 = 0.84 from Kang 2002; 0.87-0.90 from Yasui-Furukori's poor vs homozygous extensive metabolisers). Orally dosed, so the ratio includes first-pass loss."
     },
     {
       "name": "Fluconazole",
@@ -140,9 +140,9 @@
       "index_substrate": "omeprazole",
       "index_auc_ratio": 6.29,
       "index_fm": 0.85,
-      "source": "https://go.drugbank.com/articles/A38608",
+      "source": "https://pubmed.ncbi.nlm.nih.gov/11932962/",
       "verified": false,
-      "note": "Also inhibits CYP3A4 and CYP2C9, which this entry does not cover. Index substrate: Reported in-vivo value whose primary URL could not be resolved; a fluconazole study implies at least 0.88. The value is phenotype-dependent."
+      "note": "Kang 2002 (abstract): fluconazole 100 mg/day for 4 days, omeprazole 20 mg, n=18 healthy men, AUC0-inf 491 -> 3090 ng*h/mL (x6.29). Diflucan label: strong CYP2C19, moderate CYP2C9 and CYP3A4 inhibitor; this entry covers CYP2C19 only. Index substrate omeprazole: fm 0.85 is not established by any primary; the primaries bracket it at 0.84-0.90 (1 - 1/6.29 = 0.84 from Kang 2002; 0.87-0.90 from Yasui-Furukori's poor vs homozygous extensive metabolisers). Orally dosed, so the ratio includes first-pass loss."
     },
     {
       "name": "Ciprofloxacin",

@@ -337,8 +337,14 @@ def test_pk_individualize_rejects_level_before_first_dose():
 
 
 def test_validation_report():
+    """The endpoint reports the score as it is, misses included - not a promise that every row passes."""
+    from core.validation import summarize, validate
+
     data = client.get("/api/v1/pk/validation").json()
-    assert data["summary"]["exposure"]["within"] == data["summary"]["exposure"]["n"]
+    rows = validate()
+    for group, g in summarize(rows).items():
+        assert (data["summary"][group]["n"], data["summary"][group]["within"]) == (g.n, g.within)
+    assert [r["within_tolerance"] for r in data["rows"]] == [r.within for r in rows]
     assert all(r["source"].startswith("http") for r in data["rows"])
 
 

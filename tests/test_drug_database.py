@@ -187,5 +187,6 @@ def test_cyp2d6_barely_moves_the_risperidone_active_moiety():
     ratio = poor.cavg_ss / normal.cavg_ss
     assert 1.2 < ratio < 1.8, ratio  # published poor/extensive active-moiety ratios are 1.28-1.6
     # ... whereas the parent alone would move far more, which is why the moiety is buffered.
-    parent_only = 1 / (0.78 * 0.12 + 0.22)
+    fm = ris.pathways["CYP2D6"]
+    parent_only = 1 / (fm * 0.12 + (1 - fm))
     assert parent_only > 2 * ratio  # the parent moves >3x, the moiety only ~1.4x

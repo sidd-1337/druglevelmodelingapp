@@ -1,14 +1,14 @@
 {
-  "_comment": "Published single-dose (70 kg healthy adult, oral IR) and steady-state reference values used to validate the presets (core/validation.py, tests/test_reference_pk.py). Units match data/drugs.json concentration units (mg/L = ug/mL; AUC in unit*h). max_fold is the allowed symmetric fold error (default 1.5). verified=false: values were collected from search-result excerpts of the cited sources and still need checking against the full SmPC/label. Entries marked 'Known limitation' document where a one-compartment model cannot match the data.",
+  "_comment": "Published single-dose (70 kg healthy adult, oral IR) and steady-state reference values used to validate the presets (core/validation.py, tests/test_reference_pk.py). Units match data/drugs.json concentration units (mg/L = ug/mL; AUC in unit*h). max_fold is the allowed symmetric fold error (default 1.5). verified=true: the value was checked against the primary document named in source - an SPC or regulator label, the original study's full text (or its abstract, where the note says 'abstract only'), or a registry's posted results - and the note says where. verified=false: no primary could be reached, primaries disagree, or a field is calibrated rather than observed; the note says which. Drug-information aggregators and label mirrors are never a source for a verified value (tests/test_data_provenance.py). Entries marked 'Known limitation' document where a one-compartment model cannot match the data.",
   "references": [
     {
       "drug_id": "ibuprofen",
       "metric": "cmax",
       "dose_mg": 400,
-      "value": 31.0,
+      "value": 31.1,
       "source": "https://clinicaltrials.gov/study/NCT01879371",
-      "verified": false,
-      "note": "Geometric mean, n=36; 30.9-32.9 in https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2613135/"
+      "verified": true,
+      "note": "Brufen 400 mg tablet arm, fasted, n=36, geometric mean (NCT01879371 posted results: 31.1 ug/mL; 31.0 is the ibuprofen+caffeine arm). Schettler 2008 (PMC2613135) arithmetic means 30.9 and 32.9."
     },
     {
       "drug_id": "ibuprofen",
@@ -16,27 +16,27 @@
       "dose_mg": 400,
       "value": 1.5,
       "max_fold": 1.6,
-      "source": "https://docetp.mpa.se/LMF/Brufen%20film-coated%20tablet%20ENG%20PAR_09001bee807a2102.pdf",
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2613135/",
       "verified": false,
-      "note": "Label: 1-2 h"
+      "note": "Primary documents disagree. Schettler 2008 (400 mg fasted, full text Table 2): median tmax 1.50 h (Nurofen forte) and 1.75 h (Migränin); US Rx ibuprofen label 'one to two hours'; Swedish MPA Brufen PAR '1-3 hours'; Czech SPC (Ibalgin) 'nalačno dosahuje již za 45 minut'. Kept at the measured 400 mg value."
     },
     {
       "drug_id": "ibuprofen",
       "metric": "auc_inf",
       "dose_mg": 400,
       "value": 108.0,
-      "source": "https://tga.gov.au/sites/default/files/auspar-ibuprofen-130102-pi.pdf",
-      "verified": false,
-      "note": "IV 400 mg AUC 109.3; oral 107.8 in a small 2025 study"
+      "source": "https://doi.org/10.22159/ijap.2025v17i5.55640",
+      "verified": true,
+      "note": "Al-Tamimi 2025 (Int J App Pharm 17(5):315), 400 mg IR tablet, fasted, n=28, arithmetic mean AUC0-inf 107.8 ug*h/mL. Caveat: an unregistered test formulation. Other primaries at 400 mg: NCT01879371 Brufen arm 127 (geometric mean), Schettler 2008 115-117. The previously cited TGA PI is for IV Caldolor."
     },
     {
       "drug_id": "paracetamol",
       "metric": "cmax",
       "dose_mg": 1000,
       "value": 19.3,
-      "source": "https://www.sigmaaldrich.com/AT/de/tech-docs/paper/185012",
-      "verified": false,
-      "note": "Sevilla-Tirado 2003, 17.98-20.73 across formulations. Matched with a two-compartment model (V1 21 % of Vss, Q 77.5 L/h, Owens 2014) and an absorption lag."
+      "source": "https://pubmed.ncbi.nlm.nih.gov/14571283/",
+      "verified": true,
+      "note": "Sevilla-Tirado 2003 (Methods Find Exp Clin Pharmacol 25:531), 1000 mg single oral dose, n=12, abstract only (full text unreachable); midpoint of the five formulations' means, which include effervescent and sachet forms: Cmax 17.98-20.73 ug/mL. Two-compartment model (V1 21 % of Vss, Q 77.5 L/h, Owens 2014) and an absorption lag."
     },
     {
       "drug_id": "paracetamol",
@@ -44,27 +44,27 @@
       "dose_mg": 1000,
       "value": 0.65,
       "max_fold": 1.6,
-      "source": "https://www.sigmaaldrich.com/AT/de/tech-docs/paper/185012",
-      "verified": false,
-      "note": "0.40-0.88 h"
+      "source": "https://pubmed.ncbi.nlm.nih.gov/14571283/",
+      "verified": true,
+      "note": "Sevilla-Tirado 2003 (Methods Find Exp Clin Pharmacol 25:531), 1000 mg single oral dose, n=12, abstract only (full text unreachable); midpoint of the five formulations' means, which include effervescent and sachet forms: tmax 0.40-0.88 h; conventional Panadol tablet 0.88 h. Paralen SPC: 30-60 min."
     },
     {
       "drug_id": "paracetamol",
       "metric": "auc_inf",
       "dose_mg": 1000,
       "value": 54.5,
-      "source": "https://www.sigmaaldrich.com/AT/de/tech-docs/paper/185012",
-      "verified": false,
-      "note": "52.6-56.3"
+      "source": "https://pubmed.ncbi.nlm.nih.gov/14571283/",
+      "verified": true,
+      "note": "Sevilla-Tirado 2003 (Methods Find Exp Clin Pharmacol 25:531), 1000 mg single oral dose, n=12, abstract only (full text unreachable); midpoint of the five formulations' means, which include effervescent and sachet forms: AUC0-inf 52.6-56.3 ug*h/mL."
     },
     {
       "drug_id": "amoxicillin",
       "metric": "cmax",
       "dose_mg": 500,
       "value": 6.5,
-      "source": "https://drugs.com/pro/amoxil.html",
-      "verified": false,
-      "note": "Label 5.5-7.5 ug/mL"
+      "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/050542s032,050754s022,050760s023,050761s019lbl.pdf",
+      "verified": true,
+      "note": "US AMOXIL label 12.3: average peak 5.5-7.5 mcg/mL after 500 mg capsules (midpoint). Czech SPC: 3.3 ug/mL at 250 mg, linear to 3000 mg. Eshelman 1978 (abstract) reports 8.9 fasting."
     },
     {
       "drug_id": "amoxicillin",
@@ -72,39 +72,38 @@
       "dose_mg": 500,
       "value": 1.5,
       "max_fold": 1.6,
-      "source": "https://drugs.com/pro/amoxil.html",
-      "verified": false,
-      "note": "Label 1-2 h"
+      "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/050542s032,050754s022,050760s023,050761s019lbl.pdf",
+      "verified": true,
+      "note": "US AMOXIL label 12.3: peak 1 to 2 hours after 250 and 500 mg capsules (midpoint). Czech SPC table: median 1.5 h (1.0-2.0) at 250 mg fasted; its general text says about 1 h."
     },
     {
       "drug_id": "lithium",
-      "metric": "cavg_ss",
+      "metric": "auc_inf",
       "dose_mg": 300,
-      "interval_h": 8,
-      "value": 0.85,
-      "source": "https://www.drugs.com/dosage/lithobid.html",
-      "verified": false,
-      "note": "0.6-1.2 mmol/L usually reached with 900-1200 mg/day; each 300 mg/day adds 0.2-0.4 mmol/L (https://pdf.hres.ca/dpd_pm/00023004.PDF). Value is the geometric midpoint at 900 mg/day."
+      "value": 4.97,
+      "source": "https://pdf.hres.ca/dpd_pm/00024251.PDF",
+      "verified": true,
+      "note": "pms-Lithium monograph Table 2: single 300 mg IR capsule, fasted, healthy volunteers, AUC0-inf 4.97 mmol*h/L (geometric mean). Replaces cavg_ss 0.85 at 300 mg q8h, which was the midpoint of the Lithobid (extended-release) maintenance target 0.6-1.2 mmol/L, not a measurement."
     },
     {
       "drug_id": "lithium",
       "metric": "cmax",
       "dose_mg": 300,
-      "value": 0.28,
+      "value": 0.4,
       "max_fold": 1.5,
       "source": "https://pdf.hres.ca/dpd_pm/00024251.PDF",
-      "verified": false,
-      "note": "Lithium is biexponential (V1 about half of Vss); the two-compartment preset recovers most of the early peak that a one-compartment model misses."
+      "verified": true,
+      "note": "pms-Lithium monograph Table 2: single 300 mg IR capsule, FASTED, Cmax 0.40 mmol/L. The previous 0.28 was the fed-state value (Table 1). APO monograph fasting 2x300 mg gives 0.31 per 300 mg, so between-study spread is large."
     },
     {
       "drug_id": "lithium",
       "metric": "tmax_h",
       "dose_mg": 300,
-      "value": 2.5,
+      "value": 1.21,
       "max_fold": 1.6,
-      "source": "https://pdf.hres.ca/dpd_pm/00023004.PDF",
-      "verified": false,
-      "note": "IR 2-4 h (0.25-3 h in the US label)"
+      "source": "https://pdf.hres.ca/dpd_pm/00024251.PDF",
+      "verified": true,
+      "note": "pms-Lithium monograph Table 2: single 300 mg IR capsule, fasted, Tmax 1.21 h (arithmetic mean). The monographs' narrative says 'two to four hours'; the Czech SPC 1-2 h; APO fasting 600 mg 2.05 h."
     },
     {
       "drug_id": "diazepam",
@@ -113,45 +112,45 @@
       "value": 1.25,
       "max_fold": 1.6,
       "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/013263Orig1s098lbl.pdf",
-      "verified": false,
-      "note": "1-1.5 h, range 0.25-2.5 h"
+      "verified": true,
+      "note": "US Valium label and Czech SPC: mean fasted tmax 1.25 h (range 0.25-2.5 h). Hogan 2020 (10 mg Valium, fasted): geometric mean 0.81-1.0 h."
     },
     {
       "drug_id": "diazepam",
       "metric": "auc_inf",
       "dose_mg": 10,
-      "value": 5.8,
-      "source": "https://www.uptodate.com/contents/diazepam-drug-information/abstract-text/2512694/pubmed",
-      "verified": false,
-      "note": "Derived: F*D/CL with CL/F 26.6 mL/min (48 healthy men); label CL 20-30 mL/min"
+      "value": 8.27,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7154760/",
+      "verified": true,
+      "note": "Hogan 2020 (Epilepsia 61:455) Table 2: Valium 10 mg after a 10 h fast, healthy adults 51-75 kg, n=17, AUC0-inf geometric mean 8268 h*ng/mL (76-111 kg: 7850). Replaces 5.8, which applied F to an oral clearance (10 mg / 26.6 mL/min is 6.27 without it). Other primaries: Gough 1982 5.06 (n=7), Caraco 1995 4.85 (CYP2C19 EMs)."
     },
     {
       "drug_id": "livizux",
       "metric": "cmax",
-      "dose_mg": 50,
-      "value": 0.0446,
-      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3575217",
-      "verified": false,
-      "note": "d-amphetamine after 50 mg LDX capsule, n=20 (Ermer 2010)"
+      "dose_mg": 70,
+      "value": 0.061,
+      "source": "https://clinicaltrials.gov/study/NCT01890785",
+      "verified": true,
+      "note": "NCT01890785 posted results: d-amphetamine Cmax 61.0 ng/mL (arithmetic mean) after a 70 mg intact capsule, fasted, 30 healthy adults. Replaces 0.0446 at 50 mg, cited to Ermer 2010 (full text unreachable) through a 2013 paper that only restates it; 61.0 x 50/70 = 43.6 agrees."
     },
     {
       "drug_id": "livizux",
       "metric": "tmax_h",
-      "dose_mg": 50,
+      "dose_mg": 70,
       "value": 3.8,
       "max_fold": 1.6,
-      "source": "https://medlibrary.org/lib/rx/meds/vyvanse-1/page/5/",
-      "verified": false,
-      "note": "Adult label, fasted"
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=704e4378-ca83-445c-8b45-3cfa51c1ecad",
+      "verified": true,
+      "note": "US Vyvanse label and Czech SPC: d-amphetamine Tmax 3.8 h after a 70 mg capsule, fasted (FDA review NRP104.102: 3.78 h, n=18, arithmetic mean; median 4.0 h)."
     },
     {
       "drug_id": "livizux",
       "metric": "auc_inf",
-      "dose_mg": 50,
-      "value": 0.959,
-      "source": "https://go.drugbank.com/articles/A261640",
-      "verified": false,
-      "note": "Derived: 1342 ng*h/mL after 70 mg (Krishnan 2008) scaled to 50 mg; label states dose-proportional PK"
+      "dose_mg": 70,
+      "value": 1.18,
+      "source": "https://clinicaltrials.gov/study/NCT01890785",
+      "verified": true,
+      "note": "NCT01890785 posted results: d-amphetamine AUC (0-96 h) 1180.2 ng*h/mL after a 70 mg intact capsule, fasted, 30 healthy adults. Replaces 0.959, scaled from 1342 (NRP104.106, a 14C oral solution in 6 subjects). FDA review NRP104.102 capsule: 1110 (n=18)."
     },
     {
       "drug_id": "levetiracetam",
@@ -159,8 +158,8 @@
       "dose_mg": 500,
       "value": 13.6,
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2000749/",
-      "verified": false,
-      "note": "Zhao 2007, 26 Chinese men; 1000 mg: 31.5 (NCT00859521). One-compartment model underestimates the early peak."
+      "verified": true,
+      "note": "Zhao 2007 Table 1: 500 mg, fasted, 26 healthy Chinese men (64 kg), arithmetic mean. 1000 mg: 31.5 (NCT00859521). One-compartment model underestimates the early peak."
     },
     {
       "drug_id": "levetiracetam",
@@ -168,9 +167,9 @@
       "dose_mg": 500,
       "value": 1.0,
       "max_fold": 1.6,
-      "source": "https://pi-pil-repository.sahpra.org.za/wp-content/uploads/2024/04/PI-Keppra-Tabs_PI_GlaxoSmithKline_MCC-Format27-January-2015.pdf",
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3ca9df05-a506-4ec8-a4fe-320f1219ab21",
       "verified": false,
-      "note": "Label about 1 h fasted"
+      "note": "Primary documents disagree. US Keppra label: 'approximately 1 hour' in fasted subjects; EU SmPC and Czech SPC: 1.3 h (EPAR: 1.3 +/- 0.7 h pooled over 250-5000 mg, fed state not stated); Zhao 2007 at 500 mg fasted: median 0.5 h."
     },
     {
       "drug_id": "levetiracetam",
@@ -178,7 +177,8 @@
       "dose_mg": 500,
       "value": 109.3,
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2000749/",
-      "verified": false
+      "verified": true,
+      "note": "Zhao 2007 Table 1: 500 mg, fasted, n=26, arithmetic mean AUC0-inf. The paper's Chinese/White ratio is 0.92, so a 70 kg White adult would be higher."
     },
     {
       "drug_id": "pregabalin",
@@ -186,8 +186,8 @@
       "dose_mg": 150,
       "value": 3.85,
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4408967",
-      "verified": false,
-      "note": "Lyrica reference arm, n=20 (Tjandrawinata 2015). One-compartment model underestimates the early peak."
+      "verified": true,
+      "note": "Tjandrawinata 2015, Lyrica reference arm, 150 mg fasted, n=20, arithmetic mean. One-compartment model underestimates the early peak."
     },
     {
       "drug_id": "pregabalin",
@@ -196,7 +196,8 @@
       "value": 1.0,
       "max_fold": 1.6,
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4408967",
-      "verified": false
+      "verified": true,
+      "note": "Tjandrawinata 2015, Lyrica reference arm, median tmax. Czech SPC: 1 h fasted."
     },
     {
       "drug_id": "pregabalin",
@@ -204,7 +205,8 @@
       "dose_mg": 150,
       "value": 27.9,
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4408967",
-      "verified": false
+      "verified": true,
+      "note": "Tjandrawinata 2015, Lyrica reference arm, arithmetic mean AUC0-inf."
     },
     {
       "drug_id": "propranolol",
@@ -213,8 +215,8 @@
       "value": 0.04025,
       "max_fold": 2.0,
       "source": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5527233/",
-      "verified": false,
-      "note": "n=20; high variability (Cmax CV about 66%)"
+      "verified": true,
+      "note": "Salehifar 2017, single 40 mg tablet, fasted, 20 healthy Iranian adults (10 M/10 F); Cmax CV about 34 %. Caveat: Table 2 values come from a fitted two-compartment model."
     },
     {
       "drug_id": "propranolol",
@@ -223,7 +225,8 @@
       "value": 1.68,
       "max_fold": 1.6,
       "source": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5527233/",
-      "verified": false
+      "verified": true,
+      "note": "Salehifar 2017, mean of the sex groups (105 and 96 min). Model-estimated: the sampling grid cannot observe 90-105 min. US label: 1 to 4 hours."
     },
     {
       "drug_id": "propranolol",
@@ -232,8 +235,8 @@
       "value": 0.1175,
       "max_fold": 2.0,
       "source": "https://www.ejgm.co.uk/article/bioequivalence-study-of-propranolol-tablets-6488",
-      "verified": false,
-      "note": "Ismail 2004, 2x40 mg Inderal, n=18; first-pass saturation makes exposure rise more than dose-proportionally"
+      "verified": true,
+      "note": "Ismail 2004, 2 x 40 mg Inderal, 18 healthy Malaysian men (64 kg), fasted, arithmetic mean (CV 66 %). Two subjects exceeded the assay's calibrated range."
     },
     {
       "drug_id": "propranolol",
@@ -242,46 +245,46 @@
       "value": 0.685,
       "max_fold": 2.0,
       "source": "https://www.ejgm.co.uk/article/bioequivalence-study-of-propranolol-tablets-6488",
-      "verified": false,
-      "note": "AUC CV about 51%"
+      "verified": true,
+      "note": "Ismail 2004, Inderal arm, AUC0-inf arithmetic mean (CV 51 %)."
     },
     {
       "drug_id": "rivotril",
       "metric": "cmax",
       "dose_mg": 2,
-      "value": 0.013,
-      "source": "https://pubmed.ncbi.nlm.nih.gov/38041794/",
-      "verified": false,
-      "note": "Genis-Najera 2023, n=30; secondary source gives 6.5-13.5 ng/mL"
+      "value": 0.0132,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10787705/",
+      "verified": true,
+      "note": "Genis-Najera 2024 (Neurol Ther 13:141) Table 3: Roche 2 mg tablet, fasting, n=29, arithmetic mean 13.23 ng/mL."
     },
     {
       "drug_id": "rivotril",
       "metric": "tmax_h",
       "dose_mg": 2,
-      "value": 3.0,
+      "value": 3.3,
       "max_fold": 1.6,
-      "source": "https://pubmed.ncbi.nlm.nih.gov/38041794/",
-      "verified": false,
-      "note": "Label 1-4 h"
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10787705/",
+      "verified": true,
+      "note": "Genis-Najera 2024 Table 3: Roche 2 mg tablet, arithmetic mean Tmax 3.33 h (the abstract's '3 h' pools both arms). Czech SPC: 1-4 h."
     },
     {
       "drug_id": "rivotril",
       "metric": "auc_inf",
       "dose_mg": 2,
       "value": 0.545,
-      "source": "https://drugcentral.org/label/79a3305b-be80-416f-a346-5a907f7b669e/view",
-      "verified": false,
-      "note": "Derived: F*D/CL with CL 55 mL/min (SmPC-type text)"
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10787705/",
+      "verified": true,
+      "note": "Genis-Najera 2024 Table 3: Roche 2 mg, AUC0-inf arithmetic mean 540.88 ng*h/mL. Also F*D/CL from the Czech SPC (F 0.9, CL 55 mL/min) = 0.545."
     },
     {
       "drug_id": "mirtazapine",
-      "metric": "cavg_ss",
+      "metric": "cmin_ss",
       "dose_mg": 30,
       "interval_h": 24,
       "value": 0.0368,
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12511242",
-      "verified": false,
-      "note": "Median steady-state level at median 30 mg/day, n=328 patients (TDM data, includes co-medication)"
+      "verified": true,
+      "note": "Nierychlewski 2025 (Eur J Clin Pharmacol 81:1677) Table 1: median steady-state TROUGH serum level 36.8 ng/mL (IQR 25.0-52.5), n=328 patients, median dose 30 mg (15-45 mg), drawn 'prior to the first daily dose'; includes 56 on interacting co-medication. Metric corrected from cavg_ss: these are troughs. The dosing time is not stated; the SPC advises evening dosing, so samples may be 10-12 h post-dose."
     },
     {
       "drug_id": "mirtazapine",
@@ -290,7 +293,7 @@
       "value": 0.65,
       "source": "https://pubmed.ncbi.nlm.nih.gov/22541842",
       "verified": false,
-      "note": "Chinese BE study 627 ng*h/mL; Thai study 679"
+      "note": "Midpoint of two values, neither confirmable: Zheng 2012 (abstract) AUC0-inf 627 ng*h/mL is the TEST formulation (reference 631.5) and the abstract gives no dose; the 'Thai study 679' is uncited and was not found. Full text paywalled."
     },
     {
       "drug_id": "mirtazapine",
@@ -300,17 +303,16 @@
       "max_fold": 1.5,
       "source": "https://pubmed.ncbi.nlm.nih.gov/22541842",
       "verified": false,
-      "note": "Fast distribution phase; captured by the two-compartment preset (distribution parameters fitted, no published two-compartment model for racemic mirtazapine)."
+      "note": "0.0587 is Zheng 2012's TEST-formulation Cmax 58.7 ng/mL (reference 58.3); the abstract gives no dose. Fast distribution phase; captured by the two-compartment preset (distribution parameters fitted)."
     },
     {
       "drug_id": "risperidone",
-      "metric": "cavg_ss",
-      "dose_mg": 2,
-      "interval_h": 12,
-      "value": 0.028,
-      "source": "https://pubmed.ncbi.nlm.nih.gov/28699847",
-      "verified": false,
-      "note": "Active moiety (risperidone + 9-OH) about 7 ng/mL per mg/day (Schoretsanitis 2017). Inter-individual spread about 20-fold (CYP2D6)."
+      "metric": "auc_inf",
+      "dose_mg": 1,
+      "value": 0.132,
+      "source": "https://pdf.hres.ca/dpd_pm/00047330.PDF",
+      "verified": true,
+      "note": "Health Canada Risperdal monograph Table 1.9: single 1 mg oral dose, young healthy subjects (n=8, median), risperidone + 9-hydroxyrisperidone AUC0-inf 132 ng*h/mL (Cmax 9.1 ng/mL, t1/2 17 h). Replaces cavg_ss 0.028 at 2 mg q12h, derived from a patient TDM norm (C/D 'around 7') stated in passing by a review of long-acting injectables. Inter-individual spread about 20-fold, not explained by CYP2D6."
     },
     {
       "drug_id": "ritalin",
@@ -318,8 +320,8 @@
       "dose_mg": 20,
       "value": 0.01107,
       "source": "https://pdf.hres.ca/dpd_pm/00068339.PDF",
-      "verified": false,
-      "note": "2x10 mg Ritalin reference, fasted men, n=26, geometric mean"
+      "verified": true,
+      "note": "Ritalin reference arm of the pms-Methylphenidate monograph: 2 x 10 mg, fasted men, n=26, geometric mean."
     },
     {
       "drug_id": "ritalin",
@@ -327,70 +329,72 @@
       "dose_mg": 20,
       "value": 0.05417,
       "source": "https://pdf.hres.ca/dpd_pm/00068339.PDF",
-      "verified": false
+      "verified": true,
+      "note": "Ritalin reference arm, 2 x 10 mg, fasted men, n=26, geometric mean AUC0-inf. The Czech SPC's oral clearance of about 10 L/h/kg would imply about half this, from different studies."
     },
     {
       "drug_id": "ritalin",
       "metric": "tmax_h",
       "dose_mg": 20,
-      "value": 1.75,
+      "value": 1.8,
       "max_fold": 1.6,
       "source": "https://pdf.hres.ca/dpd_pm/00068339.PDF",
-      "verified": false
+      "verified": true,
+      "note": "Ritalin reference arm, 2 x 10 mg, fasted men, n=26, arithmetic mean Tmax 1.80 h. The previous 1.75 averaged the test (1.70) and reference arms."
     },
     {
       "drug_id": "mdma",
       "metric": "cmax",
       "dose_mg": 75,
-      "value": 0.126,
-      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
-      "verified": false,
-      "note": "de la Torre 2000; numbers via a secondary restatement"
+      "value": 0.1309,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2014905/",
+      "verified": true,
+      "note": "de la Torre 2000 (Br J Clin Pharmacol 49:104) Table 1: single oral dose, 8 healthy male CYP2D6 extensive metabolisers, arithmetic mean; salt form not stated. 75 mg Cmax 130.9 ug/L (also Mas 1999). The previous 0.126 came from a secondary restatement."
     },
     {
       "drug_id": "mdma",
       "metric": "auc_0_24",
       "dose_mg": 75,
       "value": 1.332,
-      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
-      "verified": false,
-      "note": "AUC rises more than dose-proportionally (saturable elimination)"
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2014905/",
+      "verified": true,
+      "note": "de la Torre 2000 (Br J Clin Pharmacol 49:104) Table 1: single oral dose, 8 healthy male CYP2D6 extensive metabolisers, arithmetic mean; salt form not stated. 75 mg AUC0-24 1331.5 ug*h/L. AUC rises more than dose-proportionally (saturation or inhibition of metabolism)."
     },
     {
       "drug_id": "mdma",
       "metric": "cmax",
       "dose_mg": 100,
-      "value": 0.19,
-      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
-      "verified": false,
-      "note": "de la Torre 2000; numbers via a secondary restatement, n=2"
+      "value": 0.2225,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/11085324/",
+      "verified": true,
+      "note": "de la Torre 2000b (Ann N Y Acad Sci 914:225) Table 3: 100 mg, n=8, arithmetic mean Cmax 222.5 ng/mL (also de la Torre 2004; Hernandez-Lopez 2002: 231.4, n=9). A different subject set from the 75/125 mg study. The previous 0.19 was one of two pilot subjects (189.9 and 209.7)."
     },
     {
       "drug_id": "mdma",
       "metric": "auc_0_24",
       "dose_mg": 100,
-      "value": 2.057,
-      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
-      "verified": false,
-      "note": "AUC rises more than dose-proportionally (saturable elimination)"
+      "value": 2.431,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/11085324/",
+      "verified": true,
+      "note": "de la Torre 2000b Table 3: 100 mg, n=8, AUC0-24 2431.4 ng*h/mL (Hernandez-Lopez 2002: 2447.9). The previous 2.057 matched neither pilot subject. Farré 2004 first dose: 1452 (n=9)."
     },
     {
       "drug_id": "mdma",
       "metric": "cmax",
       "dose_mg": 125,
-      "value": 0.229,
-      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
-      "verified": false,
-      "note": "de la Torre 2000; numbers via a secondary restatement"
+      "value": 0.2364,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2014905/",
+      "verified": true,
+      "note": "de la Torre 2000 (Br J Clin Pharmacol 49:104) Table 1: single oral dose, 8 healthy male CYP2D6 extensive metabolisers, arithmetic mean; salt form not stated. 125 mg Cmax 236.4 ug/L (also Mas 1999). The previous 0.229 came from Peiró 2013's restatement."
     },
     {
       "drug_id": "mdma",
       "metric": "auc_0_24",
       "dose_mg": 125,
       "value": 2.624,
-      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
-      "verified": false,
-      "note": "AUC rises more than dose-proportionally (saturable elimination)"
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2014905/",
+      "verified": true,
+      "note": "de la Torre 2000 (Br J Clin Pharmacol 49:104) Table 1: single oral dose, 8 healthy male CYP2D6 extensive metabolisers, arithmetic mean; salt form not stated. 125 mg AUC0-24 2623.7 ug*h/L."
     },
     {
       "drug_id": "ketamine",
@@ -398,8 +402,8 @@
       "dose_mg": 50,
       "value": 0.0299,
       "source": "https://currentsurgery.org/index.php/jcs/article/download/213/130",
-      "verified": false,
-      "note": "n=6, low-tier journal; oral F 17-24% elsewhere"
+      "verified": true,
+      "note": "Kubota 2013 (J Curr Surg 3:82) Table 1, racemic ketamine 50 mg oral solution, n=6 Japanese adults (61.5 kg), dosed AFTER A MEAL; values from a fitted curve. Oral F 17-24 % elsewhere."
     },
     {
       "drug_id": "ketamine",
@@ -408,7 +412,8 @@
       "value": 1.1,
       "max_fold": 1.6,
       "source": "https://currentsurgery.org/index.php/jcs/article/download/213/130",
-      "verified": false
+      "verified": true,
+      "note": "Kubota 2013 (J Curr Surg 3:82) Table 1, racemic ketamine 50 mg oral solution, n=6 Japanese adults (61.5 kg), dosed AFTER A MEAL; values from a fitted curve."
     },
     {
       "drug_id": "mdma",
@@ -419,7 +424,7 @@
       "max_fold": 1.15,
       "source": "https://pubmed.ncbi.nlm.nih.gov/26073279",
       "verified": false,
-      "note": "Farré 2015, 2 x 100 mg 4 h apart, n=10; AUC versus simple accumulation of two single doses (CYP2D6 autoinhibition)."
+      "note": "Farré 2015, 2 x 100 mg 4 h apart, fasted, n=10: AUC +17.1 % above simple accumulation, but computed over 4-12 h after the first dose (Table 2), while this metric integrates 0-24 h. Not the same quantity; no 0-24 h value is reported."
     },
     {
       "drug_id": "mdma",
@@ -429,30 +434,8 @@
       "value": 1.231,
       "max_fold": 1.15,
       "source": "https://pubmed.ncbi.nlm.nih.gov/26073279",
-      "verified": false,
-      "note": "Farré 2015, 2 x 100 mg 4 h apart, n=10; Cmax versus simple accumulation."
-    },
-    {
-      "drug_id": "mdma",
-      "metric": "auc_vs_superposition",
-      "dose_mg": 100,
-      "interval_h": 2,
-      "value": 1.162,
-      "max_fold": 1.15,
-      "source": "https://link.springer.com/article/10.1007/s00213-012-2894-7",
-      "verified": false,
-      "note": "Peiró 2013, doses 2 h apart; AUC versus simple accumulation of two single doses (CYP2D6 autoinhibition)."
-    },
-    {
-      "drug_id": "mdma",
-      "metric": "cmax_vs_superposition",
-      "dose_mg": 100,
-      "interval_h": 2,
-      "value": 1.128,
-      "max_fold": 1.15,
-      "source": "https://link.springer.com/article/10.1007/s00213-012-2894-7",
-      "verified": false,
-      "note": "Peiró 2013, doses 2 h apart; Cmax versus simple accumulation."
+      "verified": true,
+      "note": "Farré 2015, 2 x 100 mg 4 h apart, fasted, n=10: MDMA Cmax +23.1 % above simple accumulation. Both peaks follow the second dose, so the 4-12 h window does not change it."
     },
     {
       "drug_id": "mdma",
@@ -462,8 +445,8 @@
       "value": 1.77,
       "max_fold": 1.2,
       "source": "https://pubmed.ncbi.nlm.nih.gov/15071716/",
-      "verified": false,
-      "note": "Farré 2004, 2 x 100 mg 24 h apart, n=9: second dose AUC +77 %, Cmax +29 % (CYP2D6 still inactivated)."
+      "verified": true,
+      "note": "Farré 2004 Table 2, 2 x 100 mg 24 h apart, n=9: AUC24-48/AUC0-24 1.77 from observed concentrations (includes the first dose's residual; 1.39 after subtracting it). CYP2D6 still inactivated."
     },
     {
       "drug_id": "mdma",
@@ -473,8 +456,8 @@
       "value": 1.29,
       "max_fold": 1.2,
       "source": "https://pubmed.ncbi.nlm.nih.gov/15071716/",
-      "verified": false,
-      "note": "Farré 2004, 2 x 100 mg 24 h apart, n=9: second dose AUC +77 %, Cmax +29 % (CYP2D6 still inactivated)."
+      "verified": true,
+      "note": "Farré 2004 Table 2, 2 x 100 mg 24 h apart, n=9: Cmax 232 vs 180 ng/mL (x1.29)."
     }
   ]
 }

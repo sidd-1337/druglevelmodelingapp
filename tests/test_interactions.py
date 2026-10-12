@@ -95,7 +95,7 @@ def test_czech_names_present():
     assert find("lithium", ["Ibuprofen"])[0].name("cs")
 
 
-def test_dataset_is_marked_unverified():
+def test_every_entry_states_whether_it_was_verified():
     raw = json.loads((__import__("pathlib").Path("data/interactions.json")).read_text(encoding="utf-8"))
-    assert all(not i["verified"] for i in raw["interactions"])
+    assert all(isinstance(i["verified"], bool) for i in raw["interactions"])
     assert Route.ORAL.value == "oral"

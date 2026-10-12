@@ -30,7 +30,7 @@ def test_registry_loads_and_cites_sources():
     assert {"CYP2D6", "CYP2C19", "CYP3A4"} <= set(enzymes)
     assert all(e.source.startswith("http") for e in enzymes.values())
     assert all(p.source.startswith("http") for p in perpetrators)
-    assert all(not e.verified for e in enzymes.values())  # all still unverified
+    assert all(isinstance(e.verified, bool) for e in enzymes.values())
 
 
 def test_every_drug_pathway_resolves_to_a_known_enzyme_or_a_non_enzyme_route():

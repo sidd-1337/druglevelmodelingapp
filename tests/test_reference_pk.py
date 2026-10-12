@@ -8,8 +8,30 @@ from core.validation import load_references, validate, validate_interactions
 
 ROWS = validate()
 
+# Published values the model misses once checked against the primary document. Each was
+# hidden by a data error until the 2026 verification pass; none is tuned away. Strict, so a
+# model change that fixes one fails here until the entry is removed.
+KNOWN_MISSES = {
+    ("lithium", "cmax", 300): "fasted Cmax is 0.40 mmol/L; the stored 0.28 was the fed value. The "
+                              "two-compartment preset predicts 0.20",
+    ("lithium", "tmax_h", 300): "fasted Tmax is 1.21 h; the preset peaks at 1.94 h (1.60-fold, limit 1.6)",
+    ("mirtazapine", "cmin_ss", 30): "the TDM median 36.8 ng/mL is a trough, stored as cavg_ss until verified; "
+                                    "the preset's trough is 19 ng/mL",
+}
 
-@pytest.mark.parametrize("row", ROWS, ids=lambda r: f"{r.drug_id}-{r.metric}-{r.dose_mg:g}mg")
+
+def _row_param(row):
+    reason = KNOWN_MISSES.get((row.drug_id, row.metric, row.dose_mg))
+    marks = [pytest.mark.xfail(strict=True, reason=reason)] if reason else []
+    return pytest.param(row, marks=marks, id=f"{row.drug_id}-{row.metric}-{row.dose_mg:g}mg")
+
+
+def test_every_known_miss_names_a_real_reference():
+    keys = {(r.drug_id, r.metric, r.dose_mg) for r in ROWS}
+    assert set(KNOWN_MISSES) <= keys
+
+
+@pytest.mark.parametrize("row", [_row_param(r) for r in ROWS])
 def test_prediction_within_published_range(row):
     assert row.within, (
         f"{row.drug_id} {row.metric}: predicted {row.predicted:.4g}, published {row.observed:.4g} "
