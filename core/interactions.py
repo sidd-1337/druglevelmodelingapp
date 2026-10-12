@@ -94,22 +94,48 @@ def find(drug_id: str, perpetrators: Iterable[str],
     return measured + derived_interactions(drug, wanted - covered)
 
 
+def mechanistic_exposure_factor(drug, enzyme: str, residual: float,
+                                body_weight_kg: float = 70.0) -> tuple[float, str]:
+    """(exposure factor, how it was obtained) for inhibiting ``enzyme`` to ``residual``.
+
+    For an ordinary drug this is the static relation 1 / (fm * residual + 1 - fm).
+    That relation does NOT hold when the reported quantity is a parent plus its
+    metabolite: inhibiting the enzyme that forms the metabolite raises the parent
+    but lowers the metabolite, so the sum is buffered and the static formula
+    overstates the effect. In that case the factor is simulated instead, which the
+    engine can do because parent and metabolite are separate compartments.
+    """
+    from core.enzymes import derived_exposure_factor  # avoids an import cycle
+    from core.pk_engine import steady_state_summary
+
+    fm = (drug.pathways or {}).get(enzyme, 0.0)
+    static = derived_exposure_factor(fm, residual)
+    if drug.metabolite is None or drug.to_pk_model(body_weight_kg).reported_quantity == "parent":
+        return static, (f"{enzyme} carries {100 * fm:.0f} % of this drug's clearance and "
+                        f"{residual:.2f} of that activity is left")
+    amount = drug.amount_from_dose_mg(drug.default_dose_mg)
+    tau = drug.default_interval_h
+    base = steady_state_summary(amount, tau, drug.to_pk_model(body_weight_kg))
+    hit = steady_state_summary(amount, tau,
+                               drug.to_pk_model(body_weight_kg, enzyme_activity={enzyme: residual}))
+    return (hit.cavg_ss / base.cavg_ss,
+            f"simulated: inhibiting {enzyme} to {residual:.2f} of normal raises the parent but forms less "
+            f"metabolite, so the reported sum moves far less than the parent alone")
+
+
 def derived_interactions(drug, perpetrator_names: Iterable[str]) -> list[Interaction]:
     """Mechanistic estimates for perpetrators acting on a pathway the drug uses."""
-    from core.enzymes import derived_exposure_factor, find_perpetrators  # avoids an import cycle
+    from core.enzymes import find_perpetrators  # avoids an import cycle
 
     out = []
     for p in find_perpetrators(perpetrator_names):
-        fm = (drug.pathways or {}).get(p.enzyme, 0.0)
-        if fm <= 0:
+        if (drug.pathways or {}).get(p.enzyme, 0.0) <= 0:
             continue
-        residual = p.residual_activity
+        factor, how = mechanistic_exposure_factor(drug, p.enzyme, p.residual_activity)
         out.append(Interaction(
             victim_id=drug.id, perpetrator=p.name, perpetrator_cs=p.name_cs, site=CLEARANCE,
-            source=p.source, exposure_factor=derived_exposure_factor(fm, residual),
-            verified=False, estimated=True,
-            basis=(f"{p.enzyme} carries {100 * fm:.0f} % of this drug's clearance; {p.name} leaves "
-                   f"{residual:.2f} of that activity, derived from a {p.index_auc_ratio:g}x AUC change "
+            source=p.source, exposure_factor=factor, verified=False, estimated=True,
+            basis=(f"{how}; the perpetrator's effect is derived from a {p.index_auc_ratio:g}x AUC change "
                    f"in {p.index_substrate}"),
             note="Estimated from the mechanism, not measured for this pair."))
     return out

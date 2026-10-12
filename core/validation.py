@@ -143,8 +143,8 @@ def validate_interactions(
     actually cleared by. Renal handling, transporter and first-pass interactions are
     out of scope by construction, not by omission.
     """
-    from core.enzymes import derived_exposure_factor, load_perpetrators
-    from core.interactions import CLEARANCE, load_interactions
+    from core.enzymes import load_perpetrators
+    from core.interactions import CLEARANCE, load_interactions, mechanistic_exposure_factor
 
     by_name = {p.name: p for p in load_perpetrators()}
     kwargs = {"path": interactions_path} if interactions_path else {}
@@ -155,15 +155,16 @@ def validate_interactions(
         perpetrator = by_name.get(measured.perpetrator)
         if perpetrator is None:
             continue
-        fm = (get_drug(measured.victim_id, db_path).pathways or {}).get(perpetrator.enzyme, 0.0)
+        drug = get_drug(measured.victim_id, db_path)
+        fm = (drug.pathways or {}).get(perpetrator.enzyme, 0.0)
         if fm <= 0:
             continue
         residual = perpetrator.residual_activity
+        predicted, _ = mechanistic_exposure_factor(drug, perpetrator.enzyme, residual)
         rows.append(InteractionValidationRow(
             victim_id=measured.victim_id, perpetrator=measured.perpetrator,
             enzyme=perpetrator.enzyme, fm=fm, residual=residual,
-            observed=measured.exposure_factor,
-            predicted=derived_exposure_factor(fm, residual), source=measured.source))
+            observed=measured.exposure_factor, predicted=predicted, source=measured.source))
     return rows
 
 

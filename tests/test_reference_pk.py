@@ -36,9 +36,11 @@ def test_saturable_exposure_rises_more_than_dose():
 
 # --------------------------------------------- mechanistic interaction back-test
 DDI = validate_interactions()
-# Pinned from the first run: 3 pairs, geometric mean fold error 1.25. Raise the
-# ceiling only with a reason; never by tuning fm to fit.
-MAX_DDI_GMFE = 1.5
+# Pinned from the observed run: 5 pairs, geometric mean fold error 1.17. It was 1.25
+# over 3 pairs before parent and metabolite were split; simulating the sum-reported
+# victims both widened coverage and improved accuracy. Raise the ceiling only with a
+# reason; never by tuning fm to fit.
+MAX_DDI_GMFE = 1.35
 
 
 @pytest.mark.parametrize("row", DDI, ids=lambda r: f"{r.victim_id}-{r.perpetrator.split()[0]}")

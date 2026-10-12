@@ -42,7 +42,8 @@ def test_specified_reference_values():
     assert get_drug("propranolol").t_half_h == 4.0 and get_drug("propranolol").bioavailability == 0.25
     assert get_drug("rivotril").t_half_h == 35.0 and get_drug("rivotril").mec == 0.02
     assert get_drug("mirtazapine").t_half_h == 26.0 and get_drug("mirtazapine").mtc == 0.15
-    assert get_drug("risperidone").t_half_h == 20.0 and get_drug("risperidone").mtc == 0.08
+    # risperidone's t1/2 is now the PARENT's 3 h; the 21 h metabolite governs the reported sum
+    assert get_drug("risperidone").t_half_h == 3.0 and get_drug("risperidone").mtc == 0.08
     rit = get_drug("ritalin")
     assert (rit.t_half_h, rit.vd_l_per_kg, rit.bioavailability, rit.mec, rit.mtc) == (2.8, 3.1, 0.15, 0.005, 0.03)
     assert rit.default_dose_mg == 10 and rit.default_interval_h == 8
@@ -150,3 +151,28 @@ def test_diazepam_metabolite_reproduces_the_measured_steady_state_ratio():
 def test_metabolite_volume_scales_with_patient_weight():
     dz = get_drug("diazepam")
     assert dz.to_pk_model(140).metabolite.vd_l == pytest.approx(2 * dz.to_pk_model(70).metabolite.vd_l)
+
+
+def test_risperidone_reports_the_active_moiety_and_keeps_its_agnp_level():
+    from core.pk_engine import steady_state_summary
+    ris = get_drug("risperidone")
+    model = ris.to_pk_model(70)
+    assert model.reported_quantity == "sum"
+    # The AGNP 20-60 ng/mL range is for the active moiety, so the reported sum must match it.
+    assert steady_state_summary(2.0, 12, model).cavg_ss == pytest.approx(0.028, rel=0.05)
+    assert model.terminal_half_life_h == pytest.approx(21.0)  # the slow metabolite governs the tail
+
+
+def test_cyp2d6_barely_moves_the_risperidone_active_moiety():
+    """The label says combined parent + 9-OH kinetics are similar in poor and extensive
+    metabolisers: less metabolite forms, but the parent is cleared more slowly. The split
+    model must reproduce that buffering, which it was not fitted to."""
+    from core.pk_engine import steady_state_summary
+    ris = get_drug("risperidone")
+    normal = steady_state_summary(2.0, 12, ris.to_pk_model(70, genotypes={"CYP2D6": "normal"}))
+    poor = steady_state_summary(2.0, 12, ris.to_pk_model(70, genotypes={"CYP2D6": "poor"}))
+    ratio = poor.cavg_ss / normal.cavg_ss
+    assert 1.2 < ratio < 1.8, ratio  # published poor/extensive active-moiety ratios are 1.28-1.6
+    # ... whereas the parent alone would move far more, which is why the moiety is buffered.
+    parent_only = 1 / (0.78 * 0.12 + 0.22)
+    assert parent_only > 2 * ratio  # the parent moves >3x, the moiety only ~1.4x
