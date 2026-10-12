@@ -71,8 +71,11 @@ PRESET_DEFAULT_SUKL_CODES: dict[str, str] = {
     "risperidone": "0102963",    # MEDORISPER 1MG TBL FLM 60
     "lithium": "0207946",        # LITHIUM CARBONICUM SLOVAKOFARMA 300MG
     "levetiracetam": "0267073",  # LEVELANZ 250MG TBL FLM 56 II
-    "ibuprofen": "0254292",      # IBALGIN 200MG TBL FLM 10
-    "paracetamol": "0254292",    # PARALEN 500 500MG TBL NOB 24
+    "ibuprofen": "0254292",      # IBALGIN 400 400MG TBL FLM 100
+    # paracetamol has no entry: it was mapped to 0254292, which is the IBALGIN 400 above
+    # (ATC M01AE01, ibuprofen), not Paralen. That showed ibuprofen's price, dispensing
+    # status and shortage state under paracetamol, and would have had spc_check.py verify
+    # paracetamol against an ibuprofen SPC. Re-add it with a real Paralen code.
     "amoxicillin": "0203097",    # AMOKSIKLAV 1G TBL FLM 21
     "diazepam": "0002479",       # DIAZEPAM SLOVAKOFARMA 5MG TBL NOB 20
 }

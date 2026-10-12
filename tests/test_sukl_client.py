@@ -77,6 +77,25 @@ def test_preset_default_sukl_codes():
     assert PRESET_DEFAULT_SUKL_CODES["ritalin"] == "0015642"
 
 
+def test_no_two_presets_share_a_default_sukl_code():
+    """One code is one product, so two presets sharing it means one points at the wrong drug.
+
+    paracetamol was mapped to IBALGIN 400 (ibuprofen) this way, which showed ibuprofen's
+    price, dispensing status and shortage state under paracetamol in the app.
+    """
+    seen: dict[str, str] = {}
+    for preset_id, code in PRESET_DEFAULT_SUKL_CODES.items():
+        assert str(code) not in seen, f"{preset_id} and {seen[str(code)]} share SÚKL code {code}"
+        seen[str(code)] = preset_id
+
+
+def test_every_default_code_belongs_to_a_real_preset():
+    from core.drug_database import load_drugs
+
+    known = {d.id for d in load_drugs()}
+    assert set(PRESET_DEFAULT_SUKL_CODES) <= known
+
+
 def test_fetch_sukl_detail_live_livizux():
     detail = fetch_sukl_detail("0265888")
     if detail:
