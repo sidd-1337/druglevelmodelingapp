@@ -11,6 +11,9 @@ export interface DrugPreset {
   vdLPerKg: number;
   bioavailability: number;
   kaPerH: number;
+  v1Fraction?: number; // central / steady-state volume (< 1: two compartments)
+  qLPerH?: number; // inter-compartmental clearance [L/h]
+  tlagH?: number; // oral absorption lag [h]
   cvCl?: number; // between-patient CV of clearance (log-normal)
   cvF?: number; // between-patient CV of bioavailability
   feRenal?: number; // fraction of clearance that scales with creatinine clearance

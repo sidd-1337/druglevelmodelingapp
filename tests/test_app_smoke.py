@@ -101,3 +101,26 @@ def test_app_glossary_tab_and_tooltips():
     metrics_with_help = [m for m in at.metric if m.help]
     assert len(metrics_with_help) >= 5
 
+
+
+def test_app_model_tab_shows_validation_table():
+    at = _run()
+    assert not at.exception
+    assert any("within tolerance" in m.label for m in at.metric)
+
+
+def test_app_fit_with_edited_dose_log_runs():
+    at = _run()
+    at.selectbox[0].set_value("lithium").run()
+    next(c for c in at.checkbox if "measured" in c.label.lower()).check().run()
+    assert not at.exception
+    assert any("Clearance (fitted)" in m.label for m in at.metric)
+    assert at.tabs  # later tabs still render after the fit tab
+
+
+def test_app_co_medication_tab_applies_interaction():
+    at = _run()
+    at.selectbox[0].set_value("lithium").run()
+    at.multiselect[0].set_value(["ibuprofen"]).run()
+    assert not at.exception
+    assert any("1.15x" in m.value for m in at.metric)

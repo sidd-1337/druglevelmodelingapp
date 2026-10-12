@@ -29,7 +29,7 @@ def compute_metrics(
     return ClinicalMetrics(
         cmax=float(c[i]),
         tmax_h=float(t[i]),
-        t_half_h=model.t_half_h,
+        t_half_h=model.terminal_half_life_h,
         clearance_l_per_h=model.clearance_l_per_h,
         auc_0_24=auc_trapezoid(t, c, auc_window_h[0], hi),
     )

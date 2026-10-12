@@ -85,7 +85,7 @@ def compute_safe_redosing_interval_h(
 
     # If even the new single dose exceeds the ceiling, recommend at least 5 half-lives
     if max_residual <= 0:
-        return max(5.0 * model.t_half_h, 6.0)
+        return max(5.0 * model.terminal_half_life_h, 6.0)
 
     # Target residual: must satisfy residual + peak <= ceiling AND residual <= MEC
     # (if primary peak >= MEC; if primary peak < MEC, dose was sub-therapeutic so ceiling governs)
@@ -94,7 +94,7 @@ def compute_safe_redosing_interval_h(
 
     # Search on a time grid for residual <= target_residual after tmax
     t_peak = tmax_single_dose(model, amount)
-    horizon = max(48.0, 10.0 * model.t_half_h)
+    horizon = max(48.0, 10.0 * model.terminal_half_life_h)
     t_test = np.linspace(t_peak, horizon, 3000)
     c_test = single_dose_concentration(t_test, amount, model)
 
@@ -111,9 +111,9 @@ def compute_safe_redosing_interval_h(
         else:
             safe_time = float(t_test[idx])
     else:
-        safe_time = 5.0 * model.t_half_h
+        safe_time = 5.0 * model.terminal_half_life_h
 
-    if model.is_saturable:
+    if model.is_nonlinear:
         # Residual + new peak understates a saturable stack: wait until the
         # simulated stacked peak is under the ceiling too.
         safe_time = _first_safe_stack_time(amount, new_dose, model, ceiling, safe_time, horizon)
@@ -164,7 +164,7 @@ def assess_dose_stacking(
     # Multi-resolution sampling: dense near absorption peaks to resolve fast routes (smoked, insufflated)
     t_peak = tmax_single_dose(model, new_dose)
     t_near = np.linspace(0.0, max(2.0, 4.0 * t_peak), 400)
-    t_far = np.linspace(0.0, max(24.0, 6.0 * model.t_half_h), 800)
+    t_far = np.linspace(0.0, max(24.0, 6.0 * model.terminal_half_life_h), 800)
     t_post = np.unique(np.concatenate(([0.0, t_peak], t_near, t_far)))
     t_post.sort()
 
@@ -275,7 +275,7 @@ def get_route_timeline(
 
     tmax = tmax_single_dose(route_model, amount)
     cmax = cmax_single_dose(amount, route_model)
-    t_half = model.t_half_h
+    t_half = model.terminal_half_life_h
 
     if route == Route.ORAL:
         onset = (20, 45)
@@ -343,7 +343,7 @@ def estimate_phases(
     window: TherapeuticWindow | None = None,
 ) -> PhaseTimings:
     """Estimate onset, peak plateau, offset, and comedown phases with monotonic progression."""
-    t_half = model.t_half_h
+    t_half = model.terminal_half_life_h
     t_peak = tmax_single_dose(model, amount)
     horizon = max(24.0, 8.0 * t_half)
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Approximate, rounded literature values for educational use only. Concentrations are plasma concentrations; mg/L equals ug/mL. dose_conversion converts mg of the administered dose to the amount unit of the concentration (1.0 for mg->mg; lithium carbonate -> mmol Li+). t_half_h, F and vd_l_per_kg describe a 70 kg adult with normal renal function; vd_l_per_kg and ka_per_h are fitted so that AUC/steady-state level, Cmax and Tmax match published data (see reference_pk.json). cv_cl / cv_f: inter-individual CV of clearance / bioavailability (log-normal). fe_renal: fraction of clearance that scales with creatinine clearance. saturable: Michaelis-Menten km (concentration unit) and the saturable share of low-concentration clearance. t_half_range_h is the published half-life range (used for the band only when cv_cl is missing).",
+  "_comment": "Approximate, rounded literature values for educational use only. Concentrations are plasma concentrations; mg/L equals ug/mL. dose_conversion converts mg of the administered dose to the amount unit of the concentration (1.0 for mg->mg; lithium carbonate -> mmol Li+). t_half_h, F and vd_l_per_kg describe a 70 kg adult with normal renal function; vd_l_per_kg and ka_per_h are fitted so that AUC/steady-state level, Cmax and Tmax match published data (see reference_pk.json). cv_cl / cv_f: inter-individual CV of clearance / bioavailability (log-normal). fe_renal: fraction of clearance that scales with creatinine clearance. saturable: Michaelis-Menten km (concentration unit) and the saturable share of low-concentration clearance. two_compartment: central volume as a fraction of vd_l and inter-compartmental clearance Q (L/h, 70 kg). tlag_h: oral absorption lag. formulations: selectable product forms (e.g. prolonged release) overriding bioavailability, ka_per_h, tlag_h and the default regimen; the first entry is the default. enzyme_inactivation: mechanism-based inactivation of the enzyme carrying 'fraction' of clearance (kinact 1/h, KI in the concentration unit, kdeg = enzyme turnover 1/h); t_half_h is then the half-life once the enzyme is inactivated. t_half_range_h is the published half-life range (used for the band only when cv_cl is missing).",
   "drugs": [
     {
       "id": "ibuprofen",
@@ -9,7 +9,8 @@
       "t_half_range_h": [1.6, 2.6],
       "vd_l_per_kg": 0.13,
       "bioavailability": 0.9,
-      "ka_per_h": 1.5,
+      "ka_per_h": 2.4,
+      "tlag_h": 0.5,
       "cv_cl": 0.27,
       "mec": 10.0,
       "mtc": 50.0,
@@ -28,7 +29,9 @@
       "t_half_range_h": [1.8, 3.2],
       "vd_l_per_kg": 0.7,
       "bioavailability": 0.8,
-      "ka_per_h": 5.0,
+      "ka_per_h": 3.8,
+      "tlag_h": 0.44,
+      "two_compartment": {"v1_fraction": 0.21, "q_l_per_h": 77.5},
       "cv_cl": 0.25,
       "mec": 10.0,
       "mtc": 30.0,
@@ -67,7 +70,8 @@
       "t_half_range_h": [18.0, 36.0],
       "vd_l_per_kg": 0.7,
       "bioavailability": 0.95,
-      "ka_per_h": 1.6,
+      "ka_per_h": 1.0,
+      "two_compartment": {"v1_fraction": 0.49, "q_l_per_h": 5.7},
       "cv_cl": 0.3,
       "fe_renal": 0.95,
       "mec": 0.6,
@@ -166,6 +170,11 @@
       "vd_l_per_kg": 2.7,
       "bioavailability": 0.25,
       "ka_per_h": 1.6,
+      "formulations": {
+        "ir": {"name": "Immediate release (tablet)", "name_cs": "S okamžitým uvolňováním (tableta)"},
+        "pr": {"name": "Prolonged release (capsule)", "name_cs": "S prodlouženým uvolňováním (tobolka)",
+               "bioavailability": 0.156, "ka_per_h": 0.16, "default_dose_mg": 160, "default_interval_h": 24}
+      },
       "cv_cl": 0.25,
       "cv_f": 0.45,
       "mec": 0.02,
@@ -175,7 +184,7 @@
       "default_dose_mg": 40,
       "default_interval_h": 8,
       "dose_basis": "mg propranolol",
-      "notes": "Neselektivní lipofilní beta-blokátor. Výrazný jaterní first-pass efekt (F ≈ 25 %, mezi pacienty silně kolísá – CV expozice cca 50 %). Zdánlivý distribuční objem 2.7 L/kg je nafitován na publikované Cmax/AUC po 40–80 mg (IV hodnota cca 4 L/kg). Terapeutické rozmezí 20–100 ng/mL (0.02–0.10 µg/mL), toxicita > 0.20 µg/mL."
+      "notes": "Neselektivní lipofilní beta-blokátor. Výrazný jaterní first-pass efekt (F ≈ 25 %, mezi pacienty silně kolísá – CV expozice cca 50 %). Zdánlivý distribuční objem 2.7 L/kg je nafitován na publikované Cmax/AUC po 40–80 mg (IV hodnota cca 4 L/kg). Terapeutické rozmezí 20–100 ng/mL (0.02–0.10 µg/mL), toxicita > 0.20 µg/mL. Forma s prodlouženým uvolňováním (Inderal LA a obdoby): pomalé vstřebávání (Tmax cca 6 h) a nižší expozice, ustálená AUC odpovídá cca 60–65 % stejné denní dávky v dělených dávkách běžné formy."
     },
     {
       "id": "rivotril",
@@ -204,7 +213,8 @@
       "t_half_range_h": [18.0, 38.0],
       "vd_l_per_kg": 10.5,
       "bioavailability": 0.5,
-      "ka_per_h": 2.2,
+      "ka_per_h": 1.0,
+      "two_compartment": {"v1_fraction": 0.22, "q_l_per_h": 44.0},
       "cv_cl": 0.4,
       "mec": 0.03,
       "mtc": 0.15,
@@ -264,13 +274,13 @@
       "id": "mdma",
       "name": "MDMA (ecstasy)",
       "category": "Entaktogen / stimulans (Harm reduction)",
-      "t_half_h": 7.5,
-      "t_half_range_h": [6.0, 9.5],
-      "vd_l_per_kg": 5.6,
+      "t_half_h": 10.9,
+      "t_half_range_h": [7.0, 14.0],
+      "vd_l_per_kg": 4.34,
       "bioavailability": 0.8,
-      "ka_per_h": 1.5,
+      "ka_per_h": 1.55,
+      "enzyme_inactivation": {"enzyme": "CYP2D6", "fraction": 0.834, "kinact_per_h": 1.0, "ki": 0.155, "kdeg_per_h": 0.01487},
       "cv_cl": 0.45,
-      "saturable": {"km": 1.2, "fraction": 0.76},
       "mec": 0.1,
       "mtc": 0.5,
       "concentration_unit": "ug/mL",
@@ -278,9 +288,9 @@
       "default_dose_mg": 100,
       "default_interval_h": 24,
       "dose_basis": "mg MDMA",
-      "notes": "MDMA (3,4-methylendioxymetamfetamin). Nástup účinku perorálně 30–60 min (Tmax cca 2 h), nosně 5–15 min. Nelineární kinetika: eliminace se při vyšších hladinách saturuje (Michaelis-Menten), takže další dávka zvýší hladinu víc, než by odpovídalo prostému součtu. Časově závislá inhibice CYP2D6 (trvá dny) modelována není, skutečné riziko při opakování dávky je proto ještě vyšší. Riziko hypertermie a hyponatrémie; doporučeno nekombinovat s jinými stimulancii a inhibitory MAO/SSRI.",
+      "notes": "MDMA (3,4-methylendioxymetamfetamin). Nástup účinku perorálně 30–60 min (Tmax cca 2 h), nosně 5–15 min. Nelineární kinetika: MDMA nevratně inaktivuje vlastní enzym CYP2D6 (obnova trvá cca 10 dní, poločas obnovy cca 47 h). Druhá dávka proto zvýší hladinu výrazně víc než prostý součet: o cca 17 % při odstupu 2–4 h a AUC druhé dávky o cca 65–77 % i po 24 h. t½ cca 11 h platí po inaktivaci enzymu, tj. po každé běžné dávce. Riziko hypertermie a hyponatrémie; doporučeno nekombinovat s jinými stimulancii a inhibitory MAO/SSRI.",
       "routes": {
-        "oral": {"bioavailability": 0.8, "ka_per_h": 1.5},
+        "oral": {"bioavailability": 0.8, "ka_per_h": 1.55},
         "insufflated": {"bioavailability": 0.75, "ka_per_h": 3.5},
         "iv_bolus": {"bioavailability": 1.0, "ka_per_h": 1.0}
       }

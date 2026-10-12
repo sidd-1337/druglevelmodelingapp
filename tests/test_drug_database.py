@@ -88,3 +88,32 @@ def test_duplicate_ids_rejected(tmp_path):
     with pytest.raises(ValueError):
         load_drugs(p)
     assert isinstance(Drug, type)
+
+
+def test_formulations_override_absorption_and_defaults():
+    prop = get_drug("propranolol")
+    assert prop.formulation_ids == ["ir", "pr"]
+    assert prop.with_formulation("ir") == prop  # first entry is the plain preset
+    pr = prop.with_formulation("pr")
+    assert pr.ka_per_h < prop.ka_per_h and pr.bioavailability < prop.bioavailability
+    assert (pr.default_dose_mg, pr.default_interval_h) == (160, 24)
+    assert pr.t_half_h == prop.t_half_h and pr.vd_l_per_kg == prop.vd_l_per_kg
+    assert prop.formulation_name("pr").startswith("Prolonged")
+    assert prop.formulation_name("pr", "cs").startswith("S prodlouženým")
+    with pytest.raises(KeyError):
+        prop.with_formulation("nope")
+
+
+def test_formulation_is_a_noop_for_drugs_without_forms():
+    ibu = get_drug("ibuprofen")
+    assert ibu.formulation_ids == [] and ibu.with_formulation(None) is ibu and ibu.with_formulation("pr") is ibu
+
+
+def test_prolonged_release_flattens_the_steady_state_profile():
+    from core.pk_engine import steady_state_summary
+    prop = get_drug("propranolol")
+    ir = steady_state_summary(prop.amount_from_dose_mg(80), 12, prop.to_pk_model(70))
+    pr_drug = prop.with_formulation("pr")
+    pr = steady_state_summary(pr_drug.amount_from_dose_mg(160), 24, pr_drug.to_pk_model(70))
+    assert pr.fluctuation_pct < ir.fluctuation_pct
+    assert pr.tmax_ss_h > ir.tmax_ss_h

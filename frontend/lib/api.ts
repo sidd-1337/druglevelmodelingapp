@@ -31,6 +31,19 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise
   }
 }
 
+/** API route overrides use snake_case ({ka_per_h}); the PK engine expects {kaPerH}. */
+export function routesFromApi(
+  routes: Record<string, { bioavailability?: number; ka_per_h?: number }> | null | undefined
+): DrugPreset["routes"] {
+  if (!routes) return undefined;
+  return Object.fromEntries(
+    Object.entries(routes).map(([route, cfg]) => [
+      route,
+      { bioavailability: cfg.bioavailability, kaPerH: cfg.ka_per_h },
+    ])
+  );
+}
+
 export interface SearchResultItem {
   kodSukl: string;
   nazev: string;

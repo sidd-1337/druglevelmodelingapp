@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { getDrugPresetByCode, getDrugPresetById, getSuklDetailByCode } from "@/lib/sukl-data";
-import { fetchDrugDetailApi } from "@/lib/api";
+import { fetchDrugDetailApi, routesFromApi } from "@/lib/api";
 import { SuklPackageDetail } from "@/lib/types";
 import AboutDrugTab from "@/components/tabs/AboutDrugTab";
 import PricingCopayTab from "@/components/tabs/PricingCopayTab";
@@ -87,7 +87,7 @@ export default function DrugProfilePage({ params }: PageProps) {
           doseConversion: suklDetail.matchedPreset.dose_conversion,
           doseBasis: suklDetail.matchedPreset.dose_basis,
           notes: suklDetail.matchedPreset.notes,
-          routes: suklDetail.matchedPreset.routes,
+          routes: routesFromApi(suklDetail.matchedPreset.routes),
         }
       : null);
 

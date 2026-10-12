@@ -23,6 +23,9 @@ from core.pk_engine import (
 REFERENCE_PATH = Path(__file__).resolve().parent.parent / "data" / "reference_pk.json"
 SINGLE_DOSE_METRICS = ("cmax", "tmax_h", "auc_inf", "auc_0_24")
 STEADY_STATE_METRICS = ("cavg_ss", "cmin_ss")
+# Two equal doses ``interval_h`` apart: the combined profile versus superposition of two
+# single doses (0-24 h), or the second dosing interval versus the first.
+REDOSING_METRICS = ("auc_vs_superposition", "cmax_vs_superposition", "auc_second_vs_first", "cmax_second_vs_first")
 
 
 @dataclass(frozen=True)
@@ -69,10 +72,14 @@ def predict(drug_id: str, metric: str, dose_mg: float, interval_h: float | None 
         return cmax_single_dose(amount, model)
     if metric == "tmax_h":
         return tmax_single_dose(model, amount)
+    if metric in REDOSING_METRICS:
+        if interval_h is None:
+            raise ValueError(f"{metric} needs interval_h (time between the doses)")
+        return _redosing_ratio(metric, amount, interval_h, model)
     if metric == "auc_inf":
-        if not model.is_saturable:
+        if not model.is_nonlinear:
             return model.f_eff * amount / model.clearance_l_per_h
-        horizon = 20.0 * model.t_half_h
+        horizon = 20.0 * model.terminal_half_life_h
     elif metric == "auc_0_24":
         horizon = 24.0
     else:
@@ -80,6 +87,22 @@ def predict(drug_id: str, metric: str, dose_mg: float, interval_h: float | None 
     t = np.linspace(0.0, horizon, 4001)
     c = concentration_profile(t, (DoseEvent(0.0, amount),), model)
     return auc_trapezoid(t, c)
+
+
+def _redosing_ratio(metric: str, amount: float, gap_h: float, model) -> float:
+    t = np.linspace(0.0, 24.0 + gap_h, 4001)
+    both = concentration_profile(t, (DoseEvent(0.0, amount), DoseEvent(gap_h, amount)), model)
+    if metric.endswith("_vs_superposition"):
+        single = concentration_profile(t, (DoseEvent(0.0, amount),), model)
+        superposed = single + np.interp(t - gap_h, t, single, left=0.0)
+        w = t <= 24.0
+        if metric.startswith("auc"):
+            return auc_trapezoid(t[w], both[w]) / auc_trapezoid(t[w], superposed[w])
+        return float(both[w].max() / superposed[w].max())
+    first, second = t < gap_h, t >= gap_h
+    if metric.startswith("auc"):
+        return auc_trapezoid(t[second], both[second]) / auc_trapezoid(t[first], both[first])
+    return float(both[second].max() / both[first].max())
 
 
 def load_references(path: str | Path = REFERENCE_PATH) -> list[dict]:
@@ -106,17 +129,48 @@ def validate(path: str | Path = REFERENCE_PATH, db_path: str | Path = DEFAULT_DB
     return rows
 
 
+METRIC_GROUPS = {
+    "exposure": ("auc_inf", "auc_0_24", *STEADY_STATE_METRICS),
+    "cmax": ("cmax",),
+    "tmax": ("tmax_h",),
+    "redosing": REDOSING_METRICS,
+}
+
+
+@dataclass(frozen=True)
+class GroupSummary:
+    n: int
+    within: int
+    geometric_mean_fold_error: float
+
+
+def summarize(rows: list[ValidationRow]) -> dict[str, GroupSummary]:
+    """Per metric group: count, number within tolerance, geometric mean fold error."""
+    out = {}
+    for name, metrics in METRIC_GROUPS.items():
+        sel = [r for r in rows if r.metric in metrics]
+        if sel:
+            gm = float(np.exp(np.mean([np.log(r.fold_error) for r in sel])))
+            out[name] = GroupSummary(len(sel), sum(r.within for r in sel), gm)
+    return out
+
+
+def regimen_label(row: ValidationRow) -> str:
+    if row.metric in REDOSING_METRICS:
+        return f"2 x {row.dose_mg:g} mg, {row.interval_h:g} h apart"
+    return f"{row.dose_mg:g} mg" + (f" q{row.interval_h:g}h" if row.interval_h else "")
+
+
 def main() -> None:
     rows = validate()
-    print(f"{'drug':14} {'metric':9} {'regimen':>12} {'observed':>10} {'predicted':>10} {'pred/obs':>8}  ok")
+    print(f"{'drug':14} {'metric':20} {'regimen':>26} {'observed':>10} {'predicted':>10} {'pred/obs':>8}  ok")
     for r in rows:
-        regimen = f"{r.dose_mg:g} mg" + (f" q{r.interval_h:g}h" if r.interval_h else "")
         flag = "yes" if r.within else f"NO (>{r.max_fold:g}x)"
-        print(f"{r.drug_id:14} {r.metric:9} {regimen:>12} {r.observed:>10.4g} {r.predicted:>10.4g} {r.ratio:>8.2f}  {flag}")
-    exposure = [r for r in rows if r.metric in ("auc_inf", "auc_0_24", *STEADY_STATE_METRICS)]
-    gm = float(np.exp(np.mean([np.log(r.fold_error) for r in exposure])))
-    print(f"\nexposure metrics: {sum(r.within for r in exposure)}/{len(exposure)} within tolerance, "
-          f"geometric mean fold error {gm:.2f}")
+        print(f"{r.drug_id:14} {r.metric:20} {regimen_label(r):>26} {r.observed:>10.4g} {r.predicted:>10.4g} "
+              f"{r.ratio:>8.2f}  {flag}")
+    print()
+    for name, g in summarize(rows).items():
+        print(f"{name:9} {g.within}/{g.n} within tolerance, geometric mean fold error {g.geometric_mean_fold_error:.2f}")
 
 
 if __name__ == "__main__":

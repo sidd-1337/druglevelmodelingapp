@@ -29,11 +29,20 @@ class DrugPreset(BaseModel):
     dose_basis: str = "mg"
     notes: str = ""
     routes: dict[str, dict[str, float]] | None = None
+    formulations: dict[str, dict] | None = None
     cv_cl: float | None = None
     cv_f: float = 0.0
     fe_renal: float = 0.0
     km: float | None = None
     saturable_fraction: float = 0.0
+    v1_fraction: float = 1.0
+    q_l_per_h: float = 0.0
+    tlag_h: float = 0.0
+    inactivation_fraction: float = 0.0
+    kinact_per_h: float = 0.0
+    ki: float = 1.0
+    kdeg_per_h: float = 0.0
+    inactivated_enzyme: str = ""
 
 
 class PatientIn(BaseModel):
@@ -67,6 +76,7 @@ class SimulateRequest(BaseModel):
     duration_h: float = Field(gt=0, default=72.0)
     body_weight_kg: float = Field(gt=0, default=70.0)
     route: str = Field(default="oral", description="Route of administration: oral, iv_bolus, insufflated, smoked, inhaled")
+    formulation: str | None = Field(default=None, description="Formulation id from the preset (e.g. 'pr')")
     patient: PatientIn | None = None
     custom_pk: CustomPKParams | None = None
     missed_dose: MissedDoseRequest | None = None
@@ -129,6 +139,7 @@ class HarmReductionRequest(BaseModel):
     body_weight_kg: float = Field(gt=0, default=70.0)
     route: str = Field(default="oral", description="Route: oral, iv_bolus, insufflated, smoked, inhaled")
     elapsed_h: float = Field(ge=0, default=2.0, description="Hours elapsed since first dose")
+    formulation: str | None = None
     next_dose_mg: float | None = Field(default=None, gt=0, description="Planned next dose in mg")
     patient: PatientIn | None = None
     custom_pk: CustomPKParams | None = None
@@ -193,8 +204,16 @@ class ObservationIn(BaseModel):
     concentration: float = Field(gt=0, description="Measured level in the drug's concentration unit")
 
 
+class DoseIn(BaseModel):
+    time_h: float = Field(ge=0, description="Hours since the start of the record")
+    dose_mg: float = Field(gt=0)
+
+
 class IndividualizeRequest(SimulateRequest):
     observations: list[ObservationIn] = Field(min_length=1, max_length=20)
+    dose_history: list[DoseIn] | None = Field(
+        default=None, max_length=1000,
+        description="Doses actually taken; replaces dose_mg/interval_h/missed_dose for the fit when given")
     residual_cv: float = Field(default=0.2, gt=0, le=1.0, description="Assay + model error (proportional CV)")
 
 
@@ -223,3 +242,86 @@ class IndividualizeResponse(BaseModel):
     t_half_individual_h: float
     steady_state: SteadyStateResponse
     tdm: TDMAssessmentResponse
+
+
+class ValidationRowResponse(BaseModel):
+    drug_id: str
+    metric: str
+    dose_mg: float
+    interval_h: float | None = None
+    published: float
+    predicted: float
+    ratio: float = Field(description="predicted / published")
+    max_fold: float
+    within_tolerance: bool
+    source: str
+    verified: bool
+    note: str = ""
+
+
+class ValidationGroupResponse(BaseModel):
+    n: int
+    within: int
+    geometric_mean_fold_error: float
+
+
+class ValidationResponse(BaseModel):
+    summary: dict[str, ValidationGroupResponse]
+    rows: list[ValidationRowResponse]
+
+
+class CoMedicationIn(BaseModel):
+    """A drug in the regimen; preset drugs are simulated, perpetrator names only act on others."""
+
+    drug_id: str | None = Field(default=None, description="Preset id; omit for a perpetrator-only entry")
+    perpetrator: str | None = Field(default=None, description="Exact perpetrator name from data/interactions.json")
+    dose_mg: float | None = Field(default=None, gt=0)
+    interval_h: float | None = Field(default=None, gt=0)
+    route: str = "oral"
+    formulation: str | None = None
+
+
+class InteractionResponse(BaseModel):
+    victim_id: str
+    perpetrator: str
+    perpetrator_cs: str
+    site: str
+    exposure_factor: float | None = None
+    direction: str
+    onset_h: float
+    qualitative: bool
+    source: str
+    verified: bool
+    note: str = ""
+
+
+class MultiDrugSeriesResponse(BaseModel):
+    drug_id: str
+    drug_name: str
+    unit: str
+    dose_mg: float
+    interval_h: float
+    concentrations: list[float]
+    concentrations_alone: list[float]
+    mec: float
+    mtc: float
+    exposure_factor: float = Field(description="Steady-state exposure with co-medication / alone")
+    t_half_h: float
+    steady_state: SteadyStateResponse
+    tdm: TDMAssessmentResponse
+    interactions: list[InteractionResponse]
+
+
+class MultiDrugRequest(BaseModel):
+    drugs: list[CoMedicationIn] = Field(min_length=1, max_length=8)
+    duration_h: float = Field(gt=0, default=168.0)
+    body_weight_kg: float = Field(gt=0, default=70.0)
+    patient: PatientIn | None = None
+
+
+class MultiDrugResponse(BaseModel):
+    time_grid: list[float]
+    crcl_ml_min: float | None = None
+    series: list[MultiDrugSeriesResponse]
+    unmatched_perpetrators: list[str] = Field(
+        default_factory=list, description="Named perpetrators with no interaction data for any simulated drug")

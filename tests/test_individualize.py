@@ -63,7 +63,7 @@ def test_saturable_model_can_be_individualised():
     true = _apply_eta(pop, [math.log(0.7), 0.0])
     obs = [Observation(t, float(c)) for t, c in zip((4.0, 10.0), concentration_profile(np.array([4.0, 10.0]), events, true))]
     fit = fit_individual(pop, events, obs, d.cv_cl)
-    assert fit.model.is_saturable and fit.cl_ratio < 1.0
+    assert fit.model.is_nonlinear and fit.cl_ratio < 1.0
 
 
 @pytest.mark.parametrize("obs", [[], [Observation(10.0, 0.0)], [Observation(0.0, 0.5)]])

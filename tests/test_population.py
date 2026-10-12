@@ -34,10 +34,14 @@ def test_clearance_factor():
     assert clearance_factor(70, crcl_ml_min=50, fe_renal=0.0) == pytest.approx(1.0)
 
 
-def test_reference_patient_keeps_preset_half_life():
+def test_reference_patient_keeps_preset_clearance():
     for drug_id in ("lithium", "ibuprofen", "mdma"):
         d = get_drug(drug_id)
-        assert d.to_pk_model(70).t_half_h == pytest.approx(d.t_half_h)
+        m = d.to_pk_model(70)
+        # engine t1/2 carries CL; with enzyme inactivation it is the fresh-enzyme value
+        assert m.t_half_h == pytest.approx(d.t_half_h * (1 - d.inactivation_fraction))
+    mdma = get_drug("mdma").to_pk_model(70)
+    assert mdma.terminal_half_life_h == pytest.approx(get_drug("mdma").t_half_h)
 
 
 def test_renal_impairment_prolongs_lithium_and_raises_steady_state():

@@ -6,7 +6,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Testy](https://img.shields.io/badge/Pytest-192%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Testy](https://img.shields.io/badge/Pytest-229%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![Licence: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Otevřená platforma pro farmakokinetické simulace a lékový přehled postavená pro zdravotnické inženýry, farmakology, lékaře i edukaci pacientů. Systém implementuje exaktní jednokompartmentové farmakokinetické modely s perorální absorpcí (Batemanova funkce), nitrožilním bolusem (IV), intranazálním (šňupání) a inhalačním (kouření) podáním, analýzu kumulace v ustáleném stavu (*steady-state*), simulaci vynechané dávky (*missed dose*) a terapeutické monitorování hladin léčiv (TDM).
@@ -236,23 +236,23 @@ $$
 
 ## Knihovna klinických léčiv
 
-Aplikace obsahuje přednastavené parametry v [`data/drugs.json`](data/drugs.json). Hodnoty popisují dospělého (70 kg) s normální funkcí ledvin; $V_d$ a $k_a$ jsou nafitovány tak, aby AUC / ustálená hladina, Cmax a Tmax odpovídaly publikovaným datům v [`data/reference_pk.json`](data/reference_pk.json) (kontrola: `python -m core.validation`). Každý preset nese i variabilitu clearance (a biologické dostupnosti) mezi pacienty, podíl renální eliminace a u MDMA parametry saturovatelné (Michaelis-Menten) eliminace.
+Aplikace obsahuje přednastavené parametry v [`data/drugs.json`](data/drugs.json). Hodnoty popisují dospělého (70 kg) s normální funkcí ledvin; $V_d$ a $k_a$ jsou nafitovány tak, aby AUC / ustálená hladina, Cmax a Tmax odpovídaly publikovaným datům v [`data/reference_pk.json`](data/reference_pk.json) (kontrola: `python -m core.validation`). Každý preset nese i variabilitu clearance (a biologické dostupnosti) mezi pacienty, podíl renální eliminace, dvoukompartmentovou distribuci a zpoždění absorpce tam, kde to publikovaná data podporují, volitelné lékové formy (propranolol s okamžitým vs. prodlouženým uvolňováním) a u MDMA mechanismem podmíněnou inaktivaci CYP2D6.
 
 
 | Léčivo              | Klinická kategorie              | $t_{1/2}$ (h) | $V_d$ (L/kg) |    $F$    | $k_a$ (h⁻¹) |    MEC    |    MTC    |     Jednotka     | Klinický kontext                                                                |
 | :-------------------- | :------------------------------- | :-----------: | :----------: | :--------: | :-----------: | :--------: | :--------: | :--------------: | :------------------------------------------------------------------------------- |
-| **Ibuprofen**         | NSAID analgetikum                |     $2.0$     |    $0.13$    |   $0.90$   |    $1.50$    |   $10.0$   |   $50.0$   | $\mu\text{g/mL}$ | Rychlé vstřebávání; dávkování po 6–8 h.                                 |
-| **Paracetamol**       | Analgetikum / antipyretikum      |     $2.5$     |    $0.70$    |   $0.80$   |    $5.00$    |   $10.0$   |   $30.0$   | $\mu\text{g/mL}$ | Široké bezpečné rozmezí; limit MTC hlídá toxický metabolit NAPQI.        |
+| **Ibuprofen**         | NSAID analgetikum                |     $2.0$     |    $0.13$    |   $0.90$   |    $2.40$    |   $10.0$   |   $50.0$   | $\mu\text{g/mL}$ | Rychlé vstřebávání; dávkování po 6–8 h.                                 |
+| **Paracetamol**       | Analgetikum / antipyretikum      |     $2.5$     |    $0.70$    |   $0.80$   |    $3.80$    |   $10.0$   |   $30.0$   | $\mu\text{g/mL}$ | Široké bezpečné rozmezí; limit MTC hlídá toxický metabolit NAPQI.        |
 | **Amoxicilin**        | Aminopenicilinové antibiotikum  |     $1.0$     |    $0.28$    |   $0.80$   |    $0.55$    |   $2.0$   |   $40.0$   | $\mu\text{g/mL}$ | Časově závislý účinek ($T > \text{MIC}$); rychlé vylučování ledvinami. |
-| **Lithium**           | Stabilizátor nálady            |    $24.0$    |    $0.70$    |   $0.95$   |    $1.60$    |   $0.6$   |   $1.5$   | $\text{mmol/L}$ | **Úzké terapeutické okno (NTI)**: toxicita nad $1.5\,\text{mmol/L}$.          |
-| **Diazepam**          | Dlouhodobý benzodiazepin        |    $40.0$    |    $1.20$    |   $0.93$   |    $4.00$    |   $0.2$   |   $0.8$   | $\mu\text{g/mL}$ | Výrazná akumulace při opakovaném užívání.                                |
-| **Livizux**           | ADHD stimulans (lisdexamfetamin) |    $11.0$    |    $3.35$    |   $0.95$   |    $0.67$    |   $0.02$   |   $0.10$   | $\mu\text{g/mL}$ | Proléčivo d-amfetaminu; užívání 1× denně ráno. AGNP 20–80 ng/mL.       |
+| **Lithium**           | Stabilizátor nálady            |     $24.0$     |    $0.70$    |   $0.95$   |    $1.00$    |   $0.6$   |   $1.5$   | $\text{mmol/L}$ | **Úzké terapeutické okno (NTI)**: toxicita nad $1.5\,\text{mmol/L}$.          |
+| **Diazepam**          | Dlouhodobý benzodiazepin        |     $40.0$     |    $1.20$    |   $0.93$   |    $4.00$    |   $0.2$   |   $0.8$   | $\mu\text{g/mL}$ | Výrazná akumulace při opakovaném užívání.                                |
+| **Livizux**           | ADHD stimulans (lisdexamfetamin) |     $11.0$     |    $3.35$    |   $0.95$   |    $0.67$    |   $0.02$   |   $0.10$   | $\mu\text{g/mL}$ | Proléčivo d-amfetaminu; užívání 1× denně ráno. AGNP 20–80 ng/mL.       |
 | **Levetiracetam**     | Antiepileptikum (Keppra)         |     $7.0$     |    $0.60$    |   $1.00$   |    $4.50$    |   $12.0$   |   $46.0$   | $\mu\text{g/mL}$ | Téměř 100% vstřebávání; referenční rozmezí AGNP 12–46 µg/mL.         |
 | **Pregabalin**        | Antiepileptikum / anxiolytikum   |     $6.3$     |    $0.59$    |   $0.90$   |    $3.90$    |   $2.0$   |   $8.0$   | $\mu\text{g/mL}$ | Lineární renální clearance; nízká vazba na bílkoviny. AGNP 2–5 µg/mL.   |
 | **Propranolol**       | Neselektivní beta-blokátor     |     $4.0$     |    $2.70$    |   $0.25$   |    $1.60$    |   $0.02$   |   $0.20$   | $\mu\text{g/mL}$ | Výrazný first-pass metabolismus v játrech ($F \approx 25\%$, CV expozice cca 50 %).                 |
-| **Rivotril**          | Benzodiazepin (klonazepam)       |    $35.0$    |    $2.30$    |   $0.90$   |    $1.50$    |   $0.02$   |   $0.08$   | $\mu\text{g/mL}$ | Vysoká akumulace v ustáleném stavu; rozmezí AGNP 20–70 ng/mL.               |
-| **Mirtazapin**        | Antidepresivum (NaSSA)           |    $26.0$    |    $10.50$    |   $0.50$   |    $2.20$    |   $0.03$   |   $0.15$   | $\mu\text{g/mL}$ | Užívání 1× denně večer; terapeutické okno AGNP 30–80 ng/mL.             |
-| **Risperidon**        | Atypické antipsychotikum        |    $20.0$    |    $1.70$    |   $0.70$   |    $2.00$    |   $0.02$   |   $0.08$   | $\mu\text{g/mL}$ | Modelováno jako aktivní frakce (risperidon + 9-OH); cíl 20–60 ng/mL.         |
+| **Rivotril**          | Benzodiazepin (klonazepam)       |     $35.0$     |    $2.30$    |   $0.90$   |    $1.50$    |   $0.02$   |   $0.08$   | $\mu\text{g/mL}$ | Vysoká akumulace v ustáleném stavu; rozmezí AGNP 20–70 ng/mL.               |
+| **Mirtazapin**        | Antidepresivum (NaSSA)           |     $26.0$     |    $10.50$    |   $0.50$   |    $1.00$    |   $0.03$   |   $0.15$   | $\mu\text{g/mL}$ | Užívání 1× denně večer; terapeutické okno AGNP 30–80 ng/mL.             |
+| **Risperidon**        | Atypické antipsychotikum        |     $20.0$     |    $1.70$    |   $0.70$   |    $2.00$    |   $0.02$   |   $0.08$   | $\mu\text{g/mL}$ | Modelováno jako aktivní frakce (risperidon + 9-OH); cíl 20–60 ng/mL.         |
 | **Ritalin**           | ADHD stimulans (methylfenidát)  |     $2.8$     |    $3.10$    |   $0.15$   |    $1.30$    |  $0.005$  |  $0.030$  | $\mu\text{g/mL}$ | Krátký poločas vyžaduje dávkování 2–3× denně ($\tau = 8\text{ h}$).    |
 | **Vlastní léčivo** | Uživatelsky definované         |  *vlastní*  |  *vlastní*  | *vlastní* |  *vlastní*  | *vlastní* | *vlastní* |    *vlastní*    | Plně konfigurovatelné pro nové molekuly a laboratorní data.                  |
 

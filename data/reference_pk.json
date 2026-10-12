@@ -36,7 +36,7 @@
       "value": 19.3,
       "source": "https://www.sigmaaldrich.com/AT/de/tech-docs/paper/185012",
       "verified": false,
-      "note": "Sevilla-Tirado 2003, 17.98-20.73 across formulations. One-compartment model misses the distribution phase, so peaks run low."
+      "note": "Sevilla-Tirado 2003, 17.98-20.73 across formulations. Matched with a two-compartment model (V1 21 % of Vss, Q 77.5 L/h, Owens 2014) and an absorption lag."
     },
     {
       "drug_id": "paracetamol",
@@ -91,10 +91,10 @@
       "metric": "cmax",
       "dose_mg": 300,
       "value": 0.28,
-      "max_fold": 2.5,
+      "max_fold": 1.5,
       "source": "https://pdf.hres.ca/dpd_pm/00024251.PDF",
       "verified": false,
-      "note": "Known limitation: lithium is biexponential (V1 about half of Vss), so a one-compartment model calibrated on steady state underestimates the single-dose peak about 2x."
+      "note": "Lithium is biexponential (V1 about half of Vss); the two-compartment preset recovers most of the early peak that a one-compartment model misses."
     },
     {
       "drug_id": "lithium",
@@ -297,10 +297,10 @@
       "metric": "cmax",
       "dose_mg": 30,
       "value": 0.0587,
-      "max_fold": 4.0,
+      "max_fold": 1.5,
       "source": "https://pubmed.ncbi.nlm.nih.gov/22541842",
       "verified": false,
-      "note": "Known limitation: fast distribution phase; the one-compartment model is calibrated on steady state and underestimates the first-dose peak about 3x."
+      "note": "Fast distribution phase; captured by the two-compartment preset (distribution parameters fitted, no published two-compartment model for racemic mirtazapine)."
     },
     {
       "drug_id": "risperidone",
@@ -409,6 +409,72 @@
       "max_fold": 1.6,
       "source": "https://currentsurgery.org/index.php/jcs/article/download/213/130",
       "verified": false
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "auc_vs_superposition",
+      "dose_mg": 100,
+      "interval_h": 4,
+      "value": 1.171,
+      "max_fold": 1.15,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/26073279",
+      "verified": false,
+      "note": "Farré 2015, 2 x 100 mg 4 h apart, n=10; AUC versus simple accumulation of two single doses (CYP2D6 autoinhibition)."
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "cmax_vs_superposition",
+      "dose_mg": 100,
+      "interval_h": 4,
+      "value": 1.231,
+      "max_fold": 1.15,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/26073279",
+      "verified": false,
+      "note": "Farré 2015, 2 x 100 mg 4 h apart, n=10; Cmax versus simple accumulation."
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "auc_vs_superposition",
+      "dose_mg": 100,
+      "interval_h": 2,
+      "value": 1.162,
+      "max_fold": 1.15,
+      "source": "https://link.springer.com/article/10.1007/s00213-012-2894-7",
+      "verified": false,
+      "note": "Peiró 2013, doses 2 h apart; AUC versus simple accumulation of two single doses (CYP2D6 autoinhibition)."
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "cmax_vs_superposition",
+      "dose_mg": 100,
+      "interval_h": 2,
+      "value": 1.128,
+      "max_fold": 1.15,
+      "source": "https://link.springer.com/article/10.1007/s00213-012-2894-7",
+      "verified": false,
+      "note": "Peiró 2013, doses 2 h apart; Cmax versus simple accumulation."
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "auc_second_vs_first",
+      "dose_mg": 100,
+      "interval_h": 24,
+      "value": 1.77,
+      "max_fold": 1.2,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/15071716/",
+      "verified": false,
+      "note": "Farré 2004, 2 x 100 mg 24 h apart, n=9: second dose AUC +77 %, Cmax +29 % (CYP2D6 still inactivated)."
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "cmax_second_vs_first",
+      "dose_mg": 100,
+      "interval_h": 24,
+      "value": 1.29,
+      "max_fold": 1.2,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/15071716/",
+      "verified": false,
+      "note": "Farré 2004, 2 x 100 mg 24 h apart, n=9: second dose AUC +77 %, Cmax +29 % (CYP2D6 still inactivated)."
     }
   ]
 }

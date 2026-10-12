@@ -6,8 +6,10 @@ import math
 import numpy as np
 import streamlit as st
 
-from core.drug_database import CUSTOM_ID, custom_drug, load_drugs
+from core.drug_database import CUSTOM_ID, custom_drug, formulation_from_dosage_form, load_drugs
 from core.individualize import Observation, fit_individual, individual_band
+from core.interactions import apply_interactions, find, interactions_for, load_interactions
+from core.validation import regimen_label, summarize, validate
 from core.population import clearance_factor, cockcroft_gault
 from core.metrics import (
     TherapeuticWindow,
@@ -51,6 +53,11 @@ def search_sukl(query: str):
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_sukl_detail(kod_sukl: str):
     return fetch_sukl_detail(kod_sukl)
+
+
+@st.cache_data(show_spinner=False)
+def validation_rows():
+    return validate()
 
 
 def assessment_message(T, res, window: TherapeuticWindow, unit: str) -> tuple[str, str]:
@@ -141,6 +148,17 @@ with st.sidebar:
     )
     base = by_id[drug_id]
     k = drug_id  # per-drug widget keys: defaults reset when the drug changes
+    if base.formulation_ids:
+        sukl_form = " ".join(filter(None, (getattr(sukl_med, "lekova_forma", ""), getattr(sukl_med, "doplnek", "")))) \
+            if sukl_med else ""
+        auto_form = formulation_from_dosage_form(base, sukl_form)
+        form_ids = base.formulation_ids
+        form_id = st.radio(
+            T("formulation"), form_ids, index=form_ids.index(auto_form) if auto_form else 0,
+            format_func=lambda f: base.formulation_name(f, LANGUAGES[lang]), horizontal=True, key=f"form_{k}")
+        if auto_form and sukl_med:
+            st.caption(T("formulation_auto", form=base.formulation_name(auto_form, LANGUAGES[lang])))
+        base = base.with_formulation(form_id)
     if base.notes:
         st.caption(base.notes)
 
@@ -316,9 +334,9 @@ fig = build_figure(
     missed_time=missed_time, show_zones=show_zones)
 st.plotly_chart(fig, width="stretch")
 
-tab_ss, tab_fit, tab_missed, tab_hr, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
-    [T("tab_ss"), T("tab_fit"), T("tab_missed"), T("tab_hr"), T("tab_sukl"), T("tab_glossary"), T("tab_data"),
-     T("tab_model")])
+tab_ss, tab_fit, tab_multi, tab_missed, tab_hr, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
+    [T("tab_ss"), T("tab_fit"), T("tab_multi"), T("tab_missed"), T("tab_hr"), T("tab_sukl"), T("tab_glossary"),
+     T("tab_data"), T("tab_model")])
 
 with tab_ss:
     r = st.columns(4)
@@ -343,46 +361,118 @@ with tab_ss:
 with tab_fit:
     st.markdown(T("fit_intro"))
     if st.checkbox(T("fit_enable"), False, key=f"fit_on_{k}"):
-        n_obs = int(st.number_input(T("fit_n"), 1, 5, 1, key=f"fit_n_{k}"))
-        # Default: troughs just before the last doses, prefilled with the population prediction.
-        last_doses = [e.time_h for e in active_events if e.time_h > 0][-n_obs:] or [duration_h]
-        default_times = ([last_doses[0]] * n_obs + last_doses)[-n_obs:]
-        observations = []
-        for i in range(n_obs):
-            oc = st.columns(2)
-            t_i = oc[0].number_input(T("fit_time", i=i + 1), 0.1, float(duration_h),
-                                     float(default_times[i]), 0.5, key=f"fit_t{i}_{k}")
-            c_default = float(np.interp(t_i, t, c))
-            c_i = oc[1].number_input(T("fit_level", i=i + 1, unit=unit), 0.0, 1e6,
-                                     float(f"{c_default:.3g}"), format="%g", key=f"fit_c{i}_{k}")
-            observations.append(Observation(t_i, c_i))
-        try:
-            fit = fit_individual(model, active_events, observations, drug.cv_cl, drug.cv_f)
-        except ValueError as exc:
-            st.error(str(exc))
+        with st.expander(T("fit_dose_log")):
+            st.caption(T("fit_dose_log_help"))
+            log = st.data_editor(
+                [{"t [h]": e.time_h, T("dose") + " [mg]": e.amount / drug.dose_conversion} for e in active_events],
+                num_rows="dynamic", hide_index=True, key=f"fit_log_{k}")
+        fit_events = sorted(
+            (DoseEvent(float(row["t [h]"]), drug.amount_from_dose_mg(float(row[T("dose") + " [mg]"])))
+             for row in log if row.get("t [h]") is not None and row.get(T("dose") + " [mg]")),
+            key=lambda e: e.time_h)
+        if not fit_events:
+            st.error(T("fit_no_doses"))
         else:
-            fit_ss = steady_state_summary(amount, tau, fit.model)
-            fc = st.columns(4)
-            fc[0].metric(T("fit_cl"), f"{fit.model.clearance_l_per_h:.3g} L/h",
-                         f"{100 * (fit.cl_ratio - 1):+.0f} %", delta_color="off",
-                         help=T("fit_cl_help", pop=model.clearance_l_per_h))
-            fc[1].metric(T("fit_thalf"), f"{fit.model.t_half_h:.3g} h", help=T("fit_thalf_help", pop=model.t_half_h))
-            fc[2].metric(T("fit_css_avg"), f"{fit_ss.cavg_ss:.3g} {unit}")
-            fc[3].metric(T("fit_css_min"), f"{fit_ss.cmin_ss:.3g} {unit}")
-            c_fit = concentration_profile(t, active_events, fit.model)
-            show_alert(*assessment_message(T, assess_tdm(t, c_fit, window, assess_from), window, unit))
+            c_log = concentration_profile(t, fit_events, model)
+            n_obs = int(st.number_input(T("fit_n"), 1, 5, 1, key=f"fit_n_{k}"))
+            # Default: troughs just before the last doses, prefilled with the population prediction.
+            last_doses = [e.time_h for e in fit_events if e.time_h > 0][-n_obs:] or [duration_h]
+            default_times = ([last_doses[0]] * n_obs + last_doses)[-n_obs:]
+            observations = []
+            for i in range(n_obs):
+                oc = st.columns(2)
+                t_i = oc[0].number_input(T("fit_time", i=i + 1), 0.1, float(duration_h),
+                                         float(default_times[i]), 0.5, key=f"fit_t{i}_{k}")
+                c_default = float(np.interp(t_i, t, c_log))
+                c_i = oc[1].number_input(T("fit_level", i=i + 1, unit=unit), 0.0, 1e6,
+                                         float(f"{c_default:.3g}"), format="%g", key=f"fit_c{i}_{k}")
+                observations.append(Observation(t_i, c_i))
+            try:
+                fit = fit_individual(model, fit_events, observations, drug.cv_cl, drug.cv_f)
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                fit_ss = steady_state_summary(amount, tau, fit.model)
+                fc = st.columns(4)
+                fc[0].metric(T("fit_cl"), f"{fit.model.clearance_l_per_h:.3g} L/h",
+                             f"{100 * (fit.cl_ratio - 1):+.0f} %", delta_color="off",
+                             help=T("fit_cl_help", pop=model.clearance_l_per_h))
+                fc[1].metric(T("fit_thalf"), f"{fit.model.terminal_half_life_h:.3g} h",
+                             help=T("fit_thalf_help", pop=model.terminal_half_life_h))
+                fc[2].metric(T("fit_css_avg"), f"{fit_ss.cavg_ss:.3g} {unit}")
+                fc[3].metric(T("fit_css_min"), f"{fit_ss.cmin_ss:.3g} {unit}")
+                c_fit = concentration_profile(t, fit_events, fit.model)
+                show_alert(*assessment_message(T, assess_tdm(t, c_fit, window, assess_from), window, unit))
+                st.plotly_chart(build_figure(
+                    t, c_fit, window, unit, T, log_scale=log_scale, band=individual_band(fit, t, fit_events),
+                    reference=c_log, dose_times=[e.time_h for e in fit_events], show_zones=show_zones,
+                    observations=[(o.time_h, o.concentration) for o in fit.observations],
+                    conc_label=T("fit_individual"), reference_label=T("fit_population"), band_label=T("fit_band"),
+                    height=440), width="stretch")
+                st.dataframe(
+                    [{"t [h]": o.time_h, T("fit_table_obs"): o.concentration, T("fit_table_pop"): round(p_, 4),
+                      T("fit_table_ind"): round(i_, 4)}
+                     for o, p_, i_ in zip(fit.observations, fit.population_predicted, fit.predicted)],
+                    hide_index=True)
+                st.caption(T("fit_caption"))
+
+with tab_multi:
+    st.markdown(T("multi_intro"))
+    lang_code = LANGUAGES[lang]
+    other_ids = [d.id for d in presets if d.id not in (drug_id, CUSTOM_ID)]
+    co_ids = st.multiselect(T("multi_select"), other_ids, format_func=lambda i: by_id[i].name, key=f"multi_{k}")
+    perp_names = sorted({i.perpetrator for i in load_interactions()} - {by_id[i].name for i in co_ids})
+    co_perps = st.multiselect(T("multi_perp"), perp_names,
+                              format_func=lambda n: next(i.name(lang_code) for i in load_interactions()
+                                                         if i.perpetrator == n), key=f"multiperp_{k}")
+    if not co_ids and not co_perps:
+        st.info(T("multi_none"))
+    else:
+        regimen = [(drug, amount, tau, model, route)]
+        for cid in co_ids:
+            co = by_id[cid]
+            mc = st.columns(2)
+            co_dose = mc[0].number_input(T("multi_dose", name=co.name), 0.1, 100000.0, float(co.default_dose_mg),
+                                         format="%g", key=f"md_{cid}_{k}")
+            co_tau = mc[1].number_input(T("multi_interval", name=co.name), 0.5, 168.0, float(co.default_interval_h),
+                                        0.5, key=f"mi_{cid}_{k}")
+            regimen.append((co, co.amount_from_dose_mg(co_dose), co_tau,
+                            co.to_pk_model(weight, Route.ORAL, crcl_ml_min=crcl), Route.ORAL))
+        all_names = {d.name for d, *_ in regimen} | set(co_perps)
+        rows = []
+        for d, amt, tau_i, base_model, route_i in regimen:
+            acting = [i for i in interactions_for(d.id) if i.perpetrator in all_names - {d.name}]
+            acting += [i for i in find(d.id, co_perps) if i not in acting]
+            affected = apply_interactions(base_model, acting)
+            events_i = regular_schedule(amt, tau_i, duration_h)
+            c_alone = concentration_profile(t, events_i, base_model)
+            c_with = concentration_profile(t, events_i, affected)
+            win_i = TherapeuticWindow(d.mec, d.mtc)
+            factor = (steady_state_summary(amt, tau_i, affected).cavg_ss
+                      / steady_state_summary(amt, tau_i, base_model).cavg_ss)
+            st.markdown(f"**{d.name}**")
+            if acting:
+                st.metric(T("multi_factor"), f"{factor:.2f}x", f"{100 * (factor - 1):+.0f} %", delta_color="off")
+            else:
+                st.caption(T("multi_no_interaction"))
+            show_alert(*assessment_message(T, assess_tdm(t, c_with, win_i, assess_from), win_i, d.concentration_unit))
             st.plotly_chart(build_figure(
-                t, c_fit, window, unit, T, log_scale=log_scale, band=individual_band(fit, t, active_events),
-                reference=c, dose_times=[e.time_h for e in active_events], show_zones=show_zones,
-                observations=[(o.time_h, o.concentration) for o in fit.observations],
-                conc_label=T("fit_individual"), reference_label=T("fit_population"), band_label=T("fit_band"),
-                height=440), width="stretch")
-            st.dataframe(
-                [{"t [h]": o.time_h, T("fit_table_obs"): o.concentration, T("fit_table_pop"): round(p_, 4),
-                  T("fit_table_ind"): round(i_, 4)}
-                 for o, p_, i_ in zip(fit.observations, fit.population_predicted, fit.predicted)],
-                hide_index=True)
-            st.caption(T("fit_caption"))
+                t, c_with, win_i, d.concentration_unit, T, log_scale=log_scale,
+                reference=c_alone if acting else None, dose_times=[e.time_h for e in events_i],
+                show_zones=show_zones, height=320, conc_label=T("multi_with", name=d.name),
+                reference_label=T("multi_alone", name=d.name)), width="stretch")
+            for i in acting:
+                effect = (T("multi_qualitative") if i.exposure_factor is None
+                          else f"x{i.exposure_factor:.2f} ({100 * (i.exposure_factor - 1):+.0f} %)")
+                rows.append({T("drug"): d.name, T("multi_perpetrator"): i.name(lang_code),
+                             T("multi_effect"): effect, T("multi_site"): T("multi_site_" + i.site),
+                             T("multi_onset"): f"{i.onset_h / 24:.0f} d" if i.onset_h >= 24 else f"{i.onset_h:.0f} h",
+                             T("validation_source"): i.source, T("validation_note"): i.note})
+        if rows:
+            st.markdown(f"#### {T('multi_table_title')}")
+            st.dataframe(rows, hide_index=True, width="stretch",
+                         column_config={T("validation_source"): st.column_config.LinkColumn(display_text="source")})
+        st.caption(T("multi_caption"))
 
 with tab_missed:
     if not missed_on:
@@ -415,7 +505,7 @@ with tab_hr:
         elapsed_val = st.slider(
             T("hr_elapsed_slider"),
             0.0,
-            float(max(24.0, math.ceil(model.t_half_h * 5))),
+            float(max(24.0, math.ceil(model.terminal_half_life_h * 5))),
             float(round(tau, 1)),
             0.5,
             key=f"hr_elapsed_{k}",
@@ -456,7 +546,7 @@ with tab_hr:
         st.success(f"✅ **{assessment.risk_headline}**\n\n{assessment.risk_explanation}")
 
     # Simulated curve of stacking
-    t_hr = np.linspace(0.0, max(24.0, elapsed_val + 3 * model.t_half_h), 500)
+    t_hr = np.linspace(0.0, max(24.0, elapsed_val + 3 * model.terminal_half_life_h), 500)
     c_stacked = concentration_profile(
         t_hr, [DoseEvent(0.0, amount), DoseEvent(elapsed_val, redose_amount)], model)
     fig_hr = build_figure(
@@ -594,6 +684,23 @@ with tab_model:
     st.latex(r"C_{IV}(t)=\frac{D}{V_d}\,e^{-k_e t},\qquad k_e=\frac{\ln 2}{t_{1/2}},\quad CL=k_e V_d")
     st.latex(r"R=\frac{1}{1-e^{-k_e\tau}},\qquad C_{ss,avg}=\frac{F\,D}{CL\,\tau}")
     st.markdown(T("model_notes"))
+
+    st.markdown(f"#### {T('validation_title')}")
+    st.caption(T("validation_intro"))
+    val_rows = validation_rows()
+    val_cols = st.columns(3)
+    for col, (group, g) in zip(val_cols, summarize(val_rows).items()):
+        col.metric(T("validation_" + group), f"{g.within}/{g.n}",
+                   help=T("validation_gm", gm=g.geometric_mean_fold_error))
+    st.dataframe(
+        [{T("drug"): r.drug_id, T("validation_metric"): r.metric, T("regimen"): regimen_label(r),
+          T("validation_published"): r.observed, T("validation_predicted"): round(r.predicted, 5),
+          T("validation_ratio"): round(r.ratio, 2), T("validation_ok"): "✅" if r.within else f"❌ >{r.max_fold:g}×",
+          T("validation_source"): r.source, T("validation_note"): r.note}
+         for r in val_rows],
+        hide_index=True, width="stretch",
+        column_config={T("validation_source"): st.column_config.LinkColumn(display_text="source")},
+    )
 
 st.divider()
 st.caption("⚕️ " + T("disclaimer"))

@@ -300,13 +300,14 @@ def test_pk_simulate_renal_function_and_variability_band():
     assert cg["crcl_ml_min"] == pytest.approx((140 - 80) * 70 * 1.23 / 120 * 0.85, abs=0.1)
 
 
-def test_pk_simulate_custom_override_keeps_saturable_elimination():
+def test_pk_simulate_custom_override_keeps_nonlinear_elimination():
     payload = {"drug_id": "mdma", "dose_mg": 100.0, "interval_h": 24.0, "duration_h": 24.0,
                "custom_pk": {"ka_per_h": 2.0}}
     res = client.post("/api/v1/pk/simulate", json=payload)
     assert res.status_code == 200
     presets = {p["id"]: p for p in client.get("/api/v1/pk/presets").json()}
-    assert presets["mdma"]["km"] == 1.2 and presets["lithium"]["fe_renal"] == 0.95
+    assert presets["mdma"]["inactivation_fraction"] > 0 and presets["lithium"]["fe_renal"] == 0.95
+    assert presets["lithium"]["v1_fraction"] < 1 and presets["paracetamol"]["tlag_h"] > 0
 
 
 def test_pk_individualize_from_measured_trough():
@@ -332,3 +333,61 @@ def test_pk_individualize_rejects_level_before_first_dose():
         "observations": [{"time_h": 6.0, "concentration": 0.5}],
         "missed_dose": {"dose_index": 0}})  # first dose skipped: nothing taken before 12 h
     assert res.status_code == 422
+
+
+def test_validation_report():
+    data = client.get("/api/v1/pk/validation").json()
+    assert data["summary"]["exposure"]["within"] == data["summary"]["exposure"]["n"]
+    assert all(r["source"].startswith("http") for r in data["rows"])
+
+
+def test_pk_individualize_uses_actual_dose_history():
+    base = {"drug_id": "lithium", "dose_mg": 400.0, "interval_h": 12.0, "duration_h": 168.0,
+            "observations": [{"time_h": 156.0, "concentration": 0.6}]}
+    regular = client.post("/api/v1/pk/individualize", json=base).json()
+    # Same level, but the patient skipped the last three doses: clearance must be lower to explain it.
+    history = [{"time_h": 12.0 * k, "dose_mg": 400.0} for k in range(10)]
+    skipped = client.post("/api/v1/pk/individualize", json={**base, "dose_history": history}).json()
+    assert skipped["dose_times"][-1] == 108.0
+    assert skipped["clearance_individual_l_per_h"] < regular["clearance_individual_l_per_h"]
+
+
+def test_multi_drug_lithium_plus_ibuprofen_raises_lithium():
+    payload = {"drugs": [{"drug_id": "lithium", "dose_mg": 400, "interval_h": 12},
+                         {"drug_id": "ibuprofen", "dose_mg": 400, "interval_h": 8}], "duration_h": 240}
+    data = client.post("/api/v1/pk/multi-drug", json=payload).json()
+    li = next(s for s in data["series"] if s["drug_id"] == "lithium")
+    ibu = next(s for s in data["series"] if s["drug_id"] == "ibuprofen")
+    assert li["exposure_factor"] == pytest.approx(1.15, rel=0.01)
+    assert li["interactions"][0]["perpetrator"] == "Ibuprofen"
+    assert np.all(np.array(li["concentrations"]) >= np.array(li["concentrations_alone"]) - 1e-9)
+    assert ibu["exposure_factor"] == 1.0 and ibu["interactions"] == []
+    assert li["unit"] == "mmol/L" and ibu["unit"] == "ug/mL"
+
+
+def test_multi_drug_named_perpetrator_and_unmatched():
+    payload = {"drugs": [{"drug_id": "mirtazapine"}, {"perpetrator": "Carbamazepine 400 mg b.i.d."},
+                         {"perpetrator": "Nonexistent drug"}]}
+    data = client.post("/api/v1/pk/multi-drug", json=payload).json()
+    mirt = data["series"][0]
+    assert mirt["exposure_factor"] < 0.5
+    assert data["unmatched_perpetrators"] == ["Nonexistent drug"]
+
+
+def test_interactions_endpoint():
+    items = client.get("/api/v1/pk/interactions/diazepam").json()
+    assert {i["perpetrator"] for i in items} >= {"Cimetidine", "Omeprazole"}
+    assert client.get("/api/v1/pk/interactions/nope").status_code == 404
+    assert client.get("/api/v1/pk/interactions/levetiracetam").json() == []
+
+
+def test_simulate_prolonged_release_formulation():
+    base = {"drug_id": "propranolol", "dose_mg": 160.0, "interval_h": 24.0, "duration_h": 120.0}
+    ir = client.post("/api/v1/pk/simulate", json=base).json()
+    pr = client.post("/api/v1/pk/simulate", json={**base, "formulation": "pr"}).json()
+    assert pr["steady_state"]["tmax_ss_h"] > 3 * ir["steady_state"]["tmax_ss_h"]
+    assert pr["metrics"]["cmax"] < ir["metrics"]["cmax"]
+    assert pr["steady_state"]["fluctuation_pct"] < ir["steady_state"]["fluctuation_pct"]
+    presets = {p["id"]: p for p in client.get("/api/v1/pk/presets").json()}
+    assert "pr" in presets["propranolol"]["formulations"]
+    assert client.post("/api/v1/pk/simulate", json={**base, "formulation": "nope"}).status_code == 400

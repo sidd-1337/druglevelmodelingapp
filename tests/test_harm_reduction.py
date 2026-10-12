@@ -174,10 +174,10 @@ def test_pk_model_route_aliases():
 
 
 
-def test_mdma_stacking_uses_saturable_elimination():
+def test_mdma_stacking_uses_enzyme_inactivation():
     drug = get_drug("mdma")
     model = drug.to_pk_model(70.0)
-    assert model.is_saturable
+    assert model.is_nonlinear and model.inactivation_fraction > 0
     window = TherapeuticWindow(drug.mec, drug.mtc)
     a = assess_dose_stacking(100.0, 2.0, model, window, redose_amount=100.0)
     t = np.linspace(0.0, 24.0, 2401)

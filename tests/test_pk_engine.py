@@ -301,3 +301,93 @@ def test_with_half_life_keeps_saturable_parameters():
 def test_saturable_validation(kwargs):
     with pytest.raises(ValueError):
         PKModel(4.0, 40.0, **kwargs)
+
+
+# ------------------------------------------------- two compartments, lag, inactivation
+TWO = PKModel(t_half_h=6.0, vd_l=60.0, bioavailability=0.8, ka_per_h=1.5, v1_fraction=0.3, q_l_per_h=20.0)
+
+
+def _ode_two_compartment(model: PKModel, dose: float, t: np.ndarray) -> np.ndarray:
+    k10, k12, k21 = model.micro_constants
+    ka = 0.0 if model.route is Route.IV_BOLUS else model.ka_per_h
+
+    def rhs(_t, y):
+        return [-ka * y[0], ka * y[0] - (k10 + k12) * y[1] + k21 * y[2], k12 * y[1] - k21 * y[2]]
+    y0 = [0.0, dose, 0.0] if model.route is Route.IV_BOLUS else [model.f_eff * dose, 0.0, 0.0]
+    sol = solve_ivp(rhs, (0, t[-1]), y0, t_eval=t, rtol=1e-10, atol=1e-12)
+    return sol.y[1] / model.v1_l
+
+
+@pytest.mark.parametrize("route", [Route.ORAL, Route.IV_BOLUS])
+def test_two_compartment_closed_form_matches_ode(route):
+    model = PKModel(6.0, 60.0, 0.8, 1.5, route, v1_fraction=0.3, q_l_per_h=20.0)
+    t = np.linspace(0.0, 48.0, 481)
+    np.testing.assert_allclose(single_dose_concentration(t, DOSE, model), _ode_two_compartment(model, DOSE, t),
+                               rtol=1e-6, atol=1e-9)
+
+
+def test_two_compartment_keeps_clearance_and_auc_but_raises_early_peak():
+    one = PKModel(6.0, 60.0, 0.8, 1.5)
+    t = np.linspace(0.0, 400.0, 400001)
+    assert auc_trapezoid(t, single_dose_concentration(t, DOSE, TWO)) == pytest.approx(0.8 * DOSE / one.clearance_l_per_h,
+                                                                                      rel=1e-3)
+    assert cmax_single_dose(DOSE, TWO) > cmax_single_dose(DOSE, one)
+    assert TWO.terminal_half_life_h > one.t_half_h
+    a, b = TWO.disposition_rates
+    assert a > b > 0
+
+
+def test_two_compartment_steady_state_matches_long_superposition():
+    tau = 12.0
+    events = regular_schedule(DOSE, tau, 50 * tau)
+    t_last = np.linspace(49 * tau, 50 * tau, 241)
+    np.testing.assert_allclose(steady_state_concentration(t_last - 49 * tau, DOSE, tau, TWO),
+                               concentration_profile(t_last, events, TWO), rtol=1e-6)
+    ss = steady_state_summary(DOSE, tau, TWO)
+    assert ss.cavg_ss == pytest.approx(0.8 * DOSE / (TWO.clearance_l_per_h * tau))
+    assert ss.time_to_ss_h == pytest.approx(4.5 * TWO.terminal_half_life_h)
+
+
+@pytest.mark.parametrize("model", [ORAL, TWO])
+def test_lag_shifts_the_whole_profile(model):
+    lagged = PKModel(**{**model.__dict__, "tlag_h": 0.5})
+    t = np.linspace(0.0, 24.0, 241)
+    np.testing.assert_allclose(single_dose_concentration(t, DOSE, lagged), single_dose_concentration(t - 0.5, DOSE, model),
+                               atol=1e-12)
+    assert tmax_single_dose(lagged) == pytest.approx(tmax_single_dose(model) + 0.5, abs=1e-3)
+    assert cmax_single_dose(DOSE, lagged) == pytest.approx(cmax_single_dose(DOSE, model), rel=1e-6)
+    ss, ss_lag = steady_state_summary(DOSE, 12.0, model), steady_state_summary(DOSE, 12.0, lagged)
+    assert ss_lag.cavg_ss == pytest.approx(ss.cavg_ss) and ss_lag.cmin_ss == pytest.approx(ss.cmin_ss, rel=1e-6)
+
+
+def test_lag_ignored_for_iv_bolus():
+    iv = PKModel(4.0, 40.0, route=Route.IV_BOLUS, tlag_h=1.0)
+    assert float(single_dose_concentration(0.0, DOSE, iv)) == pytest.approx(DOSE / 40.0)
+
+
+MBI = PKModel(t_half_h=2.0, vd_l=300.0, bioavailability=0.8, ka_per_h=1.5, inactivation_fraction=0.8,
+              kinact_per_h=1.0, ki=0.15, kdeg_per_h=math.log(2) / 46.6)
+
+
+def test_enzyme_inactivation_and_recovery():
+    from core.pk_engine import enzyme_activity
+    ev = [DoseEvent(0.0, 100.0)]
+    e = enzyme_activity(np.array([0.0, 6.0, 46.6 + 24.0, 240.0]), ev, MBI)
+    assert e[0] == pytest.approx(1.0) and e[1] < 0.3
+    assert e[1] < e[2] < e[3] <= 1.0  # recovers with the enzyme turnover half-life
+    assert MBI.terminal_half_life_h == pytest.approx(2.0 / (1 - 0.8))
+
+
+def test_enzyme_inactivation_makes_second_dose_larger():
+    t = np.linspace(0.0, 48.0, 4801)
+    c = concentration_profile(t, [DoseEvent(0.0, 100.0), DoseEvent(24.0, 100.0)], MBI)
+    first, second = t < 24, t >= 24
+    assert auc_trapezoid(t[second], c[second]) > 1.3 * auc_trapezoid(t[first], c[first])
+
+
+def test_enzyme_inactivation_validation():
+    with pytest.raises(ValueError):
+        PKModel(2.0, 300.0, inactivation_fraction=0.8, kinact_per_h=0.0, ki=0.1, kdeg_per_h=0.01)
+    with pytest.raises(ValueError):
+        PKModel(2.0, 300.0, km=1.0, saturable_fraction=0.5, inactivation_fraction=0.8, kinact_per_h=1.0, ki=0.1,
+                kdeg_per_h=0.01)

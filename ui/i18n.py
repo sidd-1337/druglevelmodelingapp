@@ -76,10 +76,42 @@ _TEXT: dict[str, dict[str, str]] = {
         "tab_ss": "Steady state", "tab_missed": "Missed dose", "tab_hr": "Harm reduction",
         "tab_glossary": "Glossary & Variables", "tab_data": "Data & export", "tab_model": "Model",
         "tab_fit": "Measured levels (TDM fit)", "measured": "Measured level",
+        "formulation": "Formulation",
+        "formulation_auto": "Selected from the SÚKL dosage form: {form}.",
+        "tab_multi": "Co-medication",
+        "multi_intro": "Add other drugs taken alongside. Each drug is simulated with its own units and therapeutic "
+                       "window; where a quantified interaction is documented, the affected drug's clearance or "
+                       "bioavailability is scaled accordingly.",
+        "multi_select": "Other preset drugs taken", "multi_perp": "Other substances (interaction sources)",
+        "multi_none": "Add at least one more drug or substance to see interactions.",
+        "multi_dose": "{name}: dose [mg]", "multi_interval": "{name}: interval [h]",
+        "multi_factor": "Exposure vs. alone", "multi_no_interaction": "No quantified interaction documented "
+                        "between these drugs. That is not proof there is none.",
+        "multi_alone": "{name} alone", "multi_with": "{name} with co-medication",
+        "multi_table_title": "Documented interactions",
+        "multi_perpetrator": "Caused by", "multi_effect": "Effect on exposure", "multi_site": "Acts on",
+        "multi_onset": "Full effect after", "multi_site_clearance": "clearance", "multi_site_bioavailability":
+        "bioavailability", "multi_qualitative": "direction only, no number",
+        "multi_caption": "Interaction factors are the full effect of the stated perpetrator regimen and are applied "
+                         "immediately; in reality induction builds over days to weeks. Combined sedation or "
+                         "serotonergic risk is not a blood-level effect and is not modelled here.",
+        "validation_title": "Validation against published data",
+        "validation_intro": "Each preset (70 kg adult, oral, normal renal function) is compared with published Cmax, "
+                            "Tmax, AUC and steady-state levels from labels and clinical studies. Ratio = predicted / "
+                            "published. Values were collected from search excerpts and still need checking against "
+                            "the full documents.",
+        "validation_exposure": "Exposure (AUC, C_ss) within tolerance", "validation_cmax": "C_max within tolerance",
+        "validation_tmax": "T_max within tolerance", "validation_gm": "Geometric mean fold error {gm:.2f}×",
+        "validation_metric": "Metric", "validation_published": "Published", "validation_predicted": "Model",
+        "validation_ratio": "Ratio", "validation_ok": "Within tolerance", "validation_source": "Source",
+        "validation_note": "Note",
         "fit_intro": "Enter this patient's measured blood levels. The model estimates the patient's own clearance "
                      "and volume (Bayesian MAP, with the population model as prior) and re-predicts the levels. "
                      "Times are hours since the first dose of the schedule above.",
         "fit_enable": "Fit the model to measured levels", "fit_n": "Number of samples",
+        "fit_dose_log": "Doses actually taken", "fit_no_doses": "Enter at least one dose in the dose log.",
+        "fit_dose_log_help": "Prefilled from the regimen above. Edit times and doses to match what the patient "
+                             "actually took (late, skipped or extra doses); the fit uses this log.",
         "fit_time": "Sample {i}: time [h]", "fit_level": "Sample {i}: level [{unit}]",
         "fit_population": "Population model", "fit_individual": "This patient (fitted)",
         "fit_band": "90 % credible band (fitted)",
@@ -237,10 +269,42 @@ _TEXT: dict[str, dict[str, str]] = {
         "tab_ss": "Ustálený stav", "tab_missed": "Vynechaná dávka", "tab_hr": "Harm reduction kalkulačka",
         "tab_glossary": "Slovník veličin a pojmů", "tab_data": "Data a export", "tab_model": "Model",
         "tab_fit": "Změřené hladiny (TDM fit)", "measured": "Změřená hladina",
+        "formulation": "Léková forma",
+        "formulation_auto": "Vybráno podle lékové formy v SÚKL: {form}.",
+        "tab_multi": "Souběžná medikace",
+        "multi_intro": "Přidejte další souběžně užívaná léčiva. Každé se simuluje ve vlastních jednotkách a s vlastním "
+                       "terapeutickým oknem; je-li doložena kvantifikovaná interakce, upraví se clearance nebo "
+                       "biologická dostupnost ovlivněného léčiva.",
+        "multi_select": "Další užívaná léčiva z presetů", "multi_perp": "Další látky (zdroje interakcí)",
+        "multi_none": "Přidejte alespoň jedno další léčivo nebo látku, aby se zobrazily interakce.",
+        "multi_dose": "{name}: dávka [mg]", "multi_interval": "{name}: interval [h]",
+        "multi_factor": "Expozice oproti samostatnému užití",
+        "multi_no_interaction": "Mezi těmito léčivy není doložena kvantifikovaná interakce. To neznamená, že žádná neexistuje.",
+        "multi_alone": "{name} samostatně", "multi_with": "{name} se souběžnou medikací",
+        "multi_table_title": "Doložené interakce",
+        "multi_perpetrator": "Způsobeno", "multi_effect": "Vliv na expozici", "multi_site": "Působí na",
+        "multi_onset": "Plný účinek za", "multi_site_clearance": "clearance", "multi_site_bioavailability":
+        "biologickou dostupnost", "multi_qualitative": "pouze směr, bez čísla",
+        "multi_caption": "Faktory interakcí odpovídají plnému účinku uvedeného režimu vyvolávajícího léčiva a aplikují "
+                         "se okamžitě; ve skutečnosti se indukce rozvíjí dny až týdny. Sčítání tlumivých nebo "
+                         "serotonergních účinků není otázkou hladiny v krvi a zde se nemodeluje.",
+        "validation_title": "Validace proti publikovaným datům",
+        "validation_intro": "Každý preset (dospělý 70 kg, perorálně, normální funkce ledvin) je porovnán s publikovanými "
+                            "hodnotami Cmax, Tmax, AUC a ustálených hladin z SPC a klinických studií. Poměr = model / "
+                            "publikováno. Hodnoty byly převzaty z úryvků vyhledávání a je třeba je ještě ověřit "
+                            "v úplných dokumentech.",
+        "validation_exposure": "Expozice (AUC, C_ss) v toleranci", "validation_cmax": "C_max v toleranci",
+        "validation_tmax": "T_max v toleranci", "validation_gm": "Geometrický průměr chyby {gm:.2f}×",
+        "validation_metric": "Veličina", "validation_published": "Publikováno", "validation_predicted": "Model",
+        "validation_ratio": "Poměr", "validation_ok": "V toleranci", "validation_source": "Zdroj",
+        "validation_note": "Poznámka",
         "fit_intro": "Zadejte změřené hladiny pacienta. Model odhadne jeho vlastní clearance a distribuční objem "
                      "(bayesovský MAP odhad, populační model jako apriorní informace) a znovu předpoví hladiny. "
                      "Časy jsou v hodinách od první dávky výše zadaného schématu.",
         "fit_enable": "Napasovat model na změřené hladiny", "fit_n": "Počet vzorků",
+        "fit_dose_log": "Skutečně užité dávky", "fit_no_doses": "Zadejte do záznamu alespoň jednu dávku.",
+        "fit_dose_log_help": "Předvyplněno podle schématu výše. Upravte časy a dávky podle toho, co pacient skutečně "
+                             "užil (pozdě, vynecháno, navíc); fit vychází z tohoto záznamu.",
         "fit_time": "Vzorek {i}: čas [h]", "fit_level": "Vzorek {i}: hladina [{unit}]",
         "fit_population": "Populační model", "fit_individual": "Tento pacient (napasováno)",
         "fit_band": "90% interval věrohodnosti (napasováno)",

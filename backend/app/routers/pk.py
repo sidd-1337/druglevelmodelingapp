@@ -21,10 +21,18 @@ from backend.app.schemas.pk import (
     SimulateRequest,
     SimulateResponse,
     SteadyStateResponse,
+    InteractionResponse,
+    MultiDrugRequest,
+    MultiDrugResponse,
+    MultiDrugSeriesResponse,
     TDMAssessmentResponse,
+    ValidationGroupResponse,
+    ValidationResponse,
+    ValidationRowResponse,
 )
 from core.drug_database import Drug, get_drug, load_drugs
 from core.population import cockcroft_gault
+from core.validation import summarize, validate
 from core.harm_reduction import (
     assess_dose_stacking,
     compute_safe_redosing_interval_h,
@@ -33,6 +41,7 @@ from core.harm_reduction import (
     get_route_timeline,
 )
 from core.individualize import Observation, fit_individual, individual_band
+from core.interactions import apply_interactions, find, interactions_for
 from core.metrics import (
     TDMAssessment,
     TherapeuticWindow,
@@ -54,6 +63,15 @@ from core.pk_engine import (
 )
 
 router = APIRouter()
+
+
+def _with_formulation(drug: Drug, formulation: str | None) -> Drug:
+    try:
+        return drug.with_formulation(formulation)
+    except KeyError:
+        raise HTTPException(status_code=400,
+                            detail=f"Unknown formulation {formulation!r} for {drug.id!r}; "
+                                   f"available: {drug.formulation_ids or 'none'}")
 
 
 def _resolve_crcl(patient: PatientIn | None, body_weight_kg: float) -> float | None:
@@ -157,11 +175,20 @@ def list_presets() -> list[DrugPreset]:
             dose_basis=d.dose_basis,
             notes=d.notes,
             routes=d.routes,
+            formulations=d.formulations,
             cv_cl=d.cv_cl,
             cv_f=d.cv_f,
             fe_renal=d.fe_renal,
             km=d.km,
             saturable_fraction=d.saturable_fraction,
+            v1_fraction=d.v1_fraction,
+            q_l_per_h=d.q_l_per_h,
+            tlag_h=d.tlag_h,
+            inactivation_fraction=d.inactivation_fraction,
+            kinact_per_h=d.kinact_per_h,
+            ki=d.ki,
+            kdeg_per_h=d.kdeg_per_h,
+            inactivated_enzyme=d.inactivated_enzyme,
         )
         for d in presets
     ]
@@ -175,6 +202,7 @@ def simulate_regimen(req: SimulateRequest) -> SimulateResponse:
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Drug with id {req.drug_id!r} not found in presets.")
 
+    drug = _with_formulation(drug, req.formulation)
     route = _resolve_route(req.route)
     crcl = _resolve_crcl(req.patient, req.body_weight_kg)
     model = _patient_model(drug, route, req.body_weight_kg, crcl, req.custom_pk)
@@ -245,6 +273,7 @@ def calculate_harm_reduction(req: HarmReductionRequest) -> HarmReductionResponse
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Drug with id {req.drug_id!r} not found in presets.")
 
+    drug = _with_formulation(drug, req.formulation)
     route = _resolve_route(req.route)
     crcl = _resolve_crcl(req.patient, req.body_weight_kg)
     model = _patient_model(drug, route, req.body_weight_kg, crcl, req.custom_pk)
@@ -294,7 +323,7 @@ def calculate_harm_reduction(req: HarmReductionRequest) -> HarmReductionResponse
     guidelines = get_harm_reduction_guidelines(drug.id)
 
     # 6. Curves for visualization with fine resolution around absorption peaks
-    horizon = max(24.0, req.elapsed_h + 4.0 * model.t_half_h)
+    horizon = max(24.0, req.elapsed_h + 4.0 * model.terminal_half_life_h)
     t_peak = tmax_single_dose(model, amount)
     fine_near_0 = np.linspace(0.0, max(2.0, 4.0 * t_peak), 150)
     fine_near_redose = np.linspace(req.elapsed_h, req.elapsed_h + max(2.0, 4.0 * t_peak), 150)
@@ -356,6 +385,7 @@ def individualize_regimen(req: IndividualizeRequest) -> IndividualizeResponse:
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Drug with id {req.drug_id!r} not found in presets.")
 
+    drug = _with_formulation(drug, req.formulation)
     route = _resolve_route(req.route)
     crcl = _resolve_crcl(req.patient, req.body_weight_kg)
     pop = _patient_model(drug, route, req.body_weight_kg, crcl, req.custom_pk)
@@ -365,9 +395,13 @@ def individualize_regimen(req: IndividualizeRequest) -> IndividualizeResponse:
     window = TherapeuticWindow(mec=mec, mtc=mtc)
 
     amount = drug.amount_from_dose_mg(req.dose_mg)
-    events = regular_schedule(amount, req.interval_h, req.duration_h)
-    if req.missed_dose is not None and 0 <= req.missed_dose.dose_index < len(events):
-        events = apply_missed_dose(events, req.missed_dose.dose_index, delay_h=req.missed_dose.delay_h)
+    if req.dose_history:
+        events = sorted((DoseEvent(d.time_h, drug.amount_from_dose_mg(d.dose_mg)) for d in req.dose_history),
+                        key=lambda e: e.time_h)
+    else:
+        events = regular_schedule(amount, req.interval_h, req.duration_h)
+        if req.missed_dose is not None and 0 <= req.missed_dose.dose_index < len(events):
+            events = apply_missed_dose(events, req.missed_dose.dose_index, delay_h=req.missed_dose.delay_h)
     observations = [Observation(o.time_h, o.concentration) for o in req.observations]
     try:
         fit = fit_individual(pop, events, observations, drug.cv_cl if drug.cv_cl is not None else 0.3,
@@ -375,7 +409,7 @@ def individualize_regimen(req: IndividualizeRequest) -> IndividualizeResponse:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    t = time_grid(req.duration_h)
+    t = time_grid(max(req.duration_h, max(o.time_h for o in observations), events[-1].time_h))
     c_pop = concentration_profile(t, events, pop)
     c_ind = concentration_profile(t, events, fit.model)
     lo, hi = individual_band(fit, t, events)
@@ -398,8 +432,97 @@ def individualize_regimen(req: IndividualizeRequest) -> IndividualizeResponse:
         clearance_individual_l_per_h=round(fit.model.clearance_l_per_h, 4),
         vd_population_l=round(pop.vd_l, 3),
         vd_individual_l=round(fit.model.vd_l, 3),
-        t_half_population_h=round(pop.t_half_h, 3),
-        t_half_individual_h=round(fit.model.t_half_h, 3),
+        t_half_population_h=round(pop.terminal_half_life_h, 3),
+        t_half_individual_h=round(fit.model.terminal_half_life_h, 3),
         steady_state=_steady_state_response(ss),
         tdm=_tdm_response(assess_tdm(t, c_ind, window)),
+    )
+
+
+@router.get("/validation", response_model=ValidationResponse)
+def validation_report() -> ValidationResponse:
+    """Preset predictions versus published PK data (data/reference_pk.json)."""
+    rows = validate()
+    return ValidationResponse(
+        summary={k: ValidationGroupResponse(n=g.n, within=g.within,
+                                            geometric_mean_fold_error=round(g.geometric_mean_fold_error, 3))
+                 for k, g in summarize(rows).items()},
+        rows=[ValidationRowResponse(
+            drug_id=r.drug_id, metric=r.metric, dose_mg=r.dose_mg, interval_h=r.interval_h,
+            published=r.observed, predicted=round(r.predicted, 6), ratio=round(r.ratio, 3), max_fold=r.max_fold,
+            within_tolerance=r.within, source=r.source, verified=r.verified, note=r.note) for r in rows],
+    )
+
+
+def _interaction_response(i) -> InteractionResponse:
+    return InteractionResponse(
+        victim_id=i.victim_id, perpetrator=i.perpetrator, perpetrator_cs=i.perpetrator_cs, site=i.site,
+        exposure_factor=i.exposure_factor, direction=i.direction, onset_h=i.onset_h, qualitative=i.qualitative,
+        source=i.source, verified=i.verified, note=i.note)
+
+
+@router.get("/interactions/{drug_id}", response_model=list[InteractionResponse])
+def drug_interactions(drug_id: str) -> list[InteractionResponse]:
+    """Known quantified interactions where this drug is the victim."""
+    try:
+        get_drug(drug_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Drug with id {drug_id!r} not found in presets.")
+    return [_interaction_response(i) for i in interactions_for(drug_id)]
+
+
+@router.post("/multi-drug", response_model=MultiDrugResponse)
+def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
+    """Simulate several drugs on one time grid, applying their mutual interactions."""
+    entries = []
+    for item in req.drugs:
+        if item.drug_id is None:
+            if not item.perpetrator:
+                raise HTTPException(status_code=422, detail="each entry needs drug_id or perpetrator")
+            continue
+        try:
+            entries.append((item, _with_formulation(get_drug(item.drug_id), item.formulation)))
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Drug with id {item.drug_id!r} not found in presets.")
+    if not entries:
+        raise HTTPException(status_code=422, detail="at least one entry must name a preset drug_id")
+
+    crcl = _resolve_crcl(req.patient, req.body_weight_kg)
+    t = time_grid(req.duration_h)
+    # Every other drug in the regimen, plus any named perpetrator, can act on each drug.
+    named = [i.perpetrator for i in req.drugs if i.perpetrator]
+    co_names = {d.name for _, d in entries} | {d.id for _, d in entries} | set(named)
+    used_perpetrators: set[str] = set()
+
+    series = []
+    for item, drug in entries:
+        others = co_names - {drug.name, drug.id}
+        acting = [i for i in interactions_for(drug.id) if i.perpetrator in others] + find(drug.id, named)
+        acting = list({(i.perpetrator, i.site): i for i in acting}.values())
+        used_perpetrators |= {i.perpetrator for i in acting}
+
+        route = _resolve_route(item.route)
+        alone = drug.to_pk_model(req.body_weight_kg, route=route, crcl_ml_min=crcl)
+        model = apply_interactions(alone, acting)
+        dose_mg = item.dose_mg if item.dose_mg is not None else drug.default_dose_mg
+        interval_h = item.interval_h if item.interval_h is not None else drug.default_interval_h
+        amount = drug.amount_from_dose_mg(dose_mg)
+        events = regular_schedule(amount, interval_h, req.duration_h)
+        window = TherapeuticWindow(mec=drug.mec, mtc=drug.mtc)
+        ss = steady_state_summary(amount, interval_h, model)
+        c = concentration_profile(t, events, model)
+        series.append(MultiDrugSeriesResponse(
+            drug_id=drug.id, drug_name=drug.name, unit=drug.concentration_unit, dose_mg=dose_mg,
+            interval_h=interval_h, concentrations=_round_list(c),
+            concentrations_alone=_round_list(concentration_profile(t, events, alone)),
+            mec=drug.mec, mtc=drug.mtc,
+            exposure_factor=round(ss.cavg_ss / steady_state_summary(amount, interval_h, alone).cavg_ss, 4),
+            t_half_h=round(model.terminal_half_life_h, 3),
+            steady_state=_steady_state_response(ss),
+            tdm=_tdm_response(assess_tdm(t, c, window, min(ss.time_to_ss_h, max(0.0, req.duration_h - interval_h)))),
+            interactions=[_interaction_response(i) for i in acting],
+        ))
+    return MultiDrugResponse(
+        time_grid=_round_list(t, 4), crcl_ml_min=round(crcl, 1) if crcl is not None else None, series=series,
+        unmatched_perpetrators=sorted(set(named) - used_perpetrators),
     )
