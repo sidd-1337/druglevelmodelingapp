@@ -36,7 +36,7 @@
       "value": 19.3,
       "source": "https://pubmed.ncbi.nlm.nih.gov/14571283/",
       "verified": true,
-      "note": "Sevilla-Tirado 2003 (Methods Find Exp Clin Pharmacol 25:531), 1000 mg single oral dose, n=12, abstract only (full text unreachable); midpoint of the five formulations' means, which include effervescent and sachet forms: Cmax 17.98-20.73 ug/mL. Two-compartment model (V1 21 % of Vss, Q 77.5 L/h, Owens 2014) and an absorption lag."
+      "note": "Sevilla-Tirado 2003 (Methods Find Exp Clin Pharmacol 25:531), 1000 mg single oral dose, n=12, abstract only (full text unreachable); midpoint of the five formulations' means, which include effervescent and sachet forms: Cmax 17.98-20.73 ug/mL. Two-compartment model (V1 21 % of Vss, Q 77.5 L/h, Owens 2014). No absorption lag: measured curves show paracetamol in plasma from 5 minutes."
     },
     {
       "drug_id": "paracetamol",

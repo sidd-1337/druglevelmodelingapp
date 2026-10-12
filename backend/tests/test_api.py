@@ -308,7 +308,7 @@ def test_pk_simulate_custom_override_keeps_nonlinear_elimination():
     assert res.status_code == 200
     presets = {p["id"]: p for p in client.get("/api/v1/pk/presets").json()}
     assert presets["mdma"]["inactivation_fraction"] > 0 and presets["lithium"]["fe_renal"] == 0.95
-    assert presets["lithium"]["v1_fraction"] < 1 and presets["paracetamol"]["tlag_h"] > 0
+    assert presets["lithium"]["v1_fraction"] < 1 and "tlag_h" in presets["paracetamol"]
 
 
 def test_pk_individualize_from_measured_trough():

@@ -14,7 +14,7 @@ import math
 import numpy as np
 import pytest
 
-from core.drug_database import get_drug
+from core.drug_database import DEFAULT_DB_PATH, get_drug
 from core.pk_engine import DoseEvent, Route, concentration_profile
 from core.validation import (
     CURVE_KINDS,
@@ -166,16 +166,22 @@ def test_points_below_the_lloq_are_dropped():
         validate_curve({**curve, "lloq": 1e6})
 
 
-def test_a_sample_before_the_absorption_lag_is_reported():
-    """A zero prediction is an infinite fold error, so it must be named, not averaged."""
-    drug = get_drug("ibuprofen")
-    assert drug.tlag_h > 0, "this test needs a preset with an absorption lag"
-    curve = _curve_from_model("ibuprofen", 400.0, times=[0.25, *TIMES])
+def test_a_sample_before_the_absorption_lag_is_reported(tmp_path):
+    """A zero prediction is an infinite fold error, so it must be named, not averaged.
+
+    No preset carries a lag any more - the measured paracetamol and ibuprofen curves
+    contradicted theirs - so the lag is set on a copy of the database.
+    """
+    db = json.loads(DEFAULT_DB_PATH.read_text(encoding="utf-8"))
+    next(d for d in db["drugs"] if d["id"] == "ibuprofen")["tlag_h"] = 0.5
+    lagged = tmp_path / "drugs.json"
+    lagged.write_text(json.dumps(db), encoding="utf-8")
+    curve = _curve_from_model("ibuprofen", 400.0, times=[0.25, *TIMES], tlag_h=0.5)
     curve["points"][0][1] = 0.4  # a real assay would have measured something
     with pytest.raises(ValueError, match="predicts zero at t = 0.25"):
-        validate_curve(curve)
+        validate_curve(curve, db_path=lagged)
     # Declaring it below the assay's limit resolves it.
-    assert validate_curve({**curve, "lloq": 0.5}).n_points == len(TIMES)
+    assert validate_curve({**curve, "lloq": 0.5}, db_path=lagged).n_points == len(TIMES)
 
 
 def test_points_are_sorted_by_time():

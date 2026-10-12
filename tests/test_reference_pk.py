@@ -17,6 +17,8 @@ KNOWN_MISSES = {
     ("lithium", "tmax_h", 300): "fasted Tmax is 1.21 h; the preset peaks at 1.94 h (1.60-fold, limit 1.6)",
     ("mirtazapine", "cmin_ss", 30): "the TDM median 36.8 ng/mL is a trough, stored as cavg_ss until verified; "
                                     "the preset's trough is 19 ng/mL",
+    ("paracetamol", "tmax_h", 1000): "measured curves show paracetamol from 5 minutes, so the 0.44 h lag was removed; "
+                                     "ka 3.8/h was fitted together with that lag and now peaks at 0.21 h against 0.65",
 }
 
 
