@@ -1,6 +1,15 @@
-"""Compare preset predictions with published PK data (data/reference_pk.json).
+"""Compare preset predictions with published PK data.
 
-Run ``python -m core.validation`` for a table of predicted / observed ratios.
+Three independent back-tests, all printed by ``python -m core.validation``:
+
+* ``validate()`` - summary metrics (Cmax, Tmax, AUC, steady state) against
+  ``data/reference_pk.json``. Answers "is the exposure right?".
+* ``validate_interactions()`` - measured interaction factors against the ones
+  fm x residual enzyme activity predicts. Answers "is the mechanism right?".
+* ``validate_curves()`` - whole concentration-time curves against
+  ``data/reference_curves/``. Answers "is the *shape* right?", which the
+  summary metrics cannot: a model with the right Cmax and AUC can still have
+  the wrong absorption rate or a missing distribution phase.
 """
 from __future__ import annotations
 
@@ -13,6 +22,7 @@ import numpy as np
 from core.drug_database import DEFAULT_DB_PATH, get_drug
 from core.pk_engine import (
     DoseEvent,
+    Route,
     auc_trapezoid,
     cmax_single_dose,
     concentration_profile,
@@ -20,7 +30,9 @@ from core.pk_engine import (
     tmax_single_dose,
 )
 
-REFERENCE_PATH = Path(__file__).resolve().parent.parent / "data" / "reference_pk.json"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+REFERENCE_PATH = DATA_DIR / "reference_pk.json"
+REFERENCE_CURVE_DIR = DATA_DIR / "reference_curves"
 SINGLE_DOSE_METRICS = ("cmax", "tmax_h", "auc_inf", "auc_0_24")
 STEADY_STATE_METRICS = ("cavg_ss", "cmin_ss")
 # Two equal doses ``interval_h`` apart: the combined profile versus superposition of two
@@ -168,6 +180,177 @@ def validate_interactions(
     return rows
 
 
+# --------------------------------------------------------------- curve validation
+# Published curves are quoted in whatever unit the paper used. Factors convert that
+# unit into the drug's own ``concentration_unit``; an unlisted pair is an error rather
+# than a guess, because a silent 1000-fold slip would look like a model failure.
+UNIT_FACTORS: dict[tuple[str, str], float] = {
+    ("ug/mL", "ug/mL"): 1.0,
+    ("mg/L", "ug/mL"): 1.0,  # same thing, both spellings appear in print
+    ("ng/mL", "ug/mL"): 1e-3,
+    ("ug/L", "ug/mL"): 1e-3,
+    ("mmol/L", "mmol/L"): 1.0,
+    ("mEq/L", "mmol/L"): 1.0,  # lithium is monovalent, so mEq and mmol coincide
+    ("umol/L", "mmol/L"): 1e-3,
+}
+# "observed": concentrations measured in subjects - the real test.
+# "published_model": a curve generated from someone else's fitted compartmental
+# parameters. Not a measurement, but still an external check of shape, because
+# their model was fitted to data this one has never seen. Scored separately.
+CURVE_KINDS = ("observed", "published_model")
+
+
+def convert_concentration(values, from_unit: str, to_unit: str):
+    """Concentrations in ``from_unit`` expressed in ``to_unit``."""
+    if (from_unit, to_unit) not in UNIT_FACTORS:
+        raise ValueError(f"no conversion from {from_unit!r} to {to_unit!r}")
+    return np.asarray(values, dtype=float) * UNIT_FACTORS[(from_unit, to_unit)]
+
+
+@dataclass(frozen=True)
+class CurveFit:
+    """How well a predicted curve matches an observed one, point by point."""
+
+    times_h: np.ndarray
+    observed: np.ndarray
+    predicted: np.ndarray
+
+    def __post_init__(self) -> None:
+        if not (self.times_h.shape == self.observed.shape == self.predicted.shape):
+            raise ValueError("times, observed and predicted must have the same shape")
+        if self.observed.size == 0:
+            raise ValueError("no points to score")
+        if np.any(self.observed <= 0) or np.any(self.predicted <= 0):
+            raise ValueError("fold error is undefined at a zero or negative concentration")
+
+    @property
+    def log_errors(self) -> np.ndarray:
+        return np.log10(self.predicted / self.observed)
+
+    @property
+    def afe(self) -> float:
+        """Average fold error: >1 means the model runs high, <1 means low. Bias."""
+        return float(10.0 ** np.mean(self.log_errors))
+
+    @property
+    def aafe(self) -> float:
+        """Absolute average fold error, >= 1. Precision, regardless of direction.
+
+        Known in PBPK papers as GMFE - the geometric mean of the per-point fold
+        errors - and the same quantity :class:`ValidationRow` reports for a single
+        metric, so curve and summary scores are directly comparable.
+        """
+        return float(10.0 ** np.mean(np.abs(self.log_errors)))
+
+    @property
+    def fraction_within_2fold(self) -> float:
+        return float(np.mean(np.abs(self.log_errors) <= np.log10(2.0)))
+
+
+def score_curve(times_h, observed, predicted) -> CurveFit:
+    """Score two concentration vectors in the same unit at the same times."""
+    return CurveFit(*(np.asarray(a, dtype=float) for a in (times_h, observed, predicted)))
+
+
+def predict_curve(
+    drug_id: str,
+    times_h,
+    doses: list[tuple[float, float]],
+    body_weight_kg: float = 70.0,
+    route: Route = Route.ORAL,
+    db_path: str | Path = DEFAULT_DB_PATH,
+):
+    """Predicted concentrations at ``times_h`` for a (time_h, dose_mg) schedule."""
+    drug = get_drug(drug_id, db_path)
+    model = drug.to_pk_model(body_weight_kg, route)
+    events = tuple(DoseEvent(t, drug.amount_from_dose_mg(mg)) for t, mg in doses)
+    return concentration_profile(np.asarray(times_h, dtype=float), events, model)
+
+
+@dataclass(frozen=True)
+class CurveValidationRow:
+    """One published curve against the model, with the fit already scored."""
+
+    curve_id: str
+    drug_id: str
+    label: str
+    kind: str
+    fit: CurveFit
+    max_aafe: float
+    source: str
+    verified: bool
+    note: str
+
+    @property
+    def n_points(self) -> int:
+        return int(self.fit.observed.size)
+
+    @property
+    def within(self) -> bool:
+        return self.fit.aafe <= self.max_aafe
+
+
+def load_reference_curves(directory: str | Path = REFERENCE_CURVE_DIR) -> list[dict]:
+    """Every curve file in ``directory``, in filename order. Missing directory: none."""
+    directory = Path(directory)
+    if not directory.is_dir():
+        return []
+    curves = []
+    for path in sorted(directory.glob("*.json")):
+        with open(path, encoding="utf-8") as fh:
+            curve = json.load(fh)
+        curve.setdefault("curve_id", path.stem)
+        curves.append(curve)
+    return curves
+
+
+def validate_curve(curve: dict, db_path: str | Path = DEFAULT_DB_PATH) -> CurveValidationRow:
+    """Score one curve definition (see ``data/reference_curves/README.md``)."""
+    kind = curve.get("kind", "observed")
+    if kind not in CURVE_KINDS:
+        raise ValueError(f"{curve.get('curve_id')}: kind must be one of {CURVE_KINDS}")
+    points = sorted((float(t), float(c)) for t, c in curve["points"])
+    drug = get_drug(curve["drug_id"], db_path)
+    obs = convert_concentration([c for _, c in points], curve["unit"], drug.concentration_unit)
+    times = np.array([t for t, _ in points])
+    # Below the assay's limit of quantification a "concentration" is a rounding
+    # artefact; scoring it would let one unquantifiable tail point dominate the fit.
+    keep = obs > convert_concentration(curve.get("lloq", 0.0), curve["unit"], drug.concentration_unit)
+    if not keep.any():
+        raise ValueError(f"{curve.get('curve_id')}: every point is at or below the LLOQ")
+    times, obs = times[keep], obs[keep]
+    doses = [(float(d.get("time_h", 0.0)), float(d["dose_mg"])) for d in curve["doses"]]
+    predicted = predict_curve(
+        curve["drug_id"], times, doses,
+        body_weight_kg=float(curve.get("body_weight_kg", 70.0)),
+        route=Route(curve.get("route", "oral")), db_path=db_path,
+    )
+    if np.any(predicted <= 0):
+        # Almost always a sample taken before the preset's absorption lag, where the
+        # model says there is no drug at all and the fold error is infinite. That is a
+        # real structural disagreement, not a rounding issue: either the early points
+        # belong below ``lloq``, or this preset's ``tlag_h`` is too long.
+        early = times[predicted <= 0]
+        raise ValueError(
+            f"{curve.get('curve_id')}: the model predicts zero at t = "
+            f"{', '.join(f'{t:g}' for t in early)} h, so those points cannot be scored. "
+            f"Exclude them with \"lloq\" or correct the preset's absorption lag."
+        )
+    fit = CurveFit(times, obs, predicted)
+    return CurveValidationRow(
+        curve_id=curve.get("curve_id", curve["drug_id"]), drug_id=curve["drug_id"],
+        label=curve.get("label", curve["drug_id"]), kind=kind, fit=fit,
+        max_aafe=float(curve.get("max_aafe", 1.5)), source=curve["source"],
+        verified=bool(curve.get("verified", False)), note=curve.get("note", ""),
+    )
+
+
+def validate_curves(
+    directory: str | Path = REFERENCE_CURVE_DIR, db_path: str | Path = DEFAULT_DB_PATH,
+) -> list[CurveValidationRow]:
+    return [validate_curve(c, db_path) for c in load_reference_curves(directory)]
+
+
 def load_references(path: str | Path = REFERENCE_PATH) -> list[dict]:
     with open(path, encoding="utf-8") as fh:
         return json.load(fh)["references"]
@@ -235,8 +418,13 @@ def main() -> None:
     for name, g in summarize(rows).items():
         print(f"{name:9} {g.within}/{g.n} within tolerance, geometric mean fold error {g.geometric_mean_fold_error:.2f}")
 
+    _print_interaction_gate()
+    _print_curve_table()
+
+
+def _print_interaction_gate() -> None:
     ddi = validate_interactions()
-    print(f"\n--- mechanistic back-test of measured interaction factors ---")
+    print("\n--- mechanistic back-test of measured interaction factors ---")
     if not ddi:
         print("no measured pair is addressable by the mechanism (needs fm and a known perpetrator)")
         return
@@ -247,6 +435,26 @@ def main() -> None:
               f"{r.observed:>9.2f} {r.predicted:>10.2f} {r.ratio:>9.2f}  {'yes' if r.within else 'NO'}")
     gm = float(np.exp(np.mean([np.log(r.fold_error) for r in ddi])))
     print(f"\n{sum(r.within for r in ddi)}/{len(ddi)} within 2x, geometric mean fold error {gm:.2f}")
+
+
+def _print_curve_table() -> None:
+    curves = validate_curves()
+    print("\n--- whole-curve fit against published concentration-time data ---")
+    if not curves:
+        print(f"no reference curves in {REFERENCE_CURVE_DIR}/ "
+              f"(see its README for the file format)")
+        return
+    print(f"{'curve':34} {'kind':16} {'n':>3} {'AFE':>6} {'AAFE':>6} {'<2x':>5}  ok")
+    for r in curves:
+        flag = "yes" if r.within else f"NO (>{r.max_aafe:g}x)"
+        print(f"{r.curve_id:34} {r.kind:16} {r.n_points:>3} {r.fit.afe:>6.2f} "
+              f"{r.fit.aafe:>6.2f} {r.fit.fraction_within_2fold:>5.0%}  {flag}")
+    for kind in CURVE_KINDS:
+        sel = [r for r in curves if r.kind == kind]
+        if sel:
+            gm = float(10.0 ** np.mean([np.log10(r.fit.aafe) for r in sel]))
+            print(f"{kind:16} {sum(r.within for r in sel)}/{len(sel)} within tolerance, "
+                  f"geometric mean AAFE {gm:.2f}")
 
 
 if __name__ == "__main__":
