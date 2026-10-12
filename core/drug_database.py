@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Mapping
 
-from core.pk_engine import PKModel, Route
+from core.pk_engine import Metabolite, PKModel, Route
 from core.population import (
     REFERENCE_WEIGHT_KG,
     RENAL,
@@ -50,6 +50,8 @@ class Drug:
     # Unbound fraction. Recorded for reference only: every therapeutic range here is a
     # total plasma concentration, so no prediction depends on it.
     fu: float = 1.0
+    # One active metabolite, as raw fields; vd is per kg so it scales with the patient.
+    metabolite: dict | None = None
     km: float | None = None  # Michaelis-Menten constant, concentration unit
     saturable_fraction: float = 0.0  # share of low-concentration CL that saturates
     v1_fraction: float = 1.0  # central / steady-state volume (< 1: two compartments)
@@ -192,6 +194,15 @@ class Drug:
             # Q is organ blood flow, not metabolism: pure allometric scaling.
             q_l_per_h=self.q_l_per_h * clearance_factor(body_weight_kg),
             tlag_h=self.tlag_h if route is Route.ORAL else 0.0,
+            metabolite=(Metabolite(
+                name=self.metabolite["name"],
+                t_half_h=float(self.metabolite["t_half_h"]),
+                vd_l=float(self.metabolite["vd_l_per_kg"]) * body_weight_kg,
+                formation_fraction=float(self.metabolite.get("formation_fraction", 1.0)),
+                molar_ratio=float(self.metabolite.get("molar_ratio", 1.0)),
+                potency_ratio=float(self.metabolite.get("potency_ratio", 1.0)),
+                reported=self.metabolite.get("reported", "parent"),
+            ) if self.metabolite else None),
             inactivation_fraction=self.inactivation_fraction,
             kinact_per_h=self.kinact_per_h,
             ki=self.ki,
@@ -290,6 +301,7 @@ def _parse(entry: dict) -> Drug:
         fe_renal=fe_renal,
         pathways=pathways,
         fu=float(binding["fu"]) if (binding := entry.get("protein_binding")) else 1.0,
+        metabolite=entry.get("metabolite"),
         km=float(sat["km"]) if (sat := entry.get("saturable")) else None,
         saturable_fraction=float(sat["fraction"]) if sat else 0.0,
         v1_fraction=float(two["v1_fraction"]) if (two := entry.get("two_compartment")) else 1.0,

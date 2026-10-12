@@ -27,6 +27,7 @@ from core.pk_engine import (
     DoseEvent,
     Route,
     apply_missed_dose,
+    metabolite_profile,
     concentration_profile,
     regular_schedule,
     steady_state_concentration,
@@ -337,8 +338,13 @@ missed_time = ref_events[missed_index].time_h if missed_on else None
 fig = build_figure(
     t, c, window, unit, T, log_scale=log_scale, band=band if show_band else None,
     reference=c_ref if missed_on else None, dose_times=[e.time_h for e in active_events],
-    missed_time=missed_time, show_zones=show_zones)
+    missed_time=missed_time, show_zones=show_zones,
+    extra=((metabolite_profile(t, active_events, model), T("metabolite_curve", name=model.metabolite.name))
+           if model.metabolite is not None and not missed_on else None))
 st.plotly_chart(fig, width="stretch")
+if model.metabolite is not None:
+    st.caption(T("metabolite_caption", name=model.metabolite.name,
+                 t_half=model.metabolite.t_half_h, reported=T("metabolite_reported_" + model.reported_quantity)))
 
 tab_ss, tab_fit, tab_multi, tab_missed, tab_hr, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
     [T("tab_ss"), T("tab_fit"), T("tab_multi"), T("tab_missed"), T("tab_hr"), T("tab_sukl"), T("tab_glossary"),

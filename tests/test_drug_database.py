@@ -1,5 +1,7 @@
 import json
 
+import numpy as np
+
 import pytest
 
 from core.drug_database import CUSTOM_ID, Drug, custom_drug, get_drug, load_drugs
@@ -117,3 +119,34 @@ def test_prolonged_release_flattens_the_steady_state_profile():
     pr = steady_state_summary(pr_drug.amount_from_dose_mg(160), 24, pr_drug.to_pk_model(70))
     assert pr.fluctuation_pct < ir.fluctuation_pct
     assert pr.tmax_ss_h > ir.tmax_ss_h
+
+
+def test_diazepam_metabolite_is_reported_as_parent_so_nothing_changes():
+    from dataclasses import replace
+    from core.pk_engine import cmax_single_dose, single_dose_concentration
+    dz = get_drug("diazepam")
+    model = dz.to_pk_model(70)
+    assert model.metabolite is not None and model.reported_quantity == "parent"
+    bare = replace(model, metabolite=None)
+    t = np.linspace(0.0, 400.0, 2001)
+    np.testing.assert_allclose(single_dose_concentration(t, 10.0, model),
+                               single_dose_concentration(t, 10.0, bare), atol=1e-7)
+    assert cmax_single_dose(10.0, model) == pytest.approx(cmax_single_dose(10.0, bare), rel=1e-5)
+
+
+def test_diazepam_metabolite_reproduces_the_measured_steady_state_ratio():
+    """Nordazepam:diazepam settles at the published 1.26 on chronic dosing."""
+    from core.pk_engine import concentration_profile, metabolite_profile, regular_schedule
+    dz = get_drug("diazepam")
+    model = dz.to_pk_model(70)
+    t = np.linspace(0.0, 24 * 90, 9001)
+    events = regular_schedule(dz.amount_from_dose_mg(10.0), 24, 24 * 90)
+    late = t > 24 * 70
+    parent = concentration_profile(t, events, model)
+    met = metabolite_profile(t, events, model)
+    assert float(np.mean(met[late]) / np.mean(parent[late])) == pytest.approx(1.26, rel=0.02)
+
+
+def test_metabolite_volume_scales_with_patient_weight():
+    dz = get_drug("diazepam")
+    assert dz.to_pk_model(140).metabolite.vd_l == pytest.approx(2 * dz.to_pk_model(70).metabolite.vd_l)

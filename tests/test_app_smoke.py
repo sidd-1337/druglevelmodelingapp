@@ -1,10 +1,16 @@
 """Headless smoke test of the Streamlit app using Streamlit's AppTest."""
+import json
 from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
 
 ROOT_APP = str(Path(__file__).resolve().parent.parent / "app.py")
+
+
+def _chart_traces(at: AppTest, index: int = 0) -> list[str]:
+    """Trace names of a plotly chart (AppTest exposes only the serialised proto)."""
+    return [tr.get("name") for tr in json.loads(at.get("plotly_chart")[index].proto.spec)["data"]]
 
 
 def _run() -> AppTest:
@@ -134,3 +140,12 @@ def test_app_co_medication_shows_a_derived_estimate():
     cells = [str(v).lower() for df in at.dataframe for v in df.value.to_numpy().ravel()]
     assert any(c == "estimated" for c in cells)
     assert any("carries 35 % of this drug's clearance" in c for c in cells)
+
+
+def test_app_shows_the_metabolite_curve_for_diazepam():
+    at = _run()
+    at.selectbox[0].set_value("diazepam").run()
+    assert not at.exception
+    traces = _chart_traces(at, 0)
+    assert any("Nordazepam" in str(name) for name in traces)
+    assert "Concentration" in traces  # the reported quantity is still diazepam itself

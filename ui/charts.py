@@ -35,6 +35,7 @@ def build_figure(
     height: int = 520,
     observations: Sequence[tuple[float, float]] = (),
     conc_label: str | None = None,
+    extra: tuple[np.ndarray, str] | None = None,
     reference_label: str | None = None,
     band_label: str | None = None,
 ) -> go.Figure:
@@ -47,6 +48,8 @@ def build_figure(
     if band is not None:
         peaks.append(float(np.max(band[1])))
     peaks += [obs_c for _, obs_c in observations]
+    if extra is not None:
+        peaks.append(float(np.max(extra[0])))
     y_top = max(window.mtc * 1.3, max(peaks) * 1.1)
     y_bot = window.mec / 100.0 if log_scale else 0.0
 
@@ -93,6 +96,11 @@ def build_figure(
             name=T("measured"), marker=dict(symbol="diamond", size=12, color=f"rgb({RED})",
                                             line=dict(width=1.5, color="#0f172a")),
             hovertemplate=hover))
+
+    if extra is not None:
+        fig.add_trace(go.Scatter(x=t, y=prep(extra[0]), mode="lines", name=extra[1],
+                                 line=dict(color=_rgba(GREY, 0.95), width=2, dash="dot"),
+                                 hovertemplate=hover))
 
     marker_y = y_bot * 1.6 if log_scale else y_top * 0.015
     shown = [d for d in dose_times if x0 <= d <= x1]
