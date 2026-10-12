@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -153,6 +154,25 @@ class SuklDrugDetail:
     cesta_podani: str = ""
 
 
+def _open_json(req: urllib.request.Request) -> Any:
+    """GET/POST ``req`` and decode JSON, retrying once on a dropped or stalled connection.
+
+    A few SÚKL requests reset or time out in the TLS handshake (about one search in 40
+    in testing). Every caller treats a failure as "no data", so without the retry that
+    shows up as a missing package or a failed match. All requests here are read-only,
+    so a retry is safe. An HTTP error status is an answer, and is not retried.
+    """
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except (ConnectionError, TimeoutError, urllib.error.URLError) as exc:
+            transient = isinstance(getattr(exc, "reason", exc), (ConnectionError, TimeoutError))
+            if attempt or not transient:
+                raise
+            time.sleep(0.5)
+
+
 def parse_dose_mg(text: str) -> float | None:
     """Extract numeric dosage in milligrams from strength or supplement text.
 
@@ -262,12 +282,11 @@ def query_sukl_api(query: str, max_results: int = 20) -> list[SuklMedication]:
                 method="POST",
             )
             try:
-                with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    items = data.get("data", [])
-                    if items:
-                        raw_items = items
-                        break
+                data = _open_json(req)
+                items = data.get("data", [])
+                if items:
+                    raw_items = items
+                    break
             except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
                 continue
         if raw_items:
@@ -288,10 +307,9 @@ def query_sukl_api(query: str, max_results: int = 20) -> list[SuklMedication]:
                 f"https://prehledy.sukl.cz/prehledy/v1/dlprc/list/{kod}",
                 headers={"Accept": "application/json", "User-Agent": USER_AGENT},
             )
-            with urllib.request.urlopen(req_list, timeout=TIMEOUT_SECONDS) as resp_list:
-                data_list = json.loads(resp_list.read().decode("utf-8"))
-                if isinstance(data_list, list) and data_list:
-                    expanded_pkgs = data_list
+            data_list = _open_json(req_list)
+            if isinstance(data_list, list) and data_list:
+                expanded_pkgs = data_list
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
             pass
 
@@ -382,8 +400,7 @@ def fetch_sukl_detail(kod_sukl: str) -> SuklDrugDetail | None:
         headers={"Accept": "application/json", "User-Agent": USER_AGENT},
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        data = _open_json(req)
     except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
         return None
 
