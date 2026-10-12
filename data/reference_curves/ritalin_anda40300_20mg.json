@@ -1,0 +1,32 @@
+{
+  "drug_id": "ritalin",
+  "label": "methylphenidate HCl 20 mg oral (Ritalin tablet), fasted, n=30 men",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 20}],
+  "route": "oral",
+  "unit": "ng/mL",
+  "lloq": 0.25,
+  "n_subjects": 30,
+  "statistic": "arithmetic mean",
+  "source": "https://www.accessdata.fda.gov/drugsatfda_docs/anda/98/40-300_Methylphenidate%20Hydrochloride_Bioeqr.pdf",
+  "verified": true,
+  "note": "FDA ANDA 40-300 (Mallinckrodt) bioequivalence review PDF page 14, Table 2, column MEAN2 (Ritalin reference). Fasted healthy men, weight not reported. Achiral LC-MS/MS: total racemic methylphenidate, as the preset. LLOQ 0.25 ng/mL. The 20 min mean (0.32 ng/mL) is barely above it: most subjects had no measurable drug yet.",
+  "points": [
+    [0.33, 0.32],
+    [0.67, 3.82],
+    [1, 7.42],
+    [1.5, 9.63],
+    [2, 9.36],
+    [2.5, 8.46],
+    [3, 7.55],
+    [3.5, 6.59],
+    [4, 5.88],
+    [6, 3.25],
+    [8, 2.03],
+    [10, 1.15],
+    [12, 0.67],
+    [14, 0.36],
+    [16, 0.11],
+    [24, 0]
+  ]
+}

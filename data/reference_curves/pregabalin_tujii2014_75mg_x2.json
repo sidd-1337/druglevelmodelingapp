@@ -1,0 +1,20 @@
+{
+  "drug_id": "pregabalin",
+  "label": "pregabalin 75 mg oral twice 12 h apart (Lyrica), fasted, n=8 men, 1-4 h after the second dose",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 75}, {"time_h": 12, "dose_mg": 75}],
+  "route": "oral",
+  "body_weight_kg": 69.0,
+  "unit": "ug/mL",
+  "n_subjects": 8,
+  "statistic": "arithmetic mean computed from the 8 printed individual values",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3912019/",
+  "verified": false,
+  "note": "Tujii T et al. Int J Gen Med 2014;7:103-108, Table 1 (PMC3912019). SUSPECT SOURCE, verified=false: the transcription is exact, but (1) the paper prints individual values only, so the means are computed; (2) times are inferred as 12 h + the printed '1-4 h after the second dose'; (3) its 'Baseline (prior to first dose)' column reads 0.86-1.32 ug/mL, impossible before any dose, so it is left out; (4) every value is about twice what Pfizer's own Japanese data imply (PMDA CTD 2.7.6: 150 mg Cmax 5.07 ug/mL). A miss on this curve is not evidence against the preset without a second source. Assay and LLOQ not described. Mean weight 69 kg.",
+  "points": [
+    [13, 4.40375],
+    [14, 3.915],
+    [15, 3.38],
+    [16, 3.4025]
+  ]
+}

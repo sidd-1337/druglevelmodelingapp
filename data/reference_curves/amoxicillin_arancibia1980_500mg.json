@@ -1,0 +1,26 @@
+{
+  "drug_id": "amoxicillin",
+  "label": "amoxicillin 500 mg oral capsule (Amoxil), fasted, n=8, serum",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 500}],
+  "route": "oral",
+  "body_weight_kg": 66.4,
+  "unit": "ug/mL",
+  "lloq": 0.25,
+  "n_subjects": 8,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC283758/",
+  "verified": true,
+  "note": "Arancibia A, Guttmann J, Gonzalez G, Gonzalez C. Antimicrob Agents Chemother 1980;17(2):199-202, p.201 Table 3 (PMC283758, scanned page; the erratum in 18(3):491 changes no value). Healthy fasted adults (7 M, 2 F; mean 66.4 kg of the 9 enrolled). Microbiological assay, sensitivity 0.25 ug/mL. The 20 min, 30 min and 7 h means (0.3, 1.6, 0.7 ug/mL) cover only the subjects with detectable drug (3, 6 and 4 of the 8), not the group, so they are left out here.",
+  "points": [
+    [0.75, 4.6],
+    [1, 6.9],
+    [1.25, 8.4],
+    [1.5, 9.5],
+    [2, 8.8],
+    [3, 5.5],
+    [4, 3.1],
+    [5, 1.5],
+    [6, 0.9]
+  ]
+}

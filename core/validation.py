@@ -188,6 +188,7 @@ UNIT_FACTORS: dict[tuple[str, str], float] = {
     ("ug/mL", "ug/mL"): 1.0,
     ("mg/L", "ug/mL"): 1.0,  # same thing, both spellings appear in print
     ("ng/mL", "ug/mL"): 1e-3,
+    ("pg/mL", "ug/mL"): 1e-6,  # methylphenidate is often printed in pg/mL
     ("ug/L", "ug/mL"): 1e-3,
     ("mmol/L", "mmol/L"): 1.0,
     ("mEq/L", "mmol/L"): 1.0,  # lithium is monovalent, so mEq and mmol coincide
@@ -204,7 +205,7 @@ CURVE_KINDS = ("observed", "published_model")
 # unit alone never says: lithium is printed as ug/mL of Li+ (6.94 g/mol), and reading
 # it as lithium carbonate (73.89 g/mol) would be a silent tenfold error. So the curve
 # file must state it, and without it the pair still raises.
-MASS_UNITS_IN_MG_PER_L = {"mg/L": 1.0, "ug/mL": 1.0, "ng/mL": 1e-3, "ug/L": 1e-3}
+MASS_UNITS_IN_MG_PER_L = {"mg/L": 1.0, "ug/mL": 1.0, "ng/mL": 1e-3, "ug/L": 1e-3, "pg/mL": 1e-6}
 MOLAR_UNITS_IN_MMOL_PER_L = {"mmol/L": 1.0, "umol/L": 1e-3}
 
 

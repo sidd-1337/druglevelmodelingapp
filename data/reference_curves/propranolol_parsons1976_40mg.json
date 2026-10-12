@@ -1,0 +1,23 @@
+{
+  "drug_id": "propranolol",
+  "label": "propranolol 40 mg oral tablet, fasted, n=10 (healthy controls)",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 40}],
+  "route": "oral",
+  "body_weight_kg": 67.86,
+  "unit": "ng/mL",
+  "n_subjects": 10,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1411084/",
+  "verified": true,
+  "note": "Parsons RL, Kaye CM, Raymond K, Trounce JR, Turner P. Gut 1976;17(2):139-143, p.140 Table 2, normal subjects (PMC1411084). Healthy controls (5 M, 5 F, 67.9 kg) in a coeliac study, 12 h fast. Fluorimetric assay of Shand 1970 (unchanged propranolol; old and less sensitive). Dose as the labelled tablet strength (propranolol hydrochloride), as in reference_pk.json.",
+  "points": [
+    [0.5, 5.17],
+    [1, 20.28],
+    [1.5, 24.2],
+    [2, 24.55],
+    [4, 14.6],
+    [6, 6.45],
+    [8, 5.25]
+  ]
+}

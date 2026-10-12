@@ -1,0 +1,24 @@
+{
+  "drug_id": "diazepam",
+  "label": "diazepam 10 mg oral, young healthy adults, n=11, plasma",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 10}],
+  "route": "oral",
+  "body_weight_kg": 65.7,
+  "unit": "ng/mL",
+  "n_subjects": 11,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1400684/",
+  "verified": true,
+  "note": "Swift CG, Ewen JM, Clarke P, Stevenson IH. Br J Clin Pharmacol 1985;20(2):111-118, p.115 Table 2, row 'Young (n = 11)' (PMC1400684, scanned page). Composite profile: the 0.5-6.5 h samples follow a morning dose and the 10-16 h samples a separate night dose in the same subjects, so the authors computed no NCA parameters; the flat 10-14 h means likely reflect that. Fed state not reported. Sparse early sampling (0.5 then 2.5 h) misses Tmax. No LLOQ printed.",
+  "points": [
+    [0.5, 85.08],
+    [2.5, 227.75],
+    [4.5, 156.42],
+    [6.5, 126.82],
+    [10, 91.18],
+    [12, 94.73],
+    [14, 94.18],
+    [16, 72.55]
+  ]
+}

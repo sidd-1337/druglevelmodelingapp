@@ -120,9 +120,12 @@ def test_the_same_curve_in_different_units_scores_the_same():
     ug = _curve_from_model("ibuprofen", 400.0)
     ng = {**ug, "unit": "ng/mL",
           "points": [[t, c * 1000.0] for t, c in ug["points"]]}
+    pg = {**ug, "unit": "pg/mL",
+          "points": [[t, c * 1e6] for t, c in ug["points"]]}
     mg_per_l = {**ug, "unit": "mg/L"}  # identical to ug/mL
     base = validate_curve(ug).fit.aafe
     assert validate_curve(ng).fit.aafe == pytest.approx(base)
+    assert validate_curve(pg).fit.aafe == pytest.approx(base)
     assert validate_curve(mg_per_l).fit.aafe == pytest.approx(base)
 
 

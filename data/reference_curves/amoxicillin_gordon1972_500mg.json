@@ -1,0 +1,26 @@
+{
+  "drug_id": "amoxicillin",
+  "label": "amoxicillin 500 mg oral (2 x 250 mg capsules), fasted, n=8, serum",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 500}],
+  "route": "oral",
+  "unit": "ug/mL",
+  "lloq": 0.1,
+  "n_subjects": 8,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC444250/",
+  "verified": true,
+  "note": "Gordon RC, Regamey C, Kirby WMM. Antimicrob Agents Chemother 1972;1(6):504-507, p.505 Table 1, amoxicillin Mean row (PMC444250, scanned page); the mean reproduces from the 8 printed individual rows. Healthy fasted men, weight not reported. Microbiological agar-well assay (B. subtilis); the table prints '<0.10' for ampicillin, so 0.1 ug/mL is taken as the reporting limit.",
+  "points": [
+    [0.5, 2.98],
+    [1, 7.48],
+    [1.5, 7.61],
+    [2, 7.02],
+    [3, 4.29],
+    [4, 1.95],
+    [5, 0.89],
+    [6, 0.5],
+    [7, 0.28],
+    [8, 0.19]
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "drug_id": "ibuprofen",
+  "label": "ibuprofen 200 mg oral (Nuprin tablet), fasted, n=17, serum",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 200}],
+  "route": "oral",
+  "unit": "ug/mL",
+  "n_subjects": 17,
+  "statistic": "arithmetic mean",
+  "source": "https://www.accessdata.fda.gov/drugsatfda_docs/nda/99/075010_ORIGINAL%20APPROVAL_PACKAGE.pdf",
+  "verified": true,
+  "note": "FDA ANDA 75-010 (LNK International) approval package, bioequivalence review PDF page 86, Table 2, column MEAN2 (Nuprin reference). Fasted healthy adults (18 enrolled: 14 F, 4 M), weight not reported. LLOQ redacted; the review says below-limit values were reported as zero, so the earliest and latest means run low.",
+  "points": [
+    [0.25, 3.83],
+    [0.5, 13.18],
+    [0.75, 16.13],
+    [1, 17.58],
+    [1.33, 17.89],
+    [1.67, 17.67],
+    [2, 16.4],
+    [2.33, 15.22],
+    [2.67, 13.84],
+    [3, 12.24],
+    [3.5, 10.5],
+    [4, 10.09],
+    [5, 7.53],
+    [6, 5.05],
+    [8, 2.67],
+    [10, 1.26],
+    [12, 0.51]
+  ]
+}

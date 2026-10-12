@@ -1,0 +1,23 @@
+{
+  "drug_id": "levetiracetam",
+  "label": "levetiracetam 2000 mg oral solution, fasted, n=16 men, serum",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 2000}],
+  "route": "oral",
+  "body_weight_kg": 75.0,
+  "unit": "ug/mL",
+  "lloq": 2.5,
+  "n_subjects": 16,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9303426/",
+  "verified": true,
+  "note": "Ruijs TQ et al. Br J Clin Pharmacol 2022;88(6):2926-2937, supporting information Table S1 (BCP-88-2926-s003.docx; PMC9303426). Single 2000 mg dose of generic oral solution (100 mg/mL), above the usual single dose but within the label's linear range (500-5000 mg). Sparse: 6 post-dose samples at the printed clock times; the first (0.5 h) is already the median Tmax, so absorption is not resolved. 17 healthy men enrolled (75 kg), 16 completed; the table does not state its n. HPLC-DAD, LLOQ 2.5 ug/mL.",
+  "points": [
+    [0.5, 44.45],
+    [1.3667, 39.68],
+    [2.25, 36.64],
+    [3.5, 32.61],
+    [6.8667, 23.37],
+    [23.8667, 5.03]
+  ]
+}

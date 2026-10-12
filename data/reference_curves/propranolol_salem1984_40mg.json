@@ -1,0 +1,19 @@
+{
+  "drug_id": "propranolol",
+  "label": "propranolol 40 mg oral, fasted, n=6 men, 2-8 h only",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 40}],
+  "route": "oral",
+  "unit": "ng/mL",
+  "n_subjects": 6,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1463293/",
+  "verified": true,
+  "note": "Salem SA, McDevitt DG. Br J Clin Pharmacol 1984;17(1):31-36, p.32 Table 1, 40 mg row (PMC1463293). The same six men as the 80 mg file (crossover), so not an independent study. Samples at 2, 3, 5 and 8 h only.",
+  "points": [
+    [2, 37.8],
+    [3, 30.2],
+    [5, 16.3],
+    [8, 9.2]
+  ]
+}

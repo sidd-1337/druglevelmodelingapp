@@ -1,0 +1,29 @@
+{
+  "drug_id": "paracetamol",
+  "label": "paracetamol 1000 mg oral (Coldrex MaxGrip combination), semi-fed, n=11",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 1000}],
+  "route": "oral",
+  "unit": "ug/mL",
+  "lloq": 0.5,
+  "n_subjects": 11,
+  "statistic": "arithmetic mean",
+  "source": "https://filehosting-v2.pharmacm.com/api/Attachment/Download?tenantId=80217381&parentIdentifier=E3870651&attachmentIdentifier=aa8cb7a0-7379-4f54-9294-e5bbee967954&fileName=c05aad84-435b-41f6-a23b-8ebf1c4f45de.pdf&versionIdentifier=",
+  "verified": true,
+  "note": "GSK study E3870651 (NCT01551836), clinical study result summary p.2, Coldrex MaxGrip column. A marketed combination (paracetamol 1000 mg, phenylephrine 10 mg, ascorbic acid 40 mg; dosage form not stated) taken about 2.5 h after a standard breakfast, sampled only to 3 h: it does not test fasted Cmax or the terminal phase, and its peak (10.1 ug/mL) sits well below fasted tablet data. Kept for its dense early sampling (1-11 min): 3 of 11 subjects were above the 0.5 ug/mL LLOQ at 3 min. Times were printed in minutes. Below-LLOQ samples entered the printed means as zero, so the earliest and latest means run low.",
+  "points": [
+    [0.016667, 0],
+    [0.05, 0.31],
+    [0.083333, 1.58],
+    [0.116667, 3.14],
+    [0.15, 4.7],
+    [0.183333, 5.41],
+    [0.333333, 8.33],
+    [0.5, 9.47],
+    [1, 10.11],
+    [1.5, 9.39],
+    [2, 8.29],
+    [2.5, 7.36],
+    [3, 6.28]
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "drug_id": "diazepam",
+  "label": "diazepam 10 mg oral (Valium), after a light breakfast, n=6, serum",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 10}],
+  "route": "oral",
+  "unit": "ng/mL",
+  "n_subjects": 6,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1401908/",
+  "verified": true,
+  "note": "Bittencourt PRM, Wade P, Smith AT, Richens A. Br J Clin Pharmacol 1981;12(4):523-533, p.527 Table 1, diazepam column (PMC1401908, scanned page). 6 healthy men aged 20-32, body weight not reported. Not fasted: light breakfast about 1-1.5 h before dosing. Serum, GLC with electron capture; no LLOQ printed. Total (bound plus free) parent diazepam.",
+  "points": [
+    [0.5, 98],
+    [1, 182],
+    [1.5, 238],
+    [2, 223],
+    [3, 189],
+    [4, 148],
+    [6, 94],
+    [9, 69],
+    [12, 56]
+  ]
+}

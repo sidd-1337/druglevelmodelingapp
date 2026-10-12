@@ -1,0 +1,19 @@
+{
+  "drug_id": "propranolol",
+  "label": "propranolol 80 mg oral, fasted, n=6 men, 2-8 h only",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 80}],
+  "route": "oral",
+  "unit": "ng/mL",
+  "n_subjects": 6,
+  "statistic": "arithmetic mean",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1463293/",
+  "verified": true,
+  "note": "Salem SA, McDevitt DG. Br J Clin Pharmacol 1984;17(1):31-36, p.32 Table 1, 80 mg row (PMC1463293). Six healthy men, overnight fast. Fluorometric assay (Shand 1970). Samples at 2, 3, 5 and 8 h only, so absorption and Tmax are not tested. Same subjects as the 40 mg file.",
+  "points": [
+    [2, 65.2],
+    [3, 66.7],
+    [5, 42.2],
+    [8, 25.8]
+  ]
+}

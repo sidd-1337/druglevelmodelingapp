@@ -1,0 +1,29 @@
+{
+  "drug_id": "ibuprofen",
+  "label": "ibuprofen 200 mg oral (Nuprin tablet), fasted, n=24 men, plasma",
+  "kind": "observed",
+  "doses": [{"time_h": 0, "dose_mg": 200}],
+  "route": "oral",
+  "body_weight_kg": 78.9,
+  "unit": "ug/mL",
+  "n_subjects": 24,
+  "statistic": "arithmetic mean",
+  "source": "https://www.accessdata.fda.gov/drugsatfda_docs/nda/2001/076117.PDF",
+  "verified": true,
+  "note": "FDA ANDA 76-117 (Dr. Reddy's) bioequivalence review PDF page 38, Table 1, column MEAN2 (Nuprin reference). Fasted healthy men, mean 78.9 kg. LLOQ redacted. The pre-dose mean (0.02 ug/mL, from one subject) is left out. The table has a 9 h row but no 10 h row, unlike the protocol list.",
+  "points": [
+    [0.25, 4.43],
+    [0.5, 12.47],
+    [0.75, 14.72],
+    [1, 14.33],
+    [1.5, 13.74],
+    [2, 13.22],
+    [2.5, 11.77],
+    [3, 10.96],
+    [4, 8.78],
+    [6, 4.01],
+    [9, 1.71],
+    [12, 0.73],
+    [15, 0.25]
+  ]
+}
