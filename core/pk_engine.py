@@ -203,11 +203,12 @@ class PKModel:
 class Metabolite:
     """A single active metabolite formed from the parent's clearance.
 
-    ``formation_fraction`` is the share of parent clearance that yields it;
-    ``molar_ratio`` converts metabolite to parent-equivalent mass (MW_parent /
-    MW_metabolite); ``potency_ratio`` weights it when the reported quantity is the
-    sum. ``reported`` says which quantity the preset's concentrations and
-    therapeutic window refer to.
+    ``formation_fraction`` is the share of parent clearance that yields it (molar);
+    ``molar_ratio`` is MW_parent / MW_metabolite, so a mass of parent eliminated
+    forms ``formation_fraction / molar_ratio`` times that mass of metabolite;
+    ``potency_ratio`` weights it when the reported quantity is the sum.
+    ``reported`` says which quantity the preset's concentrations and therapeutic
+    window refer to.
     """
 
     name: str
@@ -528,8 +529,9 @@ def steady_state_summary(amount: float, tau_h: float, model: PKModel) -> SteadyS
 
 # ----------------------------------------- integrated profiles (numerical)
 # State: [depot, central, peripheral, active enzyme fraction, metabolite amount].
-# The metabolite amount is carried in parent-equivalent mass, the molar conversion
-# being applied as it forms, so parent and metabolite can simply be added.
+# The metabolite amount is carried in the metabolite's own mass, the molar
+# conversion being applied as it forms, so a reported sum adds mass concentrations
+# the way labs and the AGNP ranges do (e.g. risperidone + 9-OH-risperidone in ng/mL).
 def _nonlinear_rhs(model: PKModel):
     v1 = model.v1_l
     cl = model.clearance_l_per_h
@@ -538,7 +540,7 @@ def _nonlinear_rhs(model: PKModel):
     f_sat, km = model.saturable_fraction, model.km
     fm, kinact, ki, kdeg = model.inactivation_fraction, model.kinact_per_h, model.ki, model.kdeg_per_h
     met = model.metabolite
-    f_form = met.formation_fraction * met.molar_ratio if met else 0.0
+    f_form = met.formation_fraction / met.molar_ratio if met else 0.0
     ke_met = met.ke if met else 0.0
 
     def rhs(_t, y):

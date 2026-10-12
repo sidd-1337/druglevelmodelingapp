@@ -421,15 +421,31 @@ def test_reporting_the_parent_is_numerically_a_no_op():
 
 
 def test_metabolite_mass_balance():
-    """Everything formed must be eliminated: AUC_m = f * molar * CL_p * AUC_p / (ke_m * V_m)."""
+    """Everything formed must be eliminated: AUC_m = (f / molar) * CL_p * AUC_p / (ke_m * V_m)."""
     from core.pk_engine import metabolite_profile
     t = np.linspace(0.0, 2000.0, 20001)
     parent = single_dose_concentration(t, 10.0, WITH_MET)
     met = metabolite_profile(t, [DoseEvent(0.0, 10.0)], WITH_MET)
-    expected = (NORDAZEPAM.formation_fraction * NORDAZEPAM.molar_ratio
+    expected = (NORDAZEPAM.formation_fraction / NORDAZEPAM.molar_ratio
                 * WITH_MET.clearance_l_per_h * auc_trapezoid(t, parent)
                 / (NORDAZEPAM.ke * NORDAZEPAM.vd_l))
     assert auc_trapezoid(t, met) == pytest.approx(expected, rel=1e-3)
+
+
+def test_metabolite_is_formed_in_its_own_mass_units():
+    """A metabolite half the parent's molecular weight forms half the mass, never double.
+
+    The engine once multiplied by MW_parent / MW_metabolite, which is neither the
+    metabolite's mass nor parent-equivalents: nordazepam came out 11 % high and
+    9-hydroxyrisperidone 7 % low against the ng/mL values labs report.
+    """
+    from core.pk_engine import metabolite_profile
+    light = replace(NORDAZEPAM, formation_fraction=1.0, molar_ratio=2.0)
+    model = PKModel(44.0, 83.0, 0.93, 4.0, metabolite=light)
+    t = np.linspace(0.0, 2000.0, 20001)
+    formed = light.ke * light.vd_l * auc_trapezoid(t, metabolite_profile(t, [DoseEvent(0.0, 10.0)], model))
+    eliminated = model.clearance_l_per_h * auc_trapezoid(t, single_dose_concentration(t, 10.0, model))
+    assert formed / eliminated == pytest.approx(0.5, rel=1e-3)
 
 
 def test_a_slow_metabolite_peaks_long_after_the_parent():

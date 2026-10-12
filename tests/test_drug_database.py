@@ -135,6 +135,10 @@ def test_diazepam_metabolite_is_reported_as_parent_so_nothing_changes():
     assert cmax_single_dose(10.0, model) == pytest.approx(cmax_single_dose(10.0, bare), rel=1e-5)
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "formation_fraction 0.761 was calibrated to hit 1.26 while the engine formed metabolite with "
+    "MW_parent/MW_metabolite instead of its inverse; with that fixed the same fraction gives 1.14. "
+    "Not re-calibrated: a calibration is not evidence."))
 def test_diazepam_metabolite_reproduces_the_measured_steady_state_ratio():
     """Nordazepam:diazepam settles at the published 1.26 on chronic dosing."""
     from core.pk_engine import concentration_profile, metabolite_profile, regular_schedule
@@ -158,9 +162,18 @@ def test_risperidone_reports_the_active_moiety_and_keeps_its_agnp_level():
     ris = get_drug("risperidone")
     model = ris.to_pk_model(70)
     assert model.reported_quantity == "sum"
+    assert model.terminal_half_life_h == pytest.approx(21.0)  # the slow metabolite governs the tail
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "The volumes were solved to put the active moiety at 0.028 ug/mL while the engine under-formed "
+    "9-OH-risperidone by MW_parent/MW_metabolite squared (0.926); fixed, it is 0.0299 (+6.8 %). "
+    "Not re-solved; the 1.5-fold reference check in data/reference_pk.json still passes at 1.07."))
+def test_risperidone_active_moiety_sits_on_its_solved_agnp_level():
+    from core.pk_engine import steady_state_summary
+    model = get_drug("risperidone").to_pk_model(70)
     # The AGNP 20-60 ng/mL range is for the active moiety, so the reported sum must match it.
     assert steady_state_summary(2.0, 12, model).cavg_ss == pytest.approx(0.028, rel=0.05)
-    assert model.terminal_half_life_h == pytest.approx(21.0)  # the slow metabolite governs the tail
 
 
 def test_cyp2d6_barely_moves_the_risperidone_active_moiety():
