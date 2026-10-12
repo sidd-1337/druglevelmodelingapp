@@ -86,6 +86,7 @@ export interface StackingAssessment {
   riskExplanation: string;
   willBreachMtc: boolean;
   safeToRedose: boolean;
+  timeAboveMtcH?: number;
 }
 
 export interface RouteTimelineInfo {

@@ -14,6 +14,7 @@ import {
   patientHalfLife,
   singleDosePoint,
 } from "@/lib/pk-engine";
+import { usePk } from "@/lib/use-pk";
 import { DrugPreset, PKCalculationPoint, RouteType, SuklPackageDetail } from "@/lib/types";
 import { ExternalLink } from "lucide-react";
 import PkChart from "../PkChart";
@@ -81,16 +82,30 @@ export default function KineticsHarmReductionTab({
   }, [durationH, intervalH]);
 
   // Compute repeated curve
-  const curveData = useMemo(() => {
+  const pk = usePk({
+    drugId: drug?.id ?? null, doseMg, intervalH, durationH, bodyWeightKg: weightKg, route, elapsedH,
+  });
+
+  const localCurve = useMemo(() => {
     return calculateMultipleDoseCurve(durationH, effectiveAmount, intervalH, modelParams);
   }, [durationH, effectiveAmount, intervalH, modelParams]);
 
+  // The backend models metabolites, enzyme inactivation and pathways; the local
+  // engine cannot, so it is only a stand-in while loading or when the API is down.
+  const curveData: PKCalculationPoint[] = pk.simulation
+    ? pk.simulation.timeGrid.map((t, i) => ({
+        timeH: t,
+        concentration: pk.simulation!.concentrations[i],
+      }))
+    : localCurve;
+
   // Harm reduction calculations
-  const safeIntervalH = useMemo(() => {
+  const localSafeIntervalH = useMemo(() => {
     return computeSafeRedosingInterval(effectiveAmount, modelParams, { mec, mtc });
   }, [effectiveAmount, modelParams, mec, mtc]);
+  const safeIntervalH = pk.harmReduction?.safeIntervalH ?? localSafeIntervalH;
 
-  const stackingAssessment = useMemo(() => {
+  const localStacking = useMemo(() => {
     return assessDoseStacking(
       effectiveAmount,
       elapsedH,
@@ -99,17 +114,14 @@ export default function KineticsHarmReductionTab({
       unit
     );
   }, [effectiveAmount, elapsedH, modelParams, mec, mtc, unit]);
+  const stackingAssessment = pk.harmReduction?.stacking ?? localStacking;
 
-  const singleCmax = useMemo(() => {
-    return calculateCmax(effectiveAmount, modelParams);
-  }, [effectiveAmount, modelParams]);
-
-  const singleTmax = useMemo(() => {
-    return calculateTmax(modelParams);
-  }, [modelParams]);
+  const apiRouteTimeline = pk.harmReduction?.routeTimelines.find((t) => t.route === route);
+  const singleCmax = pk.harmReduction?.stacking.singleCmax ?? calculateCmax(effectiveAmount, modelParams);
+  const singleTmax = apiRouteTimeline?.tmaxH ?? calculateTmax(modelParams);
 
   // Stacking curve simulation for Harm Reduction section
-  const { stackedCurveData, dose2CurveData, stackDurationH } = useMemo(() => {
+  const localStack = useMemo(() => {
     const horizon = Math.max(36, Math.ceil(elapsedH + baseT12 * 4));
     const steps = 240;
     const dt = horizon / steps;
@@ -127,18 +139,35 @@ export default function KineticsHarmReductionTab({
     return { stackedCurveData: sCurve, dose2CurveData: d2Curve, stackDurationH: horizon };
   }, [elapsedH, baseT12, effectiveAmount, modelParams]);
 
+  const stackedCurveData = pk.harmReduction?.stackedCurve ?? localStack.stackedCurveData;
+  const dose2CurveData = pk.harmReduction?.singleCurve ?? localStack.dose2CurveData;
+  const stackDurationH = stackedCurveData.length
+    ? stackedCurveData[stackedCurveData.length - 1].timeH
+    : localStack.stackDurationH;
+
   // Route comparison timelines (each calculated with its own route model)
-  const routeTimelines = useMemo(() => {
+  const localRouteTimelines = useMemo(() => {
     return (["oral", "iv_bolus", "insufflated", "smoked"] as RouteType[]).map((r) =>
       getRouteTimelineInfo(r, effectiveAmount, { ...modelParams, route: r })
     );
   }, [effectiveAmount, modelParams]);
+  const routeTimelines = localRouteTimelines;
 
   const remainingToSafe = Math.max(0, safeIntervalH - elapsedH);
   const safeProgressPct = Math.min(100, Math.round((elapsedH / safeIntervalH) * 100));
 
   return (
     <div className="space-y-6">
+      {pk.source === "local" && drug && (
+        <div className="apple-card p-3 border border-amber-300/70 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-950/30">
+          <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+            <strong>Zjednodušený výpočet.</strong> Simulační službu se nepodařilo kontaktovat, takže se
+            počítá přímo v prohlížeči. Tento zjednodušený model neumí aktivní metabolity, saturovatelnou
+            eliminaci ani vliv enzymů a genotypu, takže se u některých léčiv liší od plného modelu.
+          </p>
+        </div>
+      )}
+
       {/* Streamlit Deep Clinical Laboratory Banner */}
       <div className="apple-card p-5 bg-gradient-to-r from-blue-50/70 via-white to-indigo-50/40 dark:from-zinc-800/80 dark:via-zinc-850 dark:to-zinc-800/60 border border-blue-200/70 dark:border-blue-900/40 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
