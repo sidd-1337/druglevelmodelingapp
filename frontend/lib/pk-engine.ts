@@ -13,6 +13,28 @@ export interface PKModelParams {
 const LN2 = Math.LN2;
 const REL_TOL = 1e-7;
 
+const REFERENCE_WEIGHT_KG = 70;
+const REFERENCE_CRCL_ML_MIN = 100;
+
+/**
+ * Half-life for a patient, mirroring core/population.py: V scales with weight,
+ * CL with weight^0.75 (and its renal fraction with CrCl / 100 mL/min).
+ * Preset half-lives describe a 70 kg adult with normal renal function.
+ */
+export function patientHalfLife(
+  tHalfRefHours: number,
+  weightKg: number,
+  crclMlMin?: number,
+  feRenal = 0
+): number {
+  const size = Math.pow(weightKg / REFERENCE_WEIGHT_KG, 0.75);
+  const clRel =
+    crclMlMin === undefined || feRenal === 0
+      ? size
+      : (1 - feRenal) * size + (feRenal * crclMlMin) / REFERENCE_CRCL_ML_MIN;
+  return (tHalfRefHours * (weightKg / REFERENCE_WEIGHT_KG)) / clRel;
+}
+
 export function getKe(tHalfHours: number): number {
   return tHalfHours > 0 ? LN2 / tHalfHours : 0;
 }

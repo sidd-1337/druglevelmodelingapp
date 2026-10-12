@@ -11,6 +11,9 @@ export interface DrugPreset {
   vdLPerKg: number;
   bioavailability: number;
   kaPerH: number;
+  cvCl?: number; // between-patient CV of clearance (log-normal)
+  cvF?: number; // between-patient CV of bioavailability
+  feRenal?: number; // fraction of clearance that scales with creatinine clearance
   mec: number;
   mtc: number;
   unit: string;

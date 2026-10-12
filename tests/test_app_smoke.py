@@ -37,6 +37,28 @@ def test_app_missed_dose_and_semilog():
     assert not at.exception
 
 
+def test_app_renal_function_changes_lithium_half_life():
+    at = _run()
+    at.selectbox[0].set_value("lithium").run()
+    t_half = lambda: next(m.value for m in at.metric if m.label == "t½")
+    normal = float(t_half().split()[0])
+    next(c for c in at.checkbox if "renal" in c.label.lower()).check().run()
+    at.number_input(key="scr").set_value(200.0).run()
+    assert not at.exception
+    assert float(t_half().split()[0]) > 1.5 * normal
+
+
+def test_app_measured_level_fit():
+    at = _run()
+    at.selectbox[0].set_value("lithium").run()
+    next(c for c in at.checkbox if "measured" in c.label.lower()).check().run()
+    assert not at.exception
+    at.number_input(key="fit_c0_lithium").set_value(1.2).run()
+    assert not at.exception
+    fitted = next(m for m in at.metric if m.label.startswith("Clearance (fitted)"))
+    assert fitted.delta.startswith("-")
+
+
 def test_app_sukl_search_integration():
     at = _run()
     sukl_input = at.sidebar.text_input[0]

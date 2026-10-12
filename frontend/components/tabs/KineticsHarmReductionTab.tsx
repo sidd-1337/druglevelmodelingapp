@@ -11,6 +11,7 @@ import {
   calculateCmax,
   calculateMultipleDoseCurve,
   calculateTmax,
+  patientHalfLife,
   singleDosePoint,
 } from "@/lib/pk-engine";
 import { DrugPreset, PKCalculationPoint, RouteType, SuklPackageDetail } from "@/lib/types";
@@ -55,7 +56,7 @@ export default function KineticsHarmReductionTab({
 
   const modelParams: PKModelParams = useMemo(() => {
     return {
-      tHalfHours: baseT12,
+      tHalfHours: patientHalfLife(baseT12, weightKg),
       vdLiters: baseVdKg * weightKg,
       bioavailability: baseBio,
       kaPerH: baseKa,

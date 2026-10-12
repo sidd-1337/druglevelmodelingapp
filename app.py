@@ -7,6 +7,8 @@ import numpy as np
 import streamlit as st
 
 from core.drug_database import CUSTOM_ID, custom_drug, load_drugs
+from core.individualize import Observation, fit_individual, individual_band
+from core.population import clearance_factor, cockcroft_gault
 from core.metrics import (
     TherapeuticWindow,
     assess_tdm,
@@ -14,11 +16,11 @@ from core.metrics import (
     recovery_time,
 )
 from core.pk_engine import (
+    DoseEvent,
     Route,
     apply_missed_dose,
     concentration_profile,
     regular_schedule,
-    single_dose_concentration,
     steady_state_concentration,
     steady_state_summary,
     time_grid,
@@ -145,10 +147,23 @@ with st.sidebar:
     init_weight = qp_weight if 30 <= qp_weight <= 150 else 70
     weight = st.slider(T("body_weight") + " [kg]", 30, 150, init_weight, key="weight")
 
+    crcl = None
+    if st.checkbox(T("renal_enable"), False, key="renal_on"):
+        rc = st.columns(2)
+        age = rc[0].number_input(T("age") + f" [{T('years')}]", 18, 110, 50, key="age")
+        female = rc[1].checkbox(T("sex_female"), False, key="female")
+        scr = st.number_input(T("creatinine") + " [µmol/L]", 20.0, 1500.0, 80.0, 1.0, key="scr")
+        crcl = cockcroft_gault(age, weight, scr, female)
+        if base.fe_renal > 0:
+            st.caption(T("crcl_result", crcl=crcl, factor=clearance_factor(weight, crcl, base.fe_renal)))
+        else:
+            st.caption(T("renal_not_used", name=base.name))
+
     with st.expander(T("sb_params")):
         t_half = st.number_input("t½ [h]", 0.1, 500.0, base.t_half_h, 0.1, key=f"th_{k}")
-        band_lo = st.number_input(T("t_half_min") + " [h]", 0.1, 500.0, base.half_life_band_h[0], 0.1, key=f"tl_{k}")
-        band_hi = st.number_input(T("t_half_max") + " [h]", 0.1, 500.0, base.half_life_band_h[1], 0.1, key=f"tu_{k}")
+        cv_cl = st.number_input(T("cv_cl") + " [%]", 0.0, 200.0, 100.0 * (base.cv_cl or 0.3), 1.0,
+                                key=f"cvcl_{k}") / 100.0
+        cv_f = st.number_input(T("cv_f") + " [%]", 0.0, 200.0, 100.0 * base.cv_f, 1.0, key=f"cvf_{k}") / 100.0
         vd_kg = st.number_input("V_d [L/kg]", 0.01, 20.0, base.vd_l_per_kg, 0.01, key=f"vd_{k}")
         f_bio = st.slider("F", 0.05, 1.0, base.bioavailability, 0.01, key=f"f_{k}")
         ka = st.number_input("k_a [1/h]", 0.05, 20.0, base.ka_per_h, 0.05, key=f"ka_{k}")
@@ -225,7 +240,7 @@ with st.sidebar:
 # ---------------------------------------------------------------- simulation
 try:
     drug = base.with_overrides(
-        t_half_h=t_half, t_half_range_h=(min(band_lo, t_half), max(band_hi, t_half)), vd_l_per_kg=vd_kg,
+        t_half_h=t_half, t_half_range_h=None, cv_cl=cv_cl, cv_f=cv_f, vd_l_per_kg=vd_kg,
         bioavailability=f_bio, ka_per_h=ka, mec=mec, mtc=mtc, concentration_unit=unit)
     window = TherapeuticWindow(mec, mtc)
 except ValueError:
@@ -233,14 +248,13 @@ except ValueError:
     st.stop()
 
 amount = drug.amount_from_dose_mg(dose_mg)
-model = drug.to_pk_model(weight, route)
+model = drug.to_pk_model(weight, route, crcl_ml_min=crcl)
 ref_events = regular_schedule(amount, tau, duration_h)
 active_events = apply_missed_dose(ref_events, missed_index, delay_h) if missed_on else ref_events
 t = time_grid(duration_h)
 c_ref = concentration_profile(t, ref_events, model)
 c = concentration_profile(t, active_events, model) if missed_on else c_ref
-lo_t, hi_t = drug.half_life_band_h
-curves = [concentration_profile(t, active_events, model.with_half_life(h)) for h in (lo_t, hi_t)]
+curves = [concentration_profile(t, active_events, m) for m in drug.exposure_band(model)]
 band = (np.minimum(*curves), np.maximum(*curves))
 
 metrics = compute_metrics(t, c, model)
@@ -288,7 +302,7 @@ cols[0].metric("C_max", f"{metrics.cmax:.3g} {unit}", help=T("help_cmax"))
 cols[1].metric("T_max", f"{metrics.tmax_h:.2f} h", help=T("help_tmax"))
 cols[2].metric("AUC₀₋₂₄", f"{metrics.auc_0_24:.3g} {unit}·h", help=T("help_auc"))
 cols[3].metric(T("clearance"), f"{metrics.clearance_l_per_h:.2f} L/h", help=T("help_clearance"))
-cols[4].metric("t½", f"{metrics.t_half_h:g} h", help=T("help_thalf"))
+cols[4].metric("t½", f"{metrics.t_half_h:.3g} h", help=T("help_thalf"))
 cols[5].metric(T("time_to_ss"), f"{ss.time_to_ss_h:.0f} h", help=T("tss_help"))
 
 show_alert(level, message)
@@ -302,8 +316,9 @@ fig = build_figure(
     missed_time=missed_time, show_zones=show_zones)
 st.plotly_chart(fig, width="stretch")
 
-tab_ss, tab_missed, tab_hr, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
-    [T("tab_ss"), T("tab_missed"), T("tab_hr"), T("tab_sukl"), T("tab_glossary"), T("tab_data"), T("tab_model")])
+tab_ss, tab_fit, tab_missed, tab_hr, tab_sukl, tab_glossary, tab_data, tab_model = st.tabs(
+    [T("tab_ss"), T("tab_fit"), T("tab_missed"), T("tab_hr"), T("tab_sukl"), T("tab_glossary"), T("tab_data"),
+     T("tab_model")])
 
 with tab_ss:
     r = st.columns(4)
@@ -324,6 +339,50 @@ with tab_ss:
     st.plotly_chart(build_figure(ss_t, ss_c, window, unit, T, log_scale=log_scale, dose_times=[0.0],
                                  show_zones=show_zones, height=380), width="stretch")
     st.caption(T("ss_caption"))
+
+with tab_fit:
+    st.markdown(T("fit_intro"))
+    if st.checkbox(T("fit_enable"), False, key=f"fit_on_{k}"):
+        n_obs = int(st.number_input(T("fit_n"), 1, 5, 1, key=f"fit_n_{k}"))
+        # Default: troughs just before the last doses, prefilled with the population prediction.
+        last_doses = [e.time_h for e in active_events if e.time_h > 0][-n_obs:] or [duration_h]
+        default_times = ([last_doses[0]] * n_obs + last_doses)[-n_obs:]
+        observations = []
+        for i in range(n_obs):
+            oc = st.columns(2)
+            t_i = oc[0].number_input(T("fit_time", i=i + 1), 0.1, float(duration_h),
+                                     float(default_times[i]), 0.5, key=f"fit_t{i}_{k}")
+            c_default = float(np.interp(t_i, t, c))
+            c_i = oc[1].number_input(T("fit_level", i=i + 1, unit=unit), 0.0, 1e6,
+                                     float(f"{c_default:.3g}"), format="%g", key=f"fit_c{i}_{k}")
+            observations.append(Observation(t_i, c_i))
+        try:
+            fit = fit_individual(model, active_events, observations, drug.cv_cl, drug.cv_f)
+        except ValueError as exc:
+            st.error(str(exc))
+        else:
+            fit_ss = steady_state_summary(amount, tau, fit.model)
+            fc = st.columns(4)
+            fc[0].metric(T("fit_cl"), f"{fit.model.clearance_l_per_h:.3g} L/h",
+                         f"{100 * (fit.cl_ratio - 1):+.0f} %", delta_color="off",
+                         help=T("fit_cl_help", pop=model.clearance_l_per_h))
+            fc[1].metric(T("fit_thalf"), f"{fit.model.t_half_h:.3g} h", help=T("fit_thalf_help", pop=model.t_half_h))
+            fc[2].metric(T("fit_css_avg"), f"{fit_ss.cavg_ss:.3g} {unit}")
+            fc[3].metric(T("fit_css_min"), f"{fit_ss.cmin_ss:.3g} {unit}")
+            c_fit = concentration_profile(t, active_events, fit.model)
+            show_alert(*assessment_message(T, assess_tdm(t, c_fit, window, assess_from), window, unit))
+            st.plotly_chart(build_figure(
+                t, c_fit, window, unit, T, log_scale=log_scale, band=individual_band(fit, t, active_events),
+                reference=c, dose_times=[e.time_h for e in active_events], show_zones=show_zones,
+                observations=[(o.time_h, o.concentration) for o in fit.observations],
+                conc_label=T("fit_individual"), reference_label=T("fit_population"), band_label=T("fit_band"),
+                height=440), width="stretch")
+            st.dataframe(
+                [{"t [h]": o.time_h, T("fit_table_obs"): o.concentration, T("fit_table_pop"): round(p_, 4),
+                  T("fit_table_ind"): round(i_, 4)}
+                 for o, p_, i_ in zip(fit.observations, fit.population_predicted, fit.predicted)],
+                hide_index=True)
+            st.caption(T("fit_caption"))
 
 with tab_missed:
     if not missed_on:
@@ -398,9 +457,8 @@ with tab_hr:
 
     # Simulated curve of stacking
     t_hr = np.linspace(0.0, max(24.0, elapsed_val + 3 * model.t_half_h), 500)
-    c_base = single_dose_concentration(t_hr, amount, model)
-    c_redose = single_dose_concentration(t_hr - elapsed_val, redose_amount, model)
-    c_stacked = c_base + c_redose
+    c_stacked = concentration_profile(
+        t_hr, [DoseEvent(0.0, amount), DoseEvent(elapsed_val, redose_amount)], model)
     fig_hr = build_figure(
         t_hr, c_stacked, window, unit, T,
         log_scale=log_scale,

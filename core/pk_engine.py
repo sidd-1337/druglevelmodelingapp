@@ -10,11 +10,13 @@ Conventions
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
+from functools import lru_cache
 from typing import Iterable, Sequence
 
 import numpy as np
+from scipy.integrate import solve_ivp
 
 LN2 = math.log(2.0)
 # Relative closeness of ka and ke below which the flip-flop limit is used.
@@ -31,13 +33,21 @@ class Route(str, Enum):
 
 @dataclass(frozen=True)
 class PKModel:
-    """One-compartment model parameters."""
+    """One-compartment model parameters.
+
+    With ``km`` set, elimination is partly saturable (Michaelis-Menten):
+    CL(C) = (1 - f) * CL + f * CL * km / (km + C), f = ``saturable_fraction``.
+    ``t_half_h`` and ``clearance_l_per_h`` then describe the low-concentration
+    limit, and profiles are integrated numerically instead of superposed.
+    """
 
     t_half_h: float
     vd_l: float
     bioavailability: float = 1.0
     ka_per_h: float = 1.0
     route: Route = Route.ORAL
+    km: float | None = None
+    saturable_fraction: float = 0.0
 
     def __post_init__(self) -> None:
         r = self.route
@@ -63,6 +73,11 @@ class PKModel:
             raise ValueError("bioavailability must be in (0, 1]")
         if self.route != Route.IV_BOLUS and self.ka_per_h <= 0:
             raise ValueError(f"ka_per_h must be > 0 for {self.route.value} administration")
+        if self.km is not None:
+            if self.km <= 0:
+                raise ValueError("km must be > 0")
+            if not 0 < self.saturable_fraction <= 1:
+                raise ValueError("saturable_fraction must be in (0, 1] when km is set")
 
     @property
     def ke(self) -> float:
@@ -77,8 +92,12 @@ class PKModel:
     def clearance_l_per_h(self) -> float:
         return clearance(self.ke, self.vd_l)
 
+    @property
+    def is_saturable(self) -> bool:
+        return self.km is not None
+
     def with_half_life(self, t_half_h: float) -> "PKModel":
-        return PKModel(t_half_h, self.vd_l, self.bioavailability, self.ka_per_h, self.route)
+        return replace(self, t_half_h=t_half_h)
 
 
 @dataclass(frozen=True)
@@ -112,6 +131,8 @@ def single_dose_concentration(t: np.ndarray | float, amount: float, model: PKMod
 
     Oral: Bateman function; IV bolus: C0 * exp(-ke t) with C0 = D / Vd.
     """
+    if model.is_saturable:
+        return _saturable_profile(t, (DoseEvent(0.0, amount),), model)
     t = np.asarray(t, dtype=float)
     tp = np.clip(t, 0.0, None)
     ke = model.ke
@@ -128,10 +149,16 @@ def single_dose_concentration(t: np.ndarray | float, amount: float, model: PKMod
     return np.where(t >= 0, c, 0.0)
 
 
-def tmax_single_dose(model: PKModel) -> float:
-    """Time of the peak after a single dose."""
+def tmax_single_dose(model: PKModel, amount: float | None = None) -> float:
+    """Time of the peak after a single dose.
+
+    Saturable models peak later at higher doses, so pass ``amount`` for them;
+    without it the low-concentration (linear) limit is returned.
+    """
     if model.route is Route.IV_BOLUS:
         return 0.0
+    if model.is_saturable and amount is not None:
+        return _saturable_single_peak(amount, model)[0]
     ka, ke = model.ka_per_h, model.ke
     if _same_rate(ka, ke):
         return 1.0 / ke
@@ -139,6 +166,8 @@ def tmax_single_dose(model: PKModel) -> float:
 
 
 def cmax_single_dose(amount: float, model: PKModel) -> float:
+    if model.is_saturable:
+        return _saturable_single_peak(amount, model)[1]
     return float(single_dose_concentration(tmax_single_dose(model), amount, model))
 
 
@@ -171,7 +200,12 @@ def apply_missed_dose(
 def concentration_profile(
     t: np.ndarray, events: Iterable[DoseEvent], model: PKModel
 ) -> np.ndarray:
-    """Superposition of single-dose profiles (valid: linear, time-invariant PK)."""
+    """Superposition of single-dose profiles (valid: linear, time-invariant PK).
+
+    Saturable models are integrated numerically over the whole schedule instead.
+    """
+    if model.is_saturable:
+        return _saturable_profile(t, tuple(events), model)
     t = np.asarray(t, dtype=float)
     total = np.zeros_like(t)
     for ev in events:
@@ -225,6 +259,11 @@ def steady_state_concentration(
 ) -> np.ndarray:
     """Concentration at time t after a dose once steady state is reached."""
     t = np.asarray(t_since_dose_h, dtype=float)
+    if model.is_saturable:
+        ss = _saturable_steady_state(amount, tau_h, model)
+        phase = np.mod(t, tau_h)
+        phase = np.where((phase == 0) & (t > 0), tau_h, phase)  # t = k*tau is the trough
+        return np.interp(phase, ss.t, ss.c)
     ke = model.ke
     if model.route is Route.IV_BOLUS:
         return amount / model.vd_l * np.exp(-ke * t) / (1.0 - math.exp(-ke * tau_h))
@@ -252,6 +291,8 @@ def steady_state_summary(amount: float, tau_h: float, model: PKModel) -> SteadyS
     """Analytic steady-state descriptors for repeated dosing every tau hours."""
     if tau_h <= 0:
         raise ValueError("tau_h must be > 0")
+    if model.is_saturable:
+        return _saturable_steady_state(amount, tau_h, model).summary
     ke = model.ke
     if model.route is Route.IV_BOLUS:
         tmax = 0.0
@@ -273,3 +314,131 @@ def steady_state_summary(amount: float, tau_h: float, model: PKModel) -> SteadyS
         time_to_ss_h=time_to_steady_state(model.t_half_h),
         time_to_ss_range_h=time_to_steady_state_range(model.t_half_h),
     )
+
+
+# ------------------------------------------------- saturable (Michaelis-Menten)
+def _saturable_rhs(model: PKModel):
+    v = model.vd_l
+    cl = model.clearance_l_per_h
+    f = model.saturable_fraction
+    cl_lin, vmax, km = (1.0 - f) * cl, f * cl * model.km, model.km
+    ka = 0.0 if model.route is Route.IV_BOLUS else model.ka_per_h
+
+    def rhs(_t, y):
+        c = max(y[1], 0.0) / v
+        return [-ka * y[0], ka * y[0] - cl_lin * c - vmax * c / (km + c)]
+
+    return rhs
+
+
+def _dose_into(state: np.ndarray, amount: float, model: PKModel) -> np.ndarray:
+    """Add a dose to [depot, central] amounts (absorbed fraction for extravascular routes)."""
+    out = state.copy()
+    if model.route is Route.IV_BOLUS:
+        out[1] += amount
+    else:
+        out[0] += model.f_eff * amount
+    return out
+
+
+def _integrate(rhs, y0: np.ndarray, t0: float, t1: float, t_eval: np.ndarray, atol: float):
+    """Integrate [t0, t1]; return (state at t1, states at sorted ``t_eval`` within the span)."""
+    if t1 <= t0:
+        return y0, np.tile(y0[:, None], (1, len(t_eval)))
+    ends_at_t1 = len(t_eval) > 0 and t_eval[-1] == t1
+    pts = t_eval if ends_at_t1 else np.append(t_eval, t1)
+    sol = solve_ivp(rhs, (t0, t1), y0, method="LSODA", t_eval=pts, rtol=1e-7, atol=atol)
+    if not sol.success:
+        raise RuntimeError(f"saturable PK integration failed: {sol.message}")
+    return sol.y[:, -1], (sol.y if ends_at_t1 else sol.y[:, :-1])
+
+
+def _saturable_profile(t, events: tuple[DoseEvent, ...], model: PKModel) -> np.ndarray:
+    """Concentration over ``t`` for a dose schedule, integrating the nonlinear ODE."""
+    t_arr = np.asarray(t, dtype=float)
+    flat = t_arr.reshape(-1)
+    out = np.zeros_like(flat)
+    evs = sorted((e for e in events if e.amount > 0), key=lambda e: e.time_h)
+    if not evs or flat.size == 0:
+        return out.reshape(t_arr.shape)
+    order = np.argsort(flat)
+    ts = flat[order]
+    vals = np.zeros_like(ts)
+    rhs = _saturable_rhs(model)
+    atol = 1e-10 * max(e.amount for e in evs)
+    times = sorted({e.time_h for e in evs})
+    y = np.zeros(2)
+    for i, t0 in enumerate(times):
+        for e in evs:
+            if e.time_h == t0:
+                y = _dose_into(y, e.amount, model)
+        t1 = times[i + 1] if i + 1 < len(times) else max(ts[-1], t0)
+        last = i + 1 == len(times)
+        mask = (ts >= t0) & ((ts <= t1) if last else (ts < t1))
+        y, ys = _integrate(rhs, y, t0, t1, ts[mask], atol)
+        vals[mask] = ys[1] / model.vd_l
+    out[order] = np.clip(vals, 0.0, None)
+    return out.reshape(t_arr.shape)
+
+
+@lru_cache(maxsize=256)
+def _saturable_single_peak(amount: float, model: PKModel) -> tuple[float, float]:
+    """(tmax, cmax) of a single dose, located numerically."""
+    if model.route is Route.IV_BOLUS:
+        return 0.0, amount / model.vd_l
+    lin_tmax = tmax_single_dose(replace(model, km=None, saturable_fraction=0.0))
+    coarse = np.linspace(0.0, max(4.0 * lin_tmax, 1.0), 801)
+    c = _saturable_profile(coarse, (DoseEvent(0.0, amount),), model)
+    i = int(np.argmax(c))
+    lo, hi = coarse[max(i - 1, 0)], coarse[min(i + 1, len(coarse) - 1)]
+    fine = np.linspace(lo, hi, 401)
+    cf = _saturable_profile(fine, (DoseEvent(0.0, amount),), model)
+    j = int(np.argmax(cf))
+    return float(fine[j]), float(cf[j])
+
+
+@dataclass(frozen=True)
+class _SaturableSS:
+    t: np.ndarray
+    c: np.ndarray
+    summary: SteadyState
+
+
+@lru_cache(maxsize=128)
+def _saturable_steady_state(amount: float, tau_h: float, model: PKModel) -> _SaturableSS:
+    """Repeat the dosing interval until the trough converges (max 2000 doses)."""
+    rhs = _saturable_rhs(model)
+    atol = 1e-10 * amount
+    grid = np.linspace(0.0, tau_h, 401)
+    y = np.zeros(2)
+    troughs: list[float] = []
+    first_auc = None
+    for _ in range(2000):
+        y = _dose_into(y, amount, model)
+        y, ys = _integrate(rhs, y, 0.0, tau_h, grid, atol)
+        c = np.clip(ys[1] / model.vd_l, 0.0, None)
+        if first_auc is None:
+            first_auc = auc_trapezoid(grid, c)
+        troughs.append(float(c[-1]))
+        if len(troughs) > 3 and abs(troughs[-1] - troughs[-2]) <= 1e-6 * troughs[-1]:
+            break
+    i = int(np.argmax(c))
+    cmin = float(c[-1])
+    cavg = auc_trapezoid(grid, c) / tau_h
+    tr = np.asarray(troughs)
+
+    def reached(frac: float) -> float:
+        k = int(np.argmax(tr >= frac * cmin))
+        return (k + 1) * tau_h
+
+    summary = SteadyState(
+        cmax_ss=float(c[i]),
+        tmax_ss_h=float(grid[i]),
+        cmin_ss=cmin,
+        cavg_ss=cavg,
+        accumulation_index=cavg * tau_h / first_auc,
+        fluctuation_pct=100.0 * (float(c[i]) - cmin) / cavg,
+        time_to_ss_h=reached(1.0 - 2.0 ** -TSS_HALF_LIVES),
+        time_to_ss_range_h=(reached(1.0 - 2.0 ** -4), reached(1.0 - 2.0 ** -5)),
+    )
+    return _SaturableSS(grid, c, summary)

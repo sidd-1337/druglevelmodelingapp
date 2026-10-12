@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
@@ -32,7 +33,7 @@ def test_drugs_presets():
 
     # Check ritalin has route params
     rit = next(p for p in presets if p["id"] == "ritalin")
-    assert rit["t_half_h"] == 2.5
+    assert rit["t_half_h"] == 2.8
     assert rit["routes"] is not None
     assert "insufflated" in rit["routes"]
     assert "smoked" in rit["routes"]
@@ -113,8 +114,8 @@ def test_pk_simulate_iv_bolus():
     # IV bolus peak occurs immediately at t = 0
     assert data["metrics"]["tmax_h"] == pytest.approx(0.0, abs=0.01)
     assert data["steady_state"]["tmax_ss_h"] == pytest.approx(0.0, abs=0.01)
-    # Concentration at t=0 equals D / Vd = 400 / (0.15 * 70) = 400 / 10.5 ≈ 38.095
-    assert data["concentrations"][0] == pytest.approx(400.0 / 10.5, rel=1e-2)
+    # Concentration at t=0 equals D / Vd = 400 / (0.13 * 70) = 400 / 9.1 ≈ 43.956
+    assert data["concentrations"][0] == pytest.approx(400.0 / 9.1, rel=1e-2)
 
 
 def test_pk_simulate_routes_comparison():
@@ -182,11 +183,11 @@ def test_harm_reduction_toxic_breach():
     # Large dose of ritalin with early redose pushes over MTC (mtc = 0.03 ug/mL)
     payload = {
         "drug_id": "ritalin",
-        "dose_mg": 30.0,
+        "dose_mg": 40.0,
         "body_weight_kg": 70.0,
         "route": "oral",
         "elapsed_h": 1.5,
-        "next_dose_mg": 30.0,
+        "next_dose_mg": 40.0,
     }
     res = client.post("/api/v1/pk/harm-reduction", json=payload)
     assert res.status_code == 200
@@ -281,3 +282,53 @@ def test_drugs_detail_livizux_30_caps_package():
     assert data["matched_preset"] is not None
     assert data["matched_preset"]["dose_conversion"] == 0.294
 
+
+
+def test_pk_simulate_renal_function_and_variability_band():
+    base = {"drug_id": "lithium", "dose_mg": 300.0, "interval_h": 8.0, "duration_h": 240.0, "body_weight_kg": 70.0}
+    normal = client.post("/api/v1/pk/simulate", json=base).json()
+    impaired = client.post("/api/v1/pk/simulate", json={**base, "patient": {"crcl_ml_min": 50}}).json()
+    assert impaired["crcl_ml_min"] == 50
+    assert impaired["metrics"]["t_half_h"] > 1.5 * normal["metrics"]["t_half_h"]
+    assert impaired["steady_state"]["cavg_ss"] > 1.5 * normal["steady_state"]["cavg_ss"]
+    c, lo, hi = (np.array(normal[k]) for k in ("concentrations", "band_low", "band_high"))
+    assert np.all(lo <= c + 1e-9) and np.all(c <= hi + 1e-9)
+    assert hi[-1] > 1.3 * c[-1]
+
+    cg = client.post("/api/v1/pk/simulate", json={
+        **base, "patient": {"age_y": 80, "female": True, "serum_creatinine_umol_l": 120}}).json()
+    assert cg["crcl_ml_min"] == pytest.approx((140 - 80) * 70 * 1.23 / 120 * 0.85, abs=0.1)
+
+
+def test_pk_simulate_custom_override_keeps_saturable_elimination():
+    payload = {"drug_id": "mdma", "dose_mg": 100.0, "interval_h": 24.0, "duration_h": 24.0,
+               "custom_pk": {"ka_per_h": 2.0}}
+    res = client.post("/api/v1/pk/simulate", json=payload)
+    assert res.status_code == 200
+    presets = {p["id"]: p for p in client.get("/api/v1/pk/presets").json()}
+    assert presets["mdma"]["km"] == 1.2 and presets["lithium"]["fe_renal"] == 0.95
+
+
+def test_pk_individualize_from_measured_trough():
+    base = {"drug_id": "lithium", "dose_mg": 400.0, "interval_h": 12.0, "duration_h": 168.0}
+    sim = client.post("/api/v1/pk/simulate", json=base).json()
+    i = sim["time_grid"].index(156.0)
+    measured = 1.5 * sim["concentrations"][i]  # patient clears lithium slower than average
+    res = client.post("/api/v1/pk/individualize",
+                      json={**base, "observations": [{"time_h": 156.0, "concentration": measured}]})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["clearance_individual_l_per_h"] < data["clearance_population_l_per_h"]
+    assert data["t_half_individual_h"] > data["t_half_population_h"]
+    obs = data["observations"][0]
+    assert obs["population_predicted"] < obs["individual_predicted"] < obs["observed"]
+    assert data["steady_state"]["cavg_ss"] > sim["steady_state"]["cavg_ss"]
+    assert len(data["band_low"]) == len(data["time_grid"])
+
+
+def test_pk_individualize_rejects_level_before_first_dose():
+    res = client.post("/api/v1/pk/individualize", json={
+        "drug_id": "lithium", "dose_mg": 400.0, "interval_h": 12.0, "duration_h": 48.0,
+        "observations": [{"time_h": 6.0, "concentration": 0.5}],
+        "missed_dose": {"dose_index": 0}})  # first dose skipped: nothing taken before 12 h
+    assert res.status_code == 422

@@ -234,3 +234,70 @@ def test_routes_pk_kinetics_ordering():
         expected_auc = model.f_eff * dose / model.clearance_l_per_h
         assert auc_trapezoid(t, c) == pytest.approx(expected_auc, rel=1e-3)
 
+
+
+# --------------------------------------------------------- saturable elimination
+SAT = PKModel(t_half_h=7.5, vd_l=390.0, bioavailability=0.8, ka_per_h=1.5, km=1.2, saturable_fraction=0.76)
+
+
+def _unsaturated(model: PKModel) -> PKModel:
+    """Same model with km so large that elimination is effectively linear."""
+    return PKModel(model.t_half_h, model.vd_l, model.bioavailability, model.ka_per_h, model.route,
+                   km=1e9, saturable_fraction=1.0)
+
+
+@pytest.mark.parametrize("model", [ORAL, IV])
+def test_saturable_path_matches_analytic_model_when_unsaturated(model):
+    sat = _unsaturated(model)
+    t = time_grid(72.0)
+    events = regular_schedule(DOSE, 12.0, 72.0)
+    np.testing.assert_allclose(concentration_profile(t, events, sat), concentration_profile(t, events, model),
+                               rtol=1e-5, atol=1e-8)
+    assert cmax_single_dose(DOSE, sat) == pytest.approx(cmax_single_dose(DOSE, model), rel=1e-4)
+    assert tmax_single_dose(sat, DOSE) == pytest.approx(tmax_single_dose(model), abs=0.01)
+    ss_sat, ss_lin = steady_state_summary(DOSE, 12.0, sat), steady_state_summary(DOSE, 12.0, model)
+    assert ss_sat.cavg_ss == pytest.approx(ss_lin.cavg_ss, rel=1e-3)
+    assert ss_sat.cmin_ss == pytest.approx(ss_lin.cmin_ss, rel=1e-3)
+
+
+def test_saturable_exposure_more_than_dose_proportional():
+    t = np.linspace(0.0, 150.0, 6001)
+    auc = {d: auc_trapezoid(t, single_dose_concentration(t, d, SAT)) for d in (50.0, 100.0, 200.0)}
+    assert auc[100.0] / auc[50.0] > 2.0
+    assert auc[200.0] / auc[100.0] > auc[100.0] / auc[50.0]
+    assert tmax_single_dose(SAT, 200.0) > tmax_single_dose(SAT, 50.0)
+
+
+def test_saturable_second_dose_exceeds_superposition():
+    t = np.linspace(0.0, 24.0, 2401)
+    stacked = concentration_profile(t, [DoseEvent(0.0, 100.0), DoseEvent(3.0, 100.0)], SAT)
+    superposed = single_dose_concentration(t, 100.0, SAT) + single_dose_concentration(t - 3.0, 100.0, SAT)
+    assert stacked.max() > superposed.max()
+    assert auc_trapezoid(t, stacked) > 1.02 * auc_trapezoid(t, superposed)
+
+
+def test_saturable_steady_state_is_consistent_with_profile():
+    ss = steady_state_summary(100.0, 24.0, SAT)
+    assert ss.cmin_ss < ss.cavg_ss < ss.cmax_ss
+    t = np.linspace(0.0, 24.0, 97)
+    np.testing.assert_allclose(steady_state_concentration(t + 24.0, 100.0, 24.0, SAT),
+                               steady_state_concentration(t, 100.0, 24.0, SAT), rtol=1e-5)
+
+
+def test_saturable_iv_steady_state_dose_time_is_trough():
+    iv = PKModel(7.5, 390.0, route=Route.IV_BOLUS, km=1.2, saturable_fraction=0.76)
+    ss = steady_state_summary(100.0, 12.0, iv)
+    c = steady_state_concentration(np.array([0.0, 12.0, 24.0]), 100.0, 12.0, iv)
+    assert c[0] == pytest.approx(ss.cmax_ss) and c[1] == pytest.approx(ss.cmin_ss) == c[2]
+
+
+def test_with_half_life_keeps_saturable_parameters():
+    m = SAT.with_half_life(10.0)
+    assert (m.km, m.saturable_fraction, m.t_half_h) == (SAT.km, SAT.saturable_fraction, 10.0)
+
+
+@pytest.mark.parametrize("kwargs", [dict(km=0.0, saturable_fraction=0.5), dict(km=1.0, saturable_fraction=0.0),
+                                    dict(km=1.0, saturable_fraction=1.5)])
+def test_saturable_validation(kwargs):
+    with pytest.raises(ValueError):
+        PKModel(4.0, 40.0, **kwargs)

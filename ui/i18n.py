@@ -15,14 +15,18 @@ _TEXT: dict[str, dict[str, str]] = {
         # sidebar
         "sb_drug": "Drug & patient", "sb_params": "PK parameters (editable)", "sb_regimen": "Dosing regimen",
         "sb_display": "Display", "sb_missed": "Missed dose analysis",
-        "drug": "Drug", "body_weight": "Body weight", "t_half_min": "t½ min (variability)",
-        "t_half_max": "t½ max (variability)", "conc_unit": "Concentration unit",
+        "drug": "Drug", "body_weight": "Body weight", "conc_unit": "Concentration unit",
+        "cv_cl": "Between-patient CV of clearance", "cv_f": "Between-patient CV of bioavailability",
+        "renal_enable": "Enter renal function", "age": "Age", "years": "years", "sex_female": "Female",
+        "creatinine": "Serum creatinine",
+        "crcl_result": "CrCl (Cockcroft-Gault) {crcl:.0f} mL/min → clearance ×{factor:.2f} vs. reference adult.",
+        "renal_not_used": "{name} is not cleared renally in this model; renal function does not change its levels.",
         "route": "Route", "route_oral": "Oral", "route_iv_bolus": "IV bolus",
         "route_insufflated": "Insufflated (nasal)", "route_smoked": "Smoked / Inhaled", "route_inhaled": "Inhaled",
         "dose": "Dose", "interval": "Dosing interval τ", "custom": "Custom", "duration": "Duration",
         "days_unit": "days", "doses_unit": "doses", "every": "every",
         "axis_scale": "Concentration axis", "linear": "Linear", "semilog": "Semi-log (log C)",
-        "show_band": "Show t½ variability band", "show_zones": "Show therapeutic zones",
+        "show_band": "Show 90 % between-patient band", "show_zones": "Show therapeutic zones",
         "missed_enable": "Simulate a missed dose", "missed_which": "Affected dose #",
         "missed_at": "Scheduled at t = {t:g} h", "missed_mode": "Patient behaviour",
         "mode_skip": "Skips the dose", "mode_delay": "Takes it late", "missed_delay": "Delay",
@@ -63,7 +67,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "no_sukl_data": "No official SÚKL DLP detail available for this product.",
         # chart
         "zone_sub": "Sub-therapeutic (< MEC)", "zone_ther": "Therapeutic window", "zone_tox": "Toxic (> MTC)",
-        "band": "t½ variability", "reference": "Planned regimen", "conc": "Concentration",
+        "band": "90 % of patients", "reference": "Planned regimen", "conc": "Concentration",
         "doses": "Doses", "dose_marker": "Dose", "missed_marker": "Missed / delayed dose",
         "axis_time": "Time [h]", "axis_conc": "Concentration",
         # kpis / tabs
@@ -71,6 +75,21 @@ _TEXT: dict[str, dict[str, str]] = {
         "tss_help": "≈ 4–5 × t½", "accumulation": "Accumulation index", "fluctuation": "Peak–trough fluctuation",
         "tab_ss": "Steady state", "tab_missed": "Missed dose", "tab_hr": "Harm reduction",
         "tab_glossary": "Glossary & Variables", "tab_data": "Data & export", "tab_model": "Model",
+        "tab_fit": "Measured levels (TDM fit)", "measured": "Measured level",
+        "fit_intro": "Enter this patient's measured blood levels. The model estimates the patient's own clearance "
+                     "and volume (Bayesian MAP, with the population model as prior) and re-predicts the levels. "
+                     "Times are hours since the first dose of the schedule above.",
+        "fit_enable": "Fit the model to measured levels", "fit_n": "Number of samples",
+        "fit_time": "Sample {i}: time [h]", "fit_level": "Sample {i}: level [{unit}]",
+        "fit_population": "Population model", "fit_individual": "This patient (fitted)",
+        "fit_band": "90 % credible band (fitted)",
+        "fit_cl": "Clearance (fitted)", "fit_cl_help": "Population: {pop:.3g} L/h",
+        "fit_thalf": "t½ (fitted)", "fit_thalf_help": "Population: {pop:.3g} h",
+        "fit_css_avg": "C_ss,avg (fitted)", "fit_css_min": "C_ss,min (fitted)",
+        "fit_table_obs": "Measured", "fit_table_pop": "Population model", "fit_table_ind": "Fitted model",
+        "fit_caption": "Assumes 20 % proportional error for assay and model. One sample mainly informs clearance; "
+                       "the estimate is pulled toward the population value when the level is unusual. "
+                       "Check that the dosing history above matches what the patient actually took.",
         "hr_heading": "Harm Reduction & Safe Redosing Calculator",
         "hr_safe_redosing_title": "Safe Redosing Interval (Accumulation Prevention)",
         "hr_elapsed_slider": "Time elapsed since previous dose [hours]",
@@ -138,7 +157,17 @@ _TEXT: dict[str, dict[str, str]] = {
         "model_intro": "**One-compartment model, first-order absorption and elimination.**",
         "model_notes": "Multiple doses use the superposition principle (linear, time-invariant kinetics). "
                        "IV bolus has F = 1 and no absorption phase. Concentrations in mg/L equal µg/mL. "
-                       "If ka ≈ ke the flip-flop limit C = F·D·ka·t·exp(−ke·t)/Vd is used.",
+                       "If ka ≈ ke the flip-flop limit C = F·D·ka·t·exp(−ke·t)/Vd is used.\n\n"
+                       "**Patient covariates.** Volume scales with weight; clearance scales with weight^0.75, "
+                       "and its renally cleared fraction (fe) with creatinine clearance relative to 100 mL/min: "
+                       "CL = CL_ref·[(1−fe)·(WT/70)^0.75 + fe·CrCl/100]. t½ follows from V and CL.\n\n"
+                       "**Variability band.** Clearance and bioavailability vary log-normally between patients "
+                       "(published CVs); the band shows the 5th–95th percentile of exposure.\n\n"
+                       "**Saturable elimination** (MDMA): CL(C) = (1−f)·CL + f·CL·Km/(Km + C), integrated "
+                       "numerically, so repeated doses are not simple superposition.\n\n"
+                       "**Validation.** Presets are checked against published Cmax, Tmax, AUC and steady-state "
+                       "levels (data/reference_pk.json, `python -m core.validation`). A one-compartment model "
+                       "matches exposure well but underestimates early peaks of drugs with a distribution phase.",
     },
     "cs": {
         "title": "Modelování hladin léčiv – PK/PD simulace a TDM",
@@ -148,14 +177,19 @@ _TEXT: dict[str, dict[str, str]] = {
                       "prostředek. Nepoužívejte jej pro rozhodování o dávkování skutečných pacientů.",
         "sb_drug": "Léčivo a pacient", "sb_params": "PK parametry (upravitelné)", "sb_regimen": "Dávkovací schéma",
         "sb_display": "Zobrazení", "sb_missed": "Analýza vynechané dávky",
-        "drug": "Léčivo", "body_weight": "Tělesná hmotnost", "t_half_min": "t½ min (variabilita)",
-        "t_half_max": "t½ max (variabilita)", "conc_unit": "Jednotka koncentrace",
+        "drug": "Léčivo", "body_weight": "Tělesná hmotnost",
+        "cv_cl": "Variabilita clearance mezi pacienty (CV)", "cv_f": "Variabilita biologické dostupnosti (CV)",
+        "renal_enable": "Zadat funkci ledvin", "age": "Věk", "years": "let", "sex_female": "Žena",
+        "creatinine": "Sérový kreatinin",
+        "crcl_result": "CrCl (Cockcroft-Gault) {crcl:.0f} mL/min → clearance ×{factor:.2f} oproti referenčnímu dospělému.",
+        "renal_not_used": "{name} se v tomto modelu nevylučuje ledvinami; funkce ledvin jeho hladiny nemění.",
+        "conc_unit": "Jednotka koncentrace",
         "route": "Cesta podání", "route_oral": "Perorální", "route_iv_bolus": "IV bolus",
         "route_insufflated": "Nazální (šňupání)", "route_smoked": "Inhalační (kouření)", "route_inhaled": "Inhalační (vdechnutí)",
         "dose": "Dávka", "interval": "Dávkovací interval τ", "custom": "Vlastní", "duration": "Délka",
         "days_unit": "dnů", "doses_unit": "dávek", "every": "každých",
         "axis_scale": "Osa koncentrace", "linear": "Lineární", "semilog": "Semilogaritmická (log C)",
-        "show_band": "Zobrazit pásmo variability t½", "show_zones": "Zobrazit terapeutická pásma",
+        "show_band": "Zobrazit 90% pásmo variability mezi pacienty", "show_zones": "Zobrazit terapeutická pásma",
         "missed_enable": "Simulovat vynechanou dávku", "missed_which": "Dotčená dávka č.",
         "missed_at": "Plánováno v čase t = {t:g} h", "missed_mode": "Chování pacienta",
         "mode_skip": "Dávku vynechá", "mode_delay": "Vezme ji později", "missed_delay": "Zpoždění",
@@ -195,13 +229,28 @@ _TEXT: dict[str, dict[str, str]] = {
         "download_pil": "Stáhnout příbalový leták PIL ↗",
         "no_sukl_data": "Pro tento přípravek nejsou v SÚKL DLP dostupná detailní data.",
         "zone_sub": "Subterapeutické (< MEC)", "zone_ther": "Terapeutické okno", "zone_tox": "Toxické (> MTC)",
-        "band": "Variabilita t½", "reference": "Plánované schéma", "conc": "Koncentrace",
+        "band": "90 % pacientů", "reference": "Plánované schéma", "conc": "Koncentrace",
         "doses": "Dávky", "dose_marker": "Dávka", "missed_marker": "Vynechaná / opožděná dávka",
         "axis_time": "Čas [h]", "axis_conc": "Koncentrace",
         "clearance": "Clearance", "time_to_ss": "Čas do ustáleného stavu",
         "tss_help": "≈ 4–5 × t½", "accumulation": "Index akumulace", "fluctuation": "Fluktuace peak–trough",
         "tab_ss": "Ustálený stav", "tab_missed": "Vynechaná dávka", "tab_hr": "Harm reduction kalkulačka",
         "tab_glossary": "Slovník veličin a pojmů", "tab_data": "Data a export", "tab_model": "Model",
+        "tab_fit": "Změřené hladiny (TDM fit)", "measured": "Změřená hladina",
+        "fit_intro": "Zadejte změřené hladiny pacienta. Model odhadne jeho vlastní clearance a distribuční objem "
+                     "(bayesovský MAP odhad, populační model jako apriorní informace) a znovu předpoví hladiny. "
+                     "Časy jsou v hodinách od první dávky výše zadaného schématu.",
+        "fit_enable": "Napasovat model na změřené hladiny", "fit_n": "Počet vzorků",
+        "fit_time": "Vzorek {i}: čas [h]", "fit_level": "Vzorek {i}: hladina [{unit}]",
+        "fit_population": "Populační model", "fit_individual": "Tento pacient (napasováno)",
+        "fit_band": "90% interval věrohodnosti (napasováno)",
+        "fit_cl": "Clearance (napasováno)", "fit_cl_help": "Populační: {pop:.3g} L/h",
+        "fit_thalf": "t½ (napasováno)", "fit_thalf_help": "Populační: {pop:.3g} h",
+        "fit_css_avg": "C_ss,avg (napasováno)", "fit_css_min": "C_ss,min (napasováno)",
+        "fit_table_obs": "Změřeno", "fit_table_pop": "Populační model", "fit_table_ind": "Napasovaný model",
+        "fit_caption": "Předpokládá 20% proporcionální chybu stanovení a modelu. Jeden vzorek informuje hlavně "
+                       "o clearance; u neobvyklé hladiny je odhad tažen k populační hodnotě. Ověřte, že zadané "
+                       "dávkování odpovídá tomu, co pacient skutečně užil.",
         "hr_heading": "Kalkulačka pro bezpečné dávkování a Harm Reduction",
         "hr_safe_redosing_title": "Bezpečný interval pro další dávku (Prevence akumulace)",
         "hr_elapsed_slider": "Uplynulý čas od poslední dávky [hodiny]",
@@ -266,7 +315,17 @@ _TEXT: dict[str, dict[str, str]] = {
         "model_intro": "**Jednokompartmentový model, absorpce a eliminace 1. řádu.**",
         "model_notes": "Vícenásobné dávkování využívá princip superpozice (lineární, časově invariantní kinetika). "
                        "IV bolus má F = 1 a žádnou absorpční fázi. Koncentrace v mg/L odpovídá µg/mL. "
-                       "Pro ka ≈ ke se používá limita C = F·D·ka·t·exp(−ke·t)/Vd.",
+                       "Pro ka ≈ ke se používá limita C = F·D·ka·t·exp(−ke·t)/Vd.\n\n"
+                       "**Kovariáty pacienta.** Objem roste s hmotností; clearance s hmotností^0,75 a její "
+                       "ledvinami vylučovaný podíl (fe) s clearance kreatininu vůči 100 mL/min: "
+                       "CL = CL_ref·[(1−fe)·(WT/70)^0,75 + fe·CrCl/100]. t½ vyplývá z V a CL.\n\n"
+                       "**Pásmo variability.** Clearance a biologická dostupnost se mezi pacienty liší log-normálně "
+                       "(publikované CV); pásmo ukazuje 5.–95. percentil expozice.\n\n"
+                       "**Saturovatelná eliminace** (MDMA): CL(C) = (1−f)·CL + f·CL·Km/(Km + C), řešeno numericky, "
+                       "takže opakované dávky nejsou prostým součtem.\n\n"
+                       "**Validace.** Presety jsou porovnány s publikovanými Cmax, Tmax, AUC a ustálenými hladinami "
+                       "(data/reference_pk.json, `python -m core.validation`). Jednokompartmentový model dobře "
+                       "odpovídá expozici, ale podhodnocuje časné vrcholy léčiv s distribuční fází.",
     },
 }
 

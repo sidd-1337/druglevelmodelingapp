@@ -7,6 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from core.pk_engine import PKModel, Route
+from core.population import REFERENCE_WEIGHT_KG, clearance_factor, exposure_band_models
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "drugs.json"
 CUSTOM_ID = "custom"
@@ -31,6 +32,11 @@ class Drug:
     dose_basis: str = "mg"
     notes: str = ""
     routes: dict[str, dict[str, float]] | None = None
+    cv_cl: float | None = None  # inter-individual CV of clearance (log-normal)
+    cv_f: float = 0.0  # inter-individual CV of bioavailability
+    fe_renal: float = 0.0  # fraction of clearance that scales with CrCl
+    km: float | None = None  # Michaelis-Menten constant, concentration unit
+    saturable_fraction: float = 0.0  # share of low-concentration CL that saturates
 
     def __post_init__(self) -> None:
         if self.t_half_h <= 0 or self.vd_l_per_kg <= 0 or self.ka_per_h <= 0:
@@ -45,6 +51,12 @@ class Drug:
             lo, hi = self.t_half_range_h
             if not 0 < lo <= self.t_half_h <= hi:
                 raise ValueError(f"{self.id}: t_half_range_h must bracket t_half_h")
+        if (self.cv_cl is not None and self.cv_cl < 0) or self.cv_f < 0:
+            raise ValueError(f"{self.id}: cv_cl and cv_f must be >= 0")
+        if not 0 <= self.fe_renal <= 1:
+            raise ValueError(f"{self.id}: fe_renal must be in [0, 1]")
+        if self.km is not None and (self.km <= 0 or not 0 < self.saturable_fraction <= 1):
+            raise ValueError(f"{self.id}: km must be > 0 and saturable_fraction in (0, 1]")
 
     @property
     def half_life_band_h(self) -> tuple[float, float]:
@@ -55,7 +67,13 @@ class Drug:
         """Dose in mg -> amount in the concentration's amount unit."""
         return dose_mg * self.dose_conversion
 
-    def to_pk_model(self, body_weight_kg: float, route: Route | str = Route.ORAL) -> PKModel:
+    def to_pk_model(
+        self,
+        body_weight_kg: float,
+        route: Route | str = Route.ORAL,
+        crcl_ml_min: float | None = None,
+    ) -> PKModel:
+        """PK model for a patient; t1/2 reflects allometric weight and renal function."""
         if body_weight_kg <= 0:
             raise ValueError("body_weight_kg must be > 0")
         if isinstance(route, str):
@@ -91,13 +109,30 @@ class Drug:
             bio = 1.0
             ka = 1.0
 
+        # V scales with weight, CL with clearance_factor: t1/2 = ln2 * V / CL.
+        cl_rel = clearance_factor(body_weight_kg, crcl_ml_min, self.fe_renal)
+        t_half = self.t_half_h * (body_weight_kg / REFERENCE_WEIGHT_KG) / cl_rel
         return PKModel(
-            t_half_h=self.t_half_h,
+            t_half_h=t_half,
             vd_l=self.vd_l_per_kg * body_weight_kg,
             bioavailability=bio,
             ka_per_h=ka,
             route=route,
+            km=self.km,
+            saturable_fraction=self.saturable_fraction if self.km is not None else 0.0,
         )
+
+    def exposure_band(self, model: PKModel) -> tuple[PKModel, PKModel]:
+        """(low, high) 90 % inter-individual exposure models around ``model``.
+
+        Uses the CL/F variability when known, else the t1/2 range relative to
+        the preset t1/2 (so covariate effects on ``model`` are kept).
+        """
+        if self.cv_cl is not None:
+            return exposure_band_models(model, self.cv_cl, self.cv_f)
+        lo, hi = self.half_life_band_h
+        scale = model.t_half_h / self.t_half_h
+        return model.with_half_life(lo * scale), model.with_half_life(hi * scale)
 
     def with_overrides(self, **changes) -> "Drug":
         return replace(self, **changes)
@@ -118,6 +153,7 @@ def custom_drug() -> Drug:
         mtc=25.0,
         default_dose_mg=100,
         default_interval_h=12,
+        cv_cl=0.3,
     )
 
 
@@ -141,6 +177,11 @@ def _parse(entry: dict) -> Drug:
         dose_basis=entry.get("dose_basis", "mg"),
         notes=entry.get("notes", ""),
         routes=entry.get("routes"),
+        cv_cl=float(entry["cv_cl"]) if "cv_cl" in entry else None,
+        cv_f=float(entry.get("cv_f", 0.0)),
+        fe_renal=float(entry.get("fe_renal", 0.0)),
+        km=float(sat["km"]) if (sat := entry.get("saturable")) else None,
+        saturable_fraction=float(sat["fraction"]) if sat else 0.0,
     )
 
 

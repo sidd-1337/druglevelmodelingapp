@@ -33,6 +33,10 @@ def build_figure(
     x_range: tuple[float, float] | None = None,
     show_zones: bool = True,
     height: int = 520,
+    observations: Sequence[tuple[float, float]] = (),
+    conc_label: str | None = None,
+    reference_label: str | None = None,
+    band_label: str | None = None,
 ) -> go.Figure:
     t = np.asarray(t, dtype=float)
     x0, x1 = x_range if x_range else (float(t[0]), float(t[-1]))
@@ -42,6 +46,7 @@ def build_figure(
         peaks.append(float(np.max(reference)))
     if band is not None:
         peaks.append(float(np.max(band[1])))
+    peaks += [obs_c for _, obs_c in observations]
     y_top = max(window.mtc * 1.3, max(peaks) * 1.1)
     y_bot = window.mec / 100.0 if log_scale else 0.0
 
@@ -73,15 +78,21 @@ def build_figure(
         fig.add_trace(go.Scatter(x=t, y=prep(band[1]), mode="lines", line=dict(width=0),
                                  hoverinfo="skip", showlegend=False))
         fig.add_trace(go.Scatter(x=t, y=prep(band[0]), mode="lines", line=dict(width=0), fill="tonexty",
-                                 fillcolor=_rgba(BLUE, 0.14), name=T("band"), hoverinfo="skip"))
+                                 fillcolor=_rgba(BLUE, 0.14), name=band_label or T("band"), hoverinfo="skip"))
 
     hover = "t = %{x:.2f} h<br>C = %{y:.4g} " + unit + "<extra>%{fullData.name}</extra>"
     if reference is not None:
-        fig.add_trace(go.Scatter(x=t, y=prep(reference), mode="lines", name=T("reference"),
+        fig.add_trace(go.Scatter(x=t, y=prep(reference), mode="lines", name=reference_label or T("reference"),
                                  line=dict(color=_rgba(GREY, 0.9), width=2, dash="dash"),
                                  hovertemplate=hover))
-    fig.add_trace(go.Scatter(x=t, y=prep(c), mode="lines", name=T("conc"),
+    fig.add_trace(go.Scatter(x=t, y=prep(c), mode="lines", name=conc_label or T("conc"),
                              line=dict(color=f"rgb({BLUE})", width=3), hovertemplate=hover))
+    if observations:
+        fig.add_trace(go.Scatter(
+            x=[o[0] for o in observations], y=[o[1] for o in observations], mode="markers",
+            name=T("measured"), marker=dict(symbol="diamond", size=12, color=f"rgb({RED})",
+                                            line=dict(width=1.5, color="#0f172a")),
+            hovertemplate=hover))
 
     marker_y = y_bot * 1.6 if log_scale else y_top * 0.015
     shown = [d for d in dose_times if x0 <= d <= x1]

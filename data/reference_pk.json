@@ -1,0 +1,414 @@
+{
+  "_comment": "Published single-dose (70 kg healthy adult, oral IR) and steady-state reference values used to validate the presets (core/validation.py, tests/test_reference_pk.py). Units match data/drugs.json concentration units (mg/L = ug/mL; AUC in unit*h). max_fold is the allowed symmetric fold error (default 1.5). verified=false: values were collected from search-result excerpts of the cited sources and still need checking against the full SmPC/label. Entries marked 'Known limitation' document where a one-compartment model cannot match the data.",
+  "references": [
+    {
+      "drug_id": "ibuprofen",
+      "metric": "cmax",
+      "dose_mg": 400,
+      "value": 31.0,
+      "source": "https://clinicaltrials.gov/study/NCT01879371",
+      "verified": false,
+      "note": "Geometric mean, n=36; 30.9-32.9 in https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2613135/"
+    },
+    {
+      "drug_id": "ibuprofen",
+      "metric": "tmax_h",
+      "dose_mg": 400,
+      "value": 1.5,
+      "max_fold": 1.6,
+      "source": "https://docetp.mpa.se/LMF/Brufen%20film-coated%20tablet%20ENG%20PAR_09001bee807a2102.pdf",
+      "verified": false,
+      "note": "Label: 1-2 h"
+    },
+    {
+      "drug_id": "ibuprofen",
+      "metric": "auc_inf",
+      "dose_mg": 400,
+      "value": 108.0,
+      "source": "https://tga.gov.au/sites/default/files/auspar-ibuprofen-130102-pi.pdf",
+      "verified": false,
+      "note": "IV 400 mg AUC 109.3; oral 107.8 in a small 2025 study"
+    },
+    {
+      "drug_id": "paracetamol",
+      "metric": "cmax",
+      "dose_mg": 1000,
+      "value": 19.3,
+      "source": "https://www.sigmaaldrich.com/AT/de/tech-docs/paper/185012",
+      "verified": false,
+      "note": "Sevilla-Tirado 2003, 17.98-20.73 across formulations. One-compartment model misses the distribution phase, so peaks run low."
+    },
+    {
+      "drug_id": "paracetamol",
+      "metric": "tmax_h",
+      "dose_mg": 1000,
+      "value": 0.65,
+      "max_fold": 1.6,
+      "source": "https://www.sigmaaldrich.com/AT/de/tech-docs/paper/185012",
+      "verified": false,
+      "note": "0.40-0.88 h"
+    },
+    {
+      "drug_id": "paracetamol",
+      "metric": "auc_inf",
+      "dose_mg": 1000,
+      "value": 54.5,
+      "source": "https://www.sigmaaldrich.com/AT/de/tech-docs/paper/185012",
+      "verified": false,
+      "note": "52.6-56.3"
+    },
+    {
+      "drug_id": "amoxicillin",
+      "metric": "cmax",
+      "dose_mg": 500,
+      "value": 6.5,
+      "source": "https://drugs.com/pro/amoxil.html",
+      "verified": false,
+      "note": "Label 5.5-7.5 ug/mL"
+    },
+    {
+      "drug_id": "amoxicillin",
+      "metric": "tmax_h",
+      "dose_mg": 500,
+      "value": 1.5,
+      "max_fold": 1.6,
+      "source": "https://drugs.com/pro/amoxil.html",
+      "verified": false,
+      "note": "Label 1-2 h"
+    },
+    {
+      "drug_id": "lithium",
+      "metric": "cavg_ss",
+      "dose_mg": 300,
+      "interval_h": 8,
+      "value": 0.85,
+      "source": "https://www.drugs.com/dosage/lithobid.html",
+      "verified": false,
+      "note": "0.6-1.2 mmol/L usually reached with 900-1200 mg/day; each 300 mg/day adds 0.2-0.4 mmol/L (https://pdf.hres.ca/dpd_pm/00023004.PDF). Value is the geometric midpoint at 900 mg/day."
+    },
+    {
+      "drug_id": "lithium",
+      "metric": "cmax",
+      "dose_mg": 300,
+      "value": 0.28,
+      "max_fold": 2.5,
+      "source": "https://pdf.hres.ca/dpd_pm/00024251.PDF",
+      "verified": false,
+      "note": "Known limitation: lithium is biexponential (V1 about half of Vss), so a one-compartment model calibrated on steady state underestimates the single-dose peak about 2x."
+    },
+    {
+      "drug_id": "lithium",
+      "metric": "tmax_h",
+      "dose_mg": 300,
+      "value": 2.5,
+      "max_fold": 1.6,
+      "source": "https://pdf.hres.ca/dpd_pm/00023004.PDF",
+      "verified": false,
+      "note": "IR 2-4 h (0.25-3 h in the US label)"
+    },
+    {
+      "drug_id": "diazepam",
+      "metric": "tmax_h",
+      "dose_mg": 10,
+      "value": 1.25,
+      "max_fold": 1.6,
+      "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/013263Orig1s098lbl.pdf",
+      "verified": false,
+      "note": "1-1.5 h, range 0.25-2.5 h"
+    },
+    {
+      "drug_id": "diazepam",
+      "metric": "auc_inf",
+      "dose_mg": 10,
+      "value": 5.8,
+      "source": "https://www.uptodate.com/contents/diazepam-drug-information/abstract-text/2512694/pubmed",
+      "verified": false,
+      "note": "Derived: F*D/CL with CL/F 26.6 mL/min (48 healthy men); label CL 20-30 mL/min"
+    },
+    {
+      "drug_id": "livizux",
+      "metric": "cmax",
+      "dose_mg": 50,
+      "value": 0.0446,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3575217",
+      "verified": false,
+      "note": "d-amphetamine after 50 mg LDX capsule, n=20 (Ermer 2010)"
+    },
+    {
+      "drug_id": "livizux",
+      "metric": "tmax_h",
+      "dose_mg": 50,
+      "value": 3.8,
+      "max_fold": 1.6,
+      "source": "https://medlibrary.org/lib/rx/meds/vyvanse-1/page/5/",
+      "verified": false,
+      "note": "Adult label, fasted"
+    },
+    {
+      "drug_id": "livizux",
+      "metric": "auc_inf",
+      "dose_mg": 50,
+      "value": 0.959,
+      "source": "https://go.drugbank.com/articles/A261640",
+      "verified": false,
+      "note": "Derived: 1342 ng*h/mL after 70 mg (Krishnan 2008) scaled to 50 mg; label states dose-proportional PK"
+    },
+    {
+      "drug_id": "levetiracetam",
+      "metric": "cmax",
+      "dose_mg": 500,
+      "value": 13.6,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2000749/",
+      "verified": false,
+      "note": "Zhao 2007, 26 Chinese men; 1000 mg: 31.5 (NCT00859521). One-compartment model underestimates the early peak."
+    },
+    {
+      "drug_id": "levetiracetam",
+      "metric": "tmax_h",
+      "dose_mg": 500,
+      "value": 1.0,
+      "max_fold": 1.6,
+      "source": "https://pi-pil-repository.sahpra.org.za/wp-content/uploads/2024/04/PI-Keppra-Tabs_PI_GlaxoSmithKline_MCC-Format27-January-2015.pdf",
+      "verified": false,
+      "note": "Label about 1 h fasted"
+    },
+    {
+      "drug_id": "levetiracetam",
+      "metric": "auc_inf",
+      "dose_mg": 500,
+      "value": 109.3,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2000749/",
+      "verified": false
+    },
+    {
+      "drug_id": "pregabalin",
+      "metric": "cmax",
+      "dose_mg": 150,
+      "value": 3.85,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4408967",
+      "verified": false,
+      "note": "Lyrica reference arm, n=20 (Tjandrawinata 2015). One-compartment model underestimates the early peak."
+    },
+    {
+      "drug_id": "pregabalin",
+      "metric": "tmax_h",
+      "dose_mg": 150,
+      "value": 1.0,
+      "max_fold": 1.6,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4408967",
+      "verified": false
+    },
+    {
+      "drug_id": "pregabalin",
+      "metric": "auc_inf",
+      "dose_mg": 150,
+      "value": 27.9,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4408967",
+      "verified": false
+    },
+    {
+      "drug_id": "propranolol",
+      "metric": "cmax",
+      "dose_mg": 40,
+      "value": 0.04025,
+      "max_fold": 2.0,
+      "source": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5527233/",
+      "verified": false,
+      "note": "n=20; high variability (Cmax CV about 66%)"
+    },
+    {
+      "drug_id": "propranolol",
+      "metric": "tmax_h",
+      "dose_mg": 40,
+      "value": 1.68,
+      "max_fold": 1.6,
+      "source": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5527233/",
+      "verified": false
+    },
+    {
+      "drug_id": "propranolol",
+      "metric": "cmax",
+      "dose_mg": 80,
+      "value": 0.1175,
+      "max_fold": 2.0,
+      "source": "https://www.ejgm.co.uk/article/bioequivalence-study-of-propranolol-tablets-6488",
+      "verified": false,
+      "note": "Ismail 2004, 2x40 mg Inderal, n=18; first-pass saturation makes exposure rise more than dose-proportionally"
+    },
+    {
+      "drug_id": "propranolol",
+      "metric": "auc_inf",
+      "dose_mg": 80,
+      "value": 0.685,
+      "max_fold": 2.0,
+      "source": "https://www.ejgm.co.uk/article/bioequivalence-study-of-propranolol-tablets-6488",
+      "verified": false,
+      "note": "AUC CV about 51%"
+    },
+    {
+      "drug_id": "rivotril",
+      "metric": "cmax",
+      "dose_mg": 2,
+      "value": 0.013,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/38041794/",
+      "verified": false,
+      "note": "Genis-Najera 2023, n=30; secondary source gives 6.5-13.5 ng/mL"
+    },
+    {
+      "drug_id": "rivotril",
+      "metric": "tmax_h",
+      "dose_mg": 2,
+      "value": 3.0,
+      "max_fold": 1.6,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/38041794/",
+      "verified": false,
+      "note": "Label 1-4 h"
+    },
+    {
+      "drug_id": "rivotril",
+      "metric": "auc_inf",
+      "dose_mg": 2,
+      "value": 0.545,
+      "source": "https://drugcentral.org/label/79a3305b-be80-416f-a346-5a907f7b669e/view",
+      "verified": false,
+      "note": "Derived: F*D/CL with CL 55 mL/min (SmPC-type text)"
+    },
+    {
+      "drug_id": "mirtazapine",
+      "metric": "cavg_ss",
+      "dose_mg": 30,
+      "interval_h": 24,
+      "value": 0.0368,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12511242",
+      "verified": false,
+      "note": "Median steady-state level at median 30 mg/day, n=328 patients (TDM data, includes co-medication)"
+    },
+    {
+      "drug_id": "mirtazapine",
+      "metric": "auc_inf",
+      "dose_mg": 30,
+      "value": 0.65,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/22541842",
+      "verified": false,
+      "note": "Chinese BE study 627 ng*h/mL; Thai study 679"
+    },
+    {
+      "drug_id": "mirtazapine",
+      "metric": "cmax",
+      "dose_mg": 30,
+      "value": 0.0587,
+      "max_fold": 4.0,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/22541842",
+      "verified": false,
+      "note": "Known limitation: fast distribution phase; the one-compartment model is calibrated on steady state and underestimates the first-dose peak about 3x."
+    },
+    {
+      "drug_id": "risperidone",
+      "metric": "cavg_ss",
+      "dose_mg": 2,
+      "interval_h": 12,
+      "value": 0.028,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/28699847",
+      "verified": false,
+      "note": "Active moiety (risperidone + 9-OH) about 7 ng/mL per mg/day (Schoretsanitis 2017). Inter-individual spread about 20-fold (CYP2D6)."
+    },
+    {
+      "drug_id": "ritalin",
+      "metric": "cmax",
+      "dose_mg": 20,
+      "value": 0.01107,
+      "source": "https://pdf.hres.ca/dpd_pm/00068339.PDF",
+      "verified": false,
+      "note": "2x10 mg Ritalin reference, fasted men, n=26, geometric mean"
+    },
+    {
+      "drug_id": "ritalin",
+      "metric": "auc_inf",
+      "dose_mg": 20,
+      "value": 0.05417,
+      "source": "https://pdf.hres.ca/dpd_pm/00068339.PDF",
+      "verified": false
+    },
+    {
+      "drug_id": "ritalin",
+      "metric": "tmax_h",
+      "dose_mg": 20,
+      "value": 1.75,
+      "max_fold": 1.6,
+      "source": "https://pdf.hres.ca/dpd_pm/00068339.PDF",
+      "verified": false
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "cmax",
+      "dose_mg": 75,
+      "value": 0.126,
+      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
+      "verified": false,
+      "note": "de la Torre 2000; numbers via a secondary restatement"
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "auc_0_24",
+      "dose_mg": 75,
+      "value": 1.332,
+      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
+      "verified": false,
+      "note": "AUC rises more than dose-proportionally (saturable elimination)"
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "cmax",
+      "dose_mg": 100,
+      "value": 0.19,
+      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
+      "verified": false,
+      "note": "de la Torre 2000; numbers via a secondary restatement, n=2"
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "auc_0_24",
+      "dose_mg": 100,
+      "value": 2.057,
+      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
+      "verified": false,
+      "note": "AUC rises more than dose-proportionally (saturable elimination)"
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "cmax",
+      "dose_mg": 125,
+      "value": 0.229,
+      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
+      "verified": false,
+      "note": "de la Torre 2000; numbers via a secondary restatement"
+    },
+    {
+      "drug_id": "mdma",
+      "metric": "auc_0_24",
+      "dose_mg": 125,
+      "value": 2.624,
+      "source": "https://bpspubs.onlinelibrary.wiley.com/doi/full/10.1046/j.1365-2125.2000.00121.x",
+      "verified": false,
+      "note": "AUC rises more than dose-proportionally (saturable elimination)"
+    },
+    {
+      "drug_id": "ketamine",
+      "metric": "cmax",
+      "dose_mg": 50,
+      "value": 0.0299,
+      "source": "https://currentsurgery.org/index.php/jcs/article/download/213/130",
+      "verified": false,
+      "note": "n=6, low-tier journal; oral F 17-24% elsewhere"
+    },
+    {
+      "drug_id": "ketamine",
+      "metric": "tmax_h",
+      "dose_mg": 50,
+      "value": 1.1,
+      "max_fold": 1.6,
+      "source": "https://currentsurgery.org/index.php/jcs/article/download/213/130",
+      "verified": false
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/Pytest-109%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/Pytest-192%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function), intravenous (IV) bolus, intranasal (insufflated), and inhaled/smoked administration routes, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.
@@ -210,30 +210,30 @@ $$\text{AUC}_{t_1 - t_2} = \sum_{i=1}^{N-1} \frac{C_i + C_{i+1}}{2} (t_{i+1} - t
 
 ## Clinical Drug Presets Library
 
-The application includes curated pharmacokinetic profiles in [`data/drugs.json`](data/drugs.json):
+The application includes curated pharmacokinetic profiles in [`data/drugs.json`](data/drugs.json). Values describe a 70 kg adult with normal renal function; $V_d$ and $k_a$ are fitted so that AUC / steady-state level, Cmax and Tmax match published data in [`data/reference_pk.json`](data/reference_pk.json). Each preset also carries the between-patient CV of clearance (and bioavailability), the renally cleared fraction, and for MDMA saturable (Michaelis-Menten) elimination parameters.
 
 | Drug | Clinical Category | $t_{1/2}$ (h) | $V_d$ (L/kg) | $F$ | $k_a$ (h⁻¹) | MEC | MTC | Unit | Key Clinical Context |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Ibuprofen** | NSAID / Analgesic | $2.0$ | $0.15$ | $0.90$ | $2.00$ | $10.0$ | $50.0$ | $\mu\text{g/mL}$ | Rapid absorption; short half-life requires dosing every 6–8 h. |
-| **Paracetamol** | Analgesic / Antipyretic | $2.5$ | $0.90$ | $0.80$ | $2.00$ | $10.0$ | $30.0$ | $\mu\text{g/mL}$ | High therapeutic margin; toxic metabolite threshold guarded by MTC. |
-| **Amoxicillin** | $\beta$-lactam Antibiotic | $1.2$ | $0.30$ | $0.80$ | $1.50$ | $2.0$ | $40.0$ | $\mu\text{g/mL}$ | Time-dependent killing ($T > \text{MIC}$); rapid renal clearance. |
-| **Lithium** | Mood Stabilizer | $24.0$ | $0.70$ | $0.95$ | $1.00$ | $0.6$ | $1.5$ | $\text{mmol/L}$ | **Narrow Therapeutic Index (NTI)**: severe toxicity $> 1.5\,\text{mmol/L}$. |
-| **Diazepam** | Long-acting Benzodiazepine | $40.0$ | $1.10$ | $0.93$ | $2.00$ | $0.2$ | $0.8$ | $\mu\text{g/mL}$ | Prolonged elimination; pronounced steady-state accumulation. |
-| **Livizux** | ADHD CNS Stimulant (lisdexamfetamin) | $11.0$ | $4.00$ | $0.95$ | $0.65$ | $0.02$ | $0.10$ | $\mu\text{g/mL}$ | Prodrug of d-amphetamine; once-daily morning dosing. AGNP 20–80 ng/mL. |
-| **Levetiracetam** | Antiepileptic (Keppra) | $7.0$ | $0.60$ | $1.00$ | $1.80$ | $12.0$ | $46.0$ | $\mu\text{g/mL}$ | Complete oral absorption; AGNP reference range 12–46 µg/mL. |
-| **Pregabalin** | Antiepileptic / Anxiolytic / Pain | $6.3$ | $0.56$ | $0.90$ | $1.80$ | $2.0$ | $8.0$ | $\mu\text{g/mL}$ | Linear renal clearance; low protein binding. AGNP target 2–5 µg/mL. |
-| **Propranolol** | Non-selective $\beta$-blocker | $4.0$ | $4.00$ | $0.25$ | $1.50$ | $0.02$ | $0.20$ | $\mu\text{g/mL}$ | High first-pass metabolism ($F \approx 25\%$), large $V_d$ ($4\,\text{L/kg}$). |
-| **Rivotril** | Benzodiazepine (clonazepam) | $35.0$ | $2.00$ | $0.90$ | $1.20$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | High accumulation at steady-state. AGNP range 20–70 ng/mL. |
-| **Mirtazapin** | Antidepressant (NaSSA) | $26.0$ | $1.50$ | $0.50$ | $1.00$ | $0.03$ | $0.15$ | $\mu\text{g/mL}$ | Once-daily dosing; AGNP therapeutic window 30–80 ng/mL. |
-| **Risperidon** | Atypical Antipsychotic | $20.0$ | $1.20$ | $0.70$ | $1.50$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | Modeled as total active moiety (risperidone + 9-OH); target 20–60 ng/mL. |
-| **Ritalin** | CNS Stimulant / ADHD (methylphenidate) | $2.5$ | $2.65$ | $0.30$ | $1.80$ | $0.005$ | $0.030$ | $\mu\text{g/mL}$ | Rapid absorption; short $t_{1/2}$ requires dosing 2–3× daily ($\tau = 8\text{ h}$). Target 5–20 ng/mL. |
+| **Ibuprofen** | NSAID / Analgesic | $2.0$ | $0.13$ | $0.90$ | $1.50$ | $10.0$ | $50.0$ | $\mu\text{g/mL}$ | Rapid absorption; short half-life requires dosing every 6–8 h. |
+| **Paracetamol** | Analgesic / Antipyretic | $2.5$ | $0.70$ | $0.80$ | $5.00$ | $10.0$ | $30.0$ | $\mu\text{g/mL}$ | High therapeutic margin; toxic metabolite threshold guarded by MTC. |
+| **Amoxicillin** | $\beta$-lactam Antibiotic | $1.0$ | $0.28$ | $0.80$ | $0.55$ | $2.0$ | $40.0$ | $\mu\text{g/mL}$ | Time-dependent killing ($T > \text{MIC}$); rapid renal clearance. |
+| **Lithium** | Mood Stabilizer | $24.0$ | $0.70$ | $0.95$ | $1.60$ | $0.6$ | $1.5$ | $\text{mmol/L}$ | **Narrow Therapeutic Index (NTI)**: severe toxicity $> 1.5\,\text{mmol/L}$. |
+| **Diazepam** | Long-acting Benzodiazepine | $40.0$ | $1.20$ | $0.93$ | $4.00$ | $0.2$ | $0.8$ | $\mu\text{g/mL}$ | Prolonged elimination; pronounced steady-state accumulation. |
+| **Livizux** | ADHD CNS Stimulant (lisdexamfetamin) | $11.0$ | $3.35$ | $0.95$ | $0.67$ | $0.02$ | $0.10$ | $\mu\text{g/mL}$ | Prodrug of d-amphetamine; once-daily morning dosing. AGNP 20–80 ng/mL. |
+| **Levetiracetam** | Antiepileptic (Keppra) | $7.0$ | $0.60$ | $1.00$ | $4.50$ | $12.0$ | $46.0$ | $\mu\text{g/mL}$ | Complete oral absorption; AGNP reference range 12–46 µg/mL. |
+| **Pregabalin** | Antiepileptic / Anxiolytic / Pain | $6.3$ | $0.59$ | $0.90$ | $3.90$ | $2.0$ | $8.0$ | $\mu\text{g/mL}$ | Linear renal clearance; low protein binding. AGNP target 2–5 µg/mL. |
+| **Propranolol** | Non-selective $\beta$-blocker | $4.0$ | $2.70$ | $0.25$ | $1.60$ | $0.02$ | $0.20$ | $\mu\text{g/mL}$ | High first-pass metabolism ($F \approx 25\%$, CV of exposure about 50 %); apparent $V_d$ fitted to published Cmax/AUC. |
+| **Rivotril** | Benzodiazepine (clonazepam) | $35.0$ | $2.30$ | $0.90$ | $1.50$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | High accumulation at steady-state. AGNP range 20–70 ng/mL. |
+| **Mirtazapin** | Antidepressant (NaSSA) | $26.0$ | $10.50$ | $0.50$ | $2.20$ | $0.03$ | $0.15$ | $\mu\text{g/mL}$ | Once-daily dosing; AGNP therapeutic window 30–80 ng/mL. |
+| **Risperidon** | Atypical Antipsychotic | $20.0$ | $1.70$ | $0.70$ | $2.00$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | Modeled as total active moiety (risperidone + 9-OH); target 20–60 ng/mL. |
+| **Ritalin** | CNS Stimulant / ADHD (methylphenidate) | $2.8$ | $3.10$ | $0.15$ | $1.30$ | $0.005$ | $0.030$ | $\mu\text{g/mL}$ | Rapid absorption; short $t_{1/2}$ requires dosing 2–3× daily ($\tau = 8\text{ h}$). Target 5–20 ng/mL. |
 | **Custom Drug** | User-defined | *custom* | *custom* | *custom* | *custom* | *custom* | *custom* | *custom* | Fully configurable for novel molecules and in-vitro data. |
 
 ---
 
 ## Testing & Verification
 
-The test suite covers numerical formulas, ODE cross-validation, SÚKL registry data extraction, and FastAPI REST endpoints across 109 automated tests:
+The test suite covers numerical formulas, ODE cross-validation, SÚKL registry data extraction, and FastAPI REST endpoints across 192 automated tests (the SÚKL live-lookup tests need network access). `tests/test_reference_pk.py` checks every preset against published Cmax, Tmax, AUC and steady-state levels; `python -m core.validation` prints the predicted/observed table (exposure metrics: geometric mean fold error 1.08). The reference values were collected from search excerpts of the cited labels and papers (`verified: false`) and still need checking against the full documents.
 
 ```bash
 # Run test suite

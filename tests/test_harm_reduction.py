@@ -172,3 +172,23 @@ def test_pk_model_route_aliases():
     m_inhaled = PKModel(4.0, 40.0, route="inhaled")
     assert m_inhaled.route == Route.SMOKED
 
+
+
+def test_mdma_stacking_uses_saturable_elimination():
+    drug = get_drug("mdma")
+    model = drug.to_pk_model(70.0)
+    assert model.is_saturable
+    window = TherapeuticWindow(drug.mec, drug.mtc)
+    a = assess_dose_stacking(100.0, 2.0, model, window, redose_amount=100.0)
+    t = np.linspace(0.0, 24.0, 2401)
+    superposed = single_dose_concentration(t + 2.0, 100.0, model) + single_dose_concentration(t, 100.0, model)
+    assert a.stacked_peak > superposed.max()
+
+
+def test_mdma_safe_interval_not_shorter_than_linear_estimate():
+    drug = get_drug("mdma")
+    model = drug.to_pk_model(70.0)
+    linear = PKModel(model.t_half_h, model.vd_l, model.bioavailability, model.ka_per_h, model.route)
+    window = TherapeuticWindow(drug.mec, drug.mtc)
+    assert compute_safe_redosing_interval_h(100.0, model, window, redose_amount=60.0) >= \
+        compute_safe_redosing_interval_h(100.0, linear, window, redose_amount=60.0)

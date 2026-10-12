@@ -29,6 +29,20 @@ class DrugPreset(BaseModel):
     dose_basis: str = "mg"
     notes: str = ""
     routes: dict[str, dict[str, float]] | None = None
+    cv_cl: float | None = None
+    cv_f: float = 0.0
+    fe_renal: float = 0.0
+    km: float | None = None
+    saturable_fraction: float = 0.0
+
+
+class PatientIn(BaseModel):
+    """Renal function: give crcl_ml_min directly, or age + serum creatinine (Cockcroft-Gault)."""
+
+    crcl_ml_min: float | None = Field(default=None, gt=0)
+    age_y: float | None = Field(default=None, gt=0, lt=120)
+    female: bool = False
+    serum_creatinine_umol_l: float | None = Field(default=None, gt=0)
 
 
 class CustomPKParams(BaseModel):
@@ -53,6 +67,7 @@ class SimulateRequest(BaseModel):
     duration_h: float = Field(gt=0, default=72.0)
     body_weight_kg: float = Field(gt=0, default=70.0)
     route: str = Field(default="oral", description="Route of administration: oral, iv_bolus, insufflated, smoked, inhaled")
+    patient: PatientIn | None = None
     custom_pk: CustomPKParams | None = None
     missed_dose: MissedDoseRequest | None = None
 
@@ -103,6 +118,9 @@ class SimulateResponse(BaseModel):
     steady_state: SteadyStateResponse
     tdm: TDMAssessmentResponse
     missed_concentrations: list[float] | None = None
+    crcl_ml_min: float | None = None
+    band_low: list[float] = Field(description="5th percentile of inter-individual exposure")
+    band_high: list[float] = Field(description="95th percentile of inter-individual exposure")
 
 
 class HarmReductionRequest(BaseModel):
@@ -112,6 +130,7 @@ class HarmReductionRequest(BaseModel):
     route: str = Field(default="oral", description="Route: oral, iv_bolus, insufflated, smoked, inhaled")
     elapsed_h: float = Field(ge=0, default=2.0, description="Hours elapsed since first dose")
     next_dose_mg: float | None = Field(default=None, gt=0, description="Planned next dose in mg")
+    patient: PatientIn | None = None
     custom_pk: CustomPKParams | None = None
 
 
@@ -167,3 +186,40 @@ class HarmReductionResponse(BaseModel):
     guidelines: list[dict[str, str]]
     single_curve: list[dict[str, float]]
     stacked_curve: list[dict[str, float]]
+
+
+class ObservationIn(BaseModel):
+    time_h: float = Field(gt=0, description="Hours since the first dose of the schedule")
+    concentration: float = Field(gt=0, description="Measured level in the drug's concentration unit")
+
+
+class IndividualizeRequest(SimulateRequest):
+    observations: list[ObservationIn] = Field(min_length=1, max_length=20)
+    residual_cv: float = Field(default=0.2, gt=0, le=1.0, description="Assay + model error (proportional CV)")
+
+
+class ObservationFitResponse(BaseModel):
+    time_h: float
+    observed: float
+    population_predicted: float
+    individual_predicted: float
+
+
+class IndividualizeResponse(BaseModel):
+    drug_id: str
+    unit: str
+    time_grid: list[float]
+    population_concentrations: list[float]
+    individual_concentrations: list[float]
+    band_low: list[float]
+    band_high: list[float]
+    dose_times: list[float]
+    observations: list[ObservationFitResponse]
+    clearance_population_l_per_h: float
+    clearance_individual_l_per_h: float
+    vd_population_l: float
+    vd_individual_l: float
+    t_half_population_h: float
+    t_half_individual_h: float
+    steady_state: SteadyStateResponse
+    tdm: TDMAssessmentResponse

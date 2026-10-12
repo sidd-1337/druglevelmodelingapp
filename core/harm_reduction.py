@@ -9,16 +9,18 @@ Provides:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
 from core.metrics import TherapeuticWindow
 from core.pk_engine import (
+    DoseEvent,
     PKModel,
     Route,
     cmax_single_dose,
+    concentration_profile,
     single_dose_concentration,
     tmax_single_dose,
 )
@@ -91,7 +93,7 @@ def compute_safe_redosing_interval_h(
     target_residual = min(max_residual, window.mec) if primary_peak >= window.mec else max_residual
 
     # Search on a time grid for residual <= target_residual after tmax
-    t_peak = tmax_single_dose(model)
+    t_peak = tmax_single_dose(model, amount)
     horizon = max(48.0, 10.0 * model.t_half_h)
     t_test = np.linspace(t_peak, horizon, 3000)
     c_test = single_dose_concentration(t_test, amount, model)
@@ -111,9 +113,39 @@ def compute_safe_redosing_interval_h(
     else:
         safe_time = 5.0 * model.t_half_h
 
+    if model.is_saturable:
+        # Residual + new peak understates a saturable stack: wait until the
+        # simulated stacked peak is under the ceiling too.
+        safe_time = _first_safe_stack_time(amount, new_dose, model, ceiling, safe_time, horizon)
+
     # Ensure it's at least past the active peak window
     min_bound = 0.5 if model.route == Route.IV_BOLUS else t_peak + 0.5
     return max(safe_time, min_bound)
+
+
+def _stacked_peak(amount: float, new_dose: float, elapsed_h: float, model: PKModel) -> float:
+    t_peak = tmax_single_dose(model, new_dose)
+    t = elapsed_h + np.linspace(0.0, max(2.0, 4.0 * t_peak), 400)
+    events = (DoseEvent(0.0, amount), DoseEvent(elapsed_h, new_dose))
+    return float(np.max(concentration_profile(t, events, model)))
+
+
+def _first_safe_stack_time(
+    amount: float, new_dose: float, model: PKModel, ceiling: float, t_from: float, horizon: float
+) -> float:
+    """Earliest redose time >= t_from whose simulated stacked peak stays <= ceiling."""
+    if _stacked_peak(amount, new_dose, t_from, model) <= ceiling:
+        return t_from
+    if _stacked_peak(amount, new_dose, horizon, model) > ceiling:
+        return max(horizon, t_from)
+    lo, hi = t_from, horizon
+    while hi - lo > 0.05:
+        mid = 0.5 * (lo + hi)
+        if _stacked_peak(amount, new_dose, mid, model) <= ceiling:
+            hi = mid
+        else:
+            lo = mid
+    return hi
 
 
 def assess_dose_stacking(
@@ -130,15 +162,16 @@ def assess_dose_stacking(
     single_cmax = cmax_single_dose(new_dose, model)
 
     # Multi-resolution sampling: dense near absorption peaks to resolve fast routes (smoked, insufflated)
-    t_peak = tmax_single_dose(model)
+    t_peak = tmax_single_dose(model, new_dose)
     t_near = np.linspace(0.0, max(2.0, 4.0 * t_peak), 400)
     t_far = np.linspace(0.0, max(24.0, 6.0 * model.t_half_h), 800)
     t_post = np.unique(np.concatenate(([0.0, t_peak], t_near, t_far)))
     t_post.sort()
 
-    c_residual = single_dose_concentration(elapsed_h + t_post, amount, model)
-    c_new = single_dose_concentration(t_post, new_dose, model)
-    stacked_curve = c_residual + c_new
+    # Simulate both doses together: equals residual + new dose for linear PK,
+    # and captures the extra rise when elimination saturates.
+    events = (DoseEvent(0.0, amount), DoseEvent(elapsed_h, new_dose))
+    stacked_curve = concentration_profile(elapsed_h + t_post, events, model)
     stacked_peak = float(np.max(stacked_curve))
 
     mtc = window.mtc
@@ -213,9 +246,8 @@ def get_route_timeline(
     if drug is not None:
         bw = model.vd_l / drug.vd_l_per_kg if drug.vd_l_per_kg > 0 else 70.0
         route_base = drug.to_pk_model(body_weight_kg=bw, route=route)
-        route_model = PKModel(
-            t_half_h=model.t_half_h,
-            vd_l=model.vd_l,
+        route_model = replace(
+            model,
             bioavailability=route_base.bioavailability,
             ka_per_h=route_base.ka_per_h,
             route=route,
@@ -239,15 +271,9 @@ def get_route_timeline(
                 ka = max(1.0, model.ka_per_h / 2.5)
                 bio = min(1.0, model.bioavailability * 0.8)
 
-        route_model = PKModel(
-            t_half_h=model.t_half_h,
-            vd_l=model.vd_l,
-            bioavailability=bio,
-            ka_per_h=ka,
-            route=route,
-        )
+        route_model = replace(model, bioavailability=bio, ka_per_h=ka, route=route)
 
-    tmax = tmax_single_dose(route_model)
+    tmax = tmax_single_dose(route_model, amount)
     cmax = cmax_single_dose(amount, route_model)
     t_half = model.t_half_h
 
@@ -318,7 +344,7 @@ def estimate_phases(
 ) -> PhaseTimings:
     """Estimate onset, peak plateau, offset, and comedown phases with monotonic progression."""
     t_half = model.t_half_h
-    t_peak = tmax_single_dose(model)
+    t_peak = tmax_single_dose(model, amount)
     horizon = max(24.0, 8.0 * t_half)
 
     # Dense time grid ensuring peak and phase boundaries are accurately captured
