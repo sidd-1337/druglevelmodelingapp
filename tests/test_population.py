@@ -152,3 +152,54 @@ def test_enzyme_activity_does_not_touch_a_renally_cleared_drug():
 def test_halving_an_enzyme_doubles_the_half_life_of_a_drug_cleared_by_it():
     d = get_drug("lithium").with_overrides(pathways={"CYP2D6": 1.0}, fe_renal=0.0)
     assert d.to_pk_model(70, enzyme_activity={"CYP2D6": 0.5}).t_half_h == pytest.approx(2 * d.t_half_h)
+
+
+# ------------------------------------------------- unknown-phenotype band widening
+def test_phenotype_mixture_spread():
+    from core.population import phenotype_log_sd
+    # A pathway carrying nothing cannot contribute spread, nor can a single phenotype.
+    assert phenotype_log_sd(0.0, {0.1: 0.5, 1.0: 0.5}) == 0.0
+    assert phenotype_log_sd(0.8, {1.0: 1.0}) == 0.0
+    # More of the drug through the polymorphic pathway means more spread.
+    assert phenotype_log_sd(0.8, {0.1: 0.1, 1.0: 0.9}) > phenotype_log_sd(0.3, {0.1: 0.1, 1.0: 0.9})
+    with pytest.raises(ValueError):
+        phenotype_log_sd(1.5, {1.0: 1.0})
+
+
+def test_unknown_phenotype_widens_the_band_and_stating_it_does_not():
+    dz = get_drug("diazepam")
+    model = dz.to_pk_model(70)
+    unknown_lo, unknown_hi = dz.exposure_band(model)
+    known_lo, known_hi = dz.exposure_band(model, {"CYP2C19": "normal"})
+    assert unknown_hi.t_half_h > known_hi.t_half_h
+    assert unknown_lo.t_half_h < known_lo.t_half_h
+    # ... and the band stays centred on the prediction either way
+    assert known_lo.t_half_h < model.t_half_h < known_hi.t_half_h
+
+
+def test_only_polymorphic_pathways_of_this_drug_widen_the_band():
+    assert get_drug("lithium").unknown_phenotype_log_sd() == 0.0  # wholly renal
+    assert get_drug("ibuprofen").unknown_phenotype_log_sd() == 0.0  # no pathways encoded
+    assert get_drug("diazepam").unknown_phenotype_log_sd() > 0.0
+    # CYP3A4 has no phenotype system, so diazepam's spread comes from CYP2C19 alone
+    assert get_drug("diazepam").unknown_phenotype_log_sd({"CYP2C19": "normal"}) == 0.0
+
+
+def test_risperidone_band_matches_the_published_active_moiety_spread():
+    """The ~20-fold spread is derived from cv_cl and the phenotype mix, not tuned to this."""
+    from core.pk_engine import steady_state_summary
+    ris = get_drug("risperidone")
+    model = ris.to_pk_model(70)
+    lo, hi = ris.exposure_band(model)
+    span = steady_state_summary(2.0, 12, hi).cavg_ss / steady_state_summary(2.0, 12, lo).cavg_ss
+    assert 12 < span < 30, span
+
+
+def test_band_moves_the_metabolite_when_it_is_part_of_the_reported_quantity():
+    # Shifting only the parent would leave a sum-reported drug's band almost flat.
+    ris = get_drug("risperidone")
+    lo, hi = ris.exposure_band(ris.to_pk_model(70))
+    assert hi.metabolite.t_half_h > lo.metabolite.t_half_h
+    dz = get_drug("diazepam")  # reported="parent": the metabolite is a display curve only
+    dlo, dhi = dz.exposure_band(dz.to_pk_model(70))
+    assert dhi.metabolite.t_half_h == dlo.metabolite.t_half_h

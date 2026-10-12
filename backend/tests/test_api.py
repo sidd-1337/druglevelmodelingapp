@@ -391,3 +391,26 @@ def test_simulate_prolonged_release_formulation():
     presets = {p["id"]: p for p in client.get("/api/v1/pk/presets").json()}
     assert "pr" in presets["propranolol"]["formulations"]
     assert client.post("/api/v1/pk/simulate", json={**base, "formulation": "nope"}).status_code == 400
+
+
+def test_phenotype_changes_clearance_and_unknown_phenotype_widens_the_band():
+    base = {"drug_id": "diazepam", "dose_mg": 10.0, "interval_h": 24.0, "duration_h": 240.0}
+    unknown = client.post("/api/v1/pk/simulate", json=base).json()
+    poor = client.post("/api/v1/pk/simulate",
+                       json={**base, "patient": {"phenotypes": {"CYP2C19": "poor"}}}).json()
+    normal = client.post("/api/v1/pk/simulate",
+                         json={**base, "patient": {"phenotypes": {"CYP2C19": "normal"}}}).json()
+    # a poor metaboliser clears diazepam more slowly
+    assert poor["metrics"]["t_half_h"] > 1.4 * normal["metrics"]["t_half_h"]
+    # stating "normal" matches the default prediction but narrows the band, because an
+    # unstated phenotype really could be any of them
+    assert normal["metrics"]["t_half_h"] == pytest.approx(unknown["metrics"]["t_half_h"])
+    span = lambda d: max(d["band_high"]) / max(d["band_low"])
+    assert span(unknown) > span(normal)
+
+
+def test_unknown_enzyme_phenotype_is_rejected():
+    res = client.post("/api/v1/pk/simulate", json={
+        "drug_id": "diazepam", "dose_mg": 10.0, "interval_h": 24.0, "duration_h": 48.0,
+        "patient": {"phenotypes": {"CYP2C19": "nonsense"}}})
+    assert res.status_code == 400

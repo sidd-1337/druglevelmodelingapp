@@ -76,6 +76,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "tab_ss": "Steady state", "tab_missed": "Missed dose", "tab_hr": "Harm reduction",
         "tab_glossary": "Glossary & Variables", "tab_data": "Data & export", "tab_model": "Model",
         "tab_fit": "Measured levels (TDM fit)", "measured": "Measured level",
+        "sb_genotype": "Metaboliser status", "genotype_of": "{enzyme} phenotype",
+        "phenotype_unknown": "Unknown", "phenotype_poor": "Poor metaboliser",
+        "phenotype_intermediate": "Intermediate metaboliser", "phenotype_normal": "Normal metaboliser",
+        "phenotype_rapid": "Rapid metaboliser", "phenotype_ultrarapid": "Ultrarapid metaboliser",
+        "genotype_activity": "Enzyme activity {pct:.0f} % of normal.",
+        "genotype_help": "Only enzymes this drug is actually cleared by are listed. Leaving one unknown "
+                         "keeps the normal-metaboliser prediction but widens the between-patient band, "
+                         "because such a patient could be any of the phenotypes.",
         "metabolite_curve": "{name} (metabolite)",
         "metabolite_caption": "{name} is an active metabolite with a half-life of about {t_half:g} h. "
                               "The concentration and therapeutic window above are {reported}.",
@@ -281,6 +289,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "tab_ss": "Ustálený stav", "tab_missed": "Vynechaná dávka", "tab_hr": "Harm reduction kalkulačka",
         "tab_glossary": "Slovník veličin a pojmů", "tab_data": "Data a export", "tab_model": "Model",
         "tab_fit": "Změřené hladiny (TDM fit)", "measured": "Změřená hladina",
+        "sb_genotype": "Metabolizační status", "genotype_of": "Fenotyp {enzyme}",
+        "phenotype_unknown": "Neznámý", "phenotype_poor": "Pomalý metabolizátor",
+        "phenotype_intermediate": "Střední metabolizátor", "phenotype_normal": "Normální metabolizátor",
+        "phenotype_rapid": "Rychlý metabolizátor", "phenotype_ultrarapid": "Ultrarychlý metabolizátor",
+        "genotype_activity": "Aktivita enzymu {pct:.0f} % normálu.",
+        "genotype_help": "Uvedeny jsou jen enzymy, kterými se dané léčivo skutečně odbourává. Ponecháte-li "
+                         "fenotyp neznámý, predikce odpovídá normálnímu metabolizátorovi, ale pásmo "
+                         "variability se rozšíří, protože takový pacient může být kterýkoli z fenotypů.",
         "metabolite_curve": "{name} (metabolit)",
         "metabolite_caption": "{name} je aktivní metabolit s poločasem přibližně {t_half:g} h. "
                               "Koncentrace a terapeutické okno výše se týkají {reported}.",

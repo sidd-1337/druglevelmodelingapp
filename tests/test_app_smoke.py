@@ -149,3 +149,23 @@ def test_app_shows_the_metabolite_curve_for_diazepam():
     traces = _chart_traces(at, 0)
     assert any("Nordazepam" in str(name) for name in traces)
     assert "Concentration" in traces  # the reported quantity is still diazepam itself
+
+
+def test_app_genotype_selector_appears_only_for_relevant_drugs():
+    at = _run()
+    at.selectbox[0].set_value("lithium").run()  # wholly renal: no enzyme phenotype applies
+    assert not any("phenotype" in str(s.label).lower() for s in at.selectbox)
+    at.selectbox[0].set_value("diazepam").run()  # cleared by CYP2C19 and CYP3A4
+    labels = [str(s.label) for s in at.selectbox]
+    assert any("CYP2C19" in lb for lb in labels), labels
+    assert not any("CYP3A4" in lb for lb in labels)  # CYP3A4 has no phenotype system
+
+
+def test_app_poor_metaboliser_lengthens_the_half_life():
+    at = _run()
+    at.selectbox[0].set_value("diazepam").run()
+    t_half = lambda: float(next(m.value for m in at.metric if m.label == "t½").split()[0])
+    before = t_half()
+    next(s for s in at.selectbox if "CYP2C19" in str(s.label)).set_value("poor").run()
+    assert not at.exception
+    assert t_half() > 1.4 * before

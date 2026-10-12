@@ -294,7 +294,7 @@
                      "verified": false, "note": "9-hydroxyrisperidone (paliperidone). Parent and metabolite are simulated separately and the reported concentration is their sum, which is the active moiety the AGNP 20-60 ng/mL range refers to - so the window keeps its meaning. Parent half-life 3 h and metabolite 21 h are label values for extensive metabolisers. Formation fraction 0.78 is the parent's CYP2D6 fraction derived from CATIE population clearances. Volumes are solved jointly from the AGNP steady-state level and the reported 9-OH:parent AUC ratio of about 5; the parent volume that falls out, 1.55 L/kg, sits inside the label's stated 1-2 L/kg, which is an independent check rather than an imposed constraint. The unweighted sum is a convention: 9-OH is described as comparable in potency to risperidone, not measured equipotent."},
       "protein_binding": {"fu": 0.1, "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2005/020272s042,020588s030,021444s016,021346s010lbl.pdf",
                           "verified": false, "note": "Risperidone 90% bound, 9-hydroxyrisperidone 77%; the free fraction rises about 35% in hepatic impairment."},
-      "cv_cl": 0.35,
+      "cv_cl": 1.08,
       "mec": 0.02,
       "mtc": 0.08,
       "concentration_unit": "ug/mL",
@@ -302,7 +302,7 @@
       "default_dose_mg": 2,
       "default_interval_h": 12,
       "dose_basis": "mg risperidon",
-      "notes": "Atypické antipsychotikum. Risperidon a jeho metabolit 9-hydroxyrisperidon jsou modelovány zvlášť; vykazovanou veličinou zůstává jejich součet (aktivní frakce), ke kterému se vztahuje terapeutické okno. AGNP terapeutické rozmezí 20–60 ng/mL (0.02–0.06 µg/mL), riziko EPS > 0.08 µg/mL."
+      "notes": "Atypické antipsychotikum. Risperidon a jeho metabolit 9-hydroxyrisperidon jsou modelovány zvlášť; vykazovanou veličinou zůstává jejich součet (aktivní frakce), ke kterému se vztahuje terapeutické okno. AGNP terapeutické rozmezí 20–60 ng/mL (0.02–0.06 µg/mL), riziko EPS > 0.08 µg/mL. Variabilita mezi pacienty (cv_cl 1.08) je odvozena z publikovaného cca 20násobného rozpětí ustálených hladin aktivní frakce (1,8–36,8 nmol/l na mg/den): odpovídá log-SD 0,91, z čehož genotyp CYP2D6 vysvětluje jen 0,23, tedy asi 6 % rozptylu; zbytek je variabilita v rámci fenotypu."
     },
     {
       "id": "ritalin",

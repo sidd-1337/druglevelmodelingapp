@@ -54,6 +54,11 @@ class PatientIn(BaseModel):
     age_y: float | None = Field(default=None, gt=0, lt=120)
     female: bool = False
     serum_creatinine_umol_l: float | None = Field(default=None, gt=0)
+    phenotypes: dict[str, str] | None = Field(
+        default=None,
+        description="Metaboliser phenotype per enzyme, e.g. {'CYP2D6': 'poor'}. An enzyme left out is "
+                    "treated as unknown: clearance stays at the normal-metaboliser value but the "
+                    "between-patient band widens to cover the phenotype mix.")
 
 
 class CustomPKParams(BaseModel):

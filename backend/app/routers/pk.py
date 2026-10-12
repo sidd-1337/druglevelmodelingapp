@@ -85,10 +85,14 @@ def _resolve_crcl(patient: PatientIn | None, body_weight_kg: float) -> float | N
 
 
 def _patient_model(
-    drug: Drug, route: Route, body_weight_kg: float, crcl_ml_min: float | None, custom: CustomPKParams | None
+    drug: Drug, route: Route, body_weight_kg: float, crcl_ml_min: float | None,
+    custom: CustomPKParams | None, genotypes: dict[str, str] | None = None,
 ) -> PKModel:
     """Preset model for this patient, with explicit custom overrides applied last."""
-    model = drug.to_pk_model(body_weight_kg, route=route, crcl_ml_min=crcl_ml_min)
+    try:
+        model = drug.to_pk_model(body_weight_kg, route=route, crcl_ml_min=crcl_ml_min, genotypes=genotypes)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown enzyme or phenotype: {exc}")
     if custom is None:
         return model
     changes = {}
@@ -207,7 +211,8 @@ def simulate_regimen(req: SimulateRequest) -> SimulateResponse:
     drug = _with_formulation(drug, req.formulation)
     route = _resolve_route(req.route)
     crcl = _resolve_crcl(req.patient, req.body_weight_kg)
-    model = _patient_model(drug, route, req.body_weight_kg, crcl, req.custom_pk)
+    genotypes = req.patient.phenotypes if req.patient else None
+    model = _patient_model(drug, route, req.body_weight_kg, crcl, req.custom_pk, genotypes)
 
     mec = req.custom_pk.mec if req.custom_pk and req.custom_pk.mec is not None else drug.mec
     mtc = req.custom_pk.mtc if req.custom_pk and req.custom_pk.mtc is not None else drug.mtc
@@ -236,7 +241,7 @@ def simulate_regimen(req: SimulateRequest) -> SimulateResponse:
             c_alt = concentration_profile(t, alt_events, model)
             missed_c_list = [round(float(v), 5) for v in c_alt]
 
-    band_models = drug.exposure_band(model)
+    band_models = drug.exposure_band(model, genotypes)
     band = [concentration_profile(t, events, m) for m in band_models]
 
     return SimulateResponse(

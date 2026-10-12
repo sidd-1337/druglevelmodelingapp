@@ -78,6 +78,28 @@ def clearance_factor(weight_kg: float, crcl_ml_min: float | None = None, fe_rena
     return pathway_clearance_factor(weight_kg, {RENAL: fe_renal} if fe_renal else None, crcl_ml_min)
 
 
+def phenotype_log_sd(pathway_fraction: float, activities_with_frequencies: Mapping[float, float]) -> float:
+    """Log-scale SD of clearance from an unknown phenotype on one pathway.
+
+    ``activities_with_frequencies`` maps an activity multiplier to how common it is.
+    A pathway carrying ``pathway_fraction`` of clearance turns activity ``a`` into a
+    relative clearance of ``1 - f + f * a``; the spread of that mixture is what the
+    band must widen by.
+    """
+    if not 0 <= pathway_fraction <= 1:
+        raise ValueError("pathway_fraction must be in [0, 1]")
+    pairs = [(1.0 - pathway_fraction + pathway_fraction * a, w)
+             for a, w in activities_with_frequencies.items() if w > 0]
+    total = sum(w for _, w in pairs)
+    if not pairs or total <= 0:
+        return 0.0
+    mean = sum(cl * w for cl, w in pairs) / total
+    if mean <= 0:
+        return 0.0
+    variance = sum(w * (cl - mean) ** 2 for cl, w in pairs) / total
+    return log_sd(math.sqrt(variance) / mean)
+
+
 def log_sd(cv: float) -> float:
     """SD of log(X) for a log-normal X with coefficient of variation ``cv``."""
     if cv < 0:
@@ -86,15 +108,20 @@ def log_sd(cv: float) -> float:
 
 
 def exposure_band_models(
-    model: PKModel, cv_cl: float, cv_f: float = 0.0, z: float = Z_90
+    model: PKModel, cv_cl: float, cv_f: float = 0.0, z: float = Z_90,
+    extra_cl_log_sd: float = 0.0,
 ) -> tuple[PKModel, PKModel]:
     """(low, high) exposure models at the z-quantiles of log-normal CL and F variability.
 
     The z-shift of total log exposure is split between CL and F in proportion to
     their variances, i.e. each model is the most likely (CL, F) pair for a patient
     at that exposure percentile. CL moves at constant V, so t1/2 moves with it.
+
+    ``extra_cl_log_sd`` adds a further source of clearance spread in quadrature -
+    used for an unknown metaboliser phenotype. It widens the band without moving
+    its centre, so the prediction the band is drawn around is unchanged.
     """
-    w_cl = log_sd(cv_cl)
+    w_cl = math.hypot(log_sd(cv_cl), extra_cl_log_sd)
     w_f = 0.0 if model.route is Route.IV_BOLUS else log_sd(cv_f)
     w_tot = math.hypot(w_cl, w_f)
     if w_tot == 0.0:
@@ -104,6 +131,15 @@ def exposure_band_models(
 
     def shifted(sign: float) -> PKModel:
         f = min(1.0, model.bioavailability * math.exp(sign * s_f))
-        return replace(model, t_half_h=model.t_half_h * math.exp(sign * s_cl), bioavailability=f)
+        scale = math.exp(sign * s_cl)
+        met = model.metabolite
+        if met is not None and met.reported != "parent":
+            # When the reported quantity includes the metabolite, the metabolite's own
+            # clearance is most of it. Shifting only the parent would leave the band
+            # almost flat, which is exactly the buffering that makes the sum insensitive
+            # to the parent's clearance - true of genotype, but not of a patient who
+            # simply eliminates this drug faster or slower overall.
+            met = replace(met, t_half_h=met.t_half_h * scale)
+        return replace(model, t_half_h=model.t_half_h * scale, bioavailability=f, metabolite=met)
 
     return shifted(-1.0), shifted(+1.0)

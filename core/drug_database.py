@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
@@ -14,6 +15,7 @@ from core.population import (
     clearance_factor,
     exposure_band_models,
     pathway_clearance_factor,
+    phenotype_log_sd,
 )
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "drugs.json"
@@ -209,14 +211,36 @@ class Drug:
             kdeg_per_h=self.kdeg_per_h,
         )
 
-    def exposure_band(self, model: PKModel) -> tuple[PKModel, PKModel]:
+    def unknown_phenotype_log_sd(self, genotypes: Mapping[str, str] | None = None) -> float:
+        """Extra clearance spread from metaboliser phenotypes the patient has not given.
+
+        A stated phenotype contributes nothing: it is already in the model.
+        """
+        from core.enzymes import load_enzymes, polymorphic_enzymes
+
+        unknown = (set(self.pathways or {}) & polymorphic_enzymes()) - set(genotypes or {})
+        if not unknown:
+            return 0.0
+        enzymes = load_enzymes()
+        total_sq = 0.0
+        for name in unknown:
+            e = enzymes[name]
+            mixture = {e.genotype_activity[p]: w for p, w in e.phenotype_frequency.items()}
+            total_sq += phenotype_log_sd(self.pathways[name], mixture) ** 2
+        return math.sqrt(total_sq)
+
+    def exposure_band(self, model: PKModel,
+                      genotypes: Mapping[str, str] | None = None) -> tuple[PKModel, PKModel]:
         """(low, high) 90 % inter-individual exposure models around ``model``.
 
         Uses the CL/F variability when known, else the t1/2 range relative to
-        the preset t1/2 (so covariate effects on ``model`` are kept).
+        the preset t1/2 (so covariate effects on ``model`` are kept). An unstated
+        metaboliser phenotype widens the band, because such a patient really could
+        sit anywhere in the phenotype mixture.
         """
         if self.cv_cl is not None:
-            return exposure_band_models(model, self.cv_cl, self.cv_f)
+            return exposure_band_models(model, self.cv_cl, self.cv_f,
+                                        extra_cl_log_sd=self.unknown_phenotype_log_sd(genotypes))
         lo, hi = self.half_life_band_h
         scale = model.t_half_h / self.t_half_h
         return model.with_half_life(lo * scale), model.with_half_life(hi * scale)

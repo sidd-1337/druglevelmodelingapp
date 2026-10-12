@@ -7,6 +7,7 @@ import numpy as np
 import streamlit as st
 
 from core.drug_database import CUSTOM_ID, custom_drug, formulation_from_dosage_form, load_drugs
+from core.enzymes import load_enzymes, polymorphic_enzymes
 from core.individualize import Observation, fit_individual, individual_band
 from core.interactions import (
     apply_interactions,
@@ -184,6 +185,24 @@ with st.sidebar:
         else:
             st.caption(T("renal_not_used", name=base.name))
 
+    # Only enzymes this drug is actually cleared by, and only those with a phenotype system.
+    genotype_enzymes = sorted((set(base.pathways or {}) & polymorphic_enzymes()))
+    genotypes: dict[str, str] = {}
+    if genotype_enzymes:
+        with st.expander(T("sb_genotype")):
+            st.caption(T("genotype_help"))
+            all_enzymes = load_enzymes()
+            for enzyme in genotype_enzymes:
+                labels = [T("phenotype_unknown")] + list(all_enzymes[enzyme].genotype_activity)
+                choice = st.selectbox(
+                    T("genotype_of", enzyme=enzyme), labels,
+                    format_func=lambda p: p if p == T("phenotype_unknown") else T("phenotype_" + p),
+                    key=f"gt_{enzyme}_{k}")
+                if choice != T("phenotype_unknown"):
+                    genotypes[enzyme] = choice
+                    st.caption(T("genotype_activity",
+                                 pct=100 * all_enzymes[enzyme].genotype_activity[choice]))
+
     with st.expander(T("sb_params")):
         t_half = st.number_input("t½ [h]", 0.1, 500.0, base.t_half_h, 0.1, key=f"th_{k}")
         cv_cl = st.number_input(T("cv_cl") + " [%]", 0.0, 200.0, 100.0 * (base.cv_cl or 0.3), 1.0,
@@ -273,13 +292,14 @@ except ValueError:
     st.stop()
 
 amount = drug.amount_from_dose_mg(dose_mg)
-model = drug.to_pk_model(weight, route, crcl_ml_min=crcl)
+model = drug.to_pk_model(weight, route, crcl_ml_min=crcl, genotypes=genotypes or None)
 ref_events = regular_schedule(amount, tau, duration_h)
 active_events = apply_missed_dose(ref_events, missed_index, delay_h) if missed_on else ref_events
 t = time_grid(duration_h)
 c_ref = concentration_profile(t, ref_events, model)
 c = concentration_profile(t, active_events, model) if missed_on else c_ref
-curves = [concentration_profile(t, active_events, m) for m in drug.exposure_band(model)]
+curves = [concentration_profile(t, active_events, m)
+          for m in drug.exposure_band(model, genotypes or None)]
 band = (np.minimum(*curves), np.maximum(*curves))
 
 metrics = compute_metrics(t, c, model)
