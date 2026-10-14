@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useTransition } from "react";
+import React, { KeyboardEvent, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, Loader2 } from "lucide-react";
 import { SearchResultItem, searchDrugsApi } from "@/lib/api";
+import { packageText, sentenceCase } from "@/lib/format";
 import { searchSuklCatalog } from "@/lib/sukl-data";
 
 export default function SuklSearch() {
@@ -11,21 +12,26 @@ export default function SuklSearch() {
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [active, setActive] = useState(-1);
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestRef = useRef(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setQuery(val);
+    setActive(-1);
+    const request = ++requestRef.current;
 
     if (val.trim().length >= 2) {
       // 1. Instant local hits
-      const localHits = searchSuklCatalog(val);
-      setResults(localHits);
+      setResults(searchSuklCatalog(val));
       setIsOpen(true);
 
-      // 2. Debounced query to FastAPI backend
+      // 2. Debounced query to the FastAPI backend; a newer keystroke makes this one stale.
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -33,11 +39,11 @@ export default function SuklSearch() {
       searchTimeoutRef.current = setTimeout(async () => {
         try {
           const apiHits = await searchDrugsApi(val);
-          if (apiHits.length > 0) {
+          if (request === requestRef.current && apiHits.length > 0) {
             setResults(apiHits);
           }
         } finally {
-          setIsSearching(false);
+          if (request === requestRef.current) setIsSearching(false);
         }
       }, 250);
     } else {
@@ -55,6 +61,15 @@ export default function SuklSearch() {
     };
   }, []);
 
+  // Close the list when the pointer goes down anywhere outside the search.
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
   const handleSelect = (kodSukl: string) => {
     setIsOpen(false);
     startTransition(() => {
@@ -62,69 +77,113 @@ export default function SuklSearch() {
     });
   };
 
+  const clear = () => {
+    requestRef.current++;
+    setQuery("");
+    setResults([]);
+    setIsOpen(false);
+    setIsSearching(false);
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setIsOpen(false);
+      return;
+    }
+    if (!results.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setIsOpen(true);
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setActive((i) => (i + step + results.length) % results.length);
+    } else if (e.key === "Enter" && isOpen) {
+      e.preventDefault();
+      handleSelect(results[active >= 0 ? active : 0].kodSukl);
+    }
+  };
+
+  const showEmpty = isOpen && !isSearching && query.trim().length >= 2 && results.length === 0;
+  const showList = isOpen && results.length > 0;
+
   return (
-    <div className="relative w-full max-w-2xl mx-auto">
+    <div ref={rootRef} className="relative mx-auto w-full max-w-xl text-left">
       <div className="relative flex items-center">
-        <div className="absolute left-4 text-zinc-400 dark:text-zinc-500 pointer-events-none">
-          {isSearching ? (
-            <Loader2 className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
-          ) : (
-            <Search className="w-5 h-5" />
-          )}
-        </div>
+        <Search
+          className="pointer-events-none absolute left-4 h-5 w-5 text-ink-2"
+          strokeWidth={1.75}
+          aria-hidden
+        />
         <input
           type="text"
+          role="combobox"
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+          aria-label="Hledat lék"
+          autoComplete="off"
+          spellCheck={false}
           value={query}
           onChange={handleInputChange}
-          onFocus={() => query.length >= 2 && setIsOpen(true)}
-          placeholder="Vyhledat lék podle názvu, účinné látky nebo kódu SÚKL..."
-          className="w-full pl-12 pr-10 py-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all text-sm sm:text-base font-normal"
+          onKeyDown={onKeyDown}
+          onFocus={() => query.trim().length >= 2 && setIsOpen(true)}
+          placeholder="Název léku, látka nebo kód SÚKL"
+          className="h-[52px] w-full rounded-ctl bg-ink/[0.06] pl-12 pr-12 text-body text-ink outline-none transition-shadow placeholder:text-ink-2 focus:bg-bg focus:ring-2 focus:ring-accent"
         />
-        {query && (
-          <button
-            onClick={() => {
-              setQuery("");
-              setResults([]);
-              setIsOpen(false);
-            }}
-            className="absolute right-4 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        {isSearching ? (
+          <Loader2 className="absolute right-4 h-4 w-4 animate-spin text-ink-2" aria-hidden />
+        ) : (
+          query && (
+            <button
+              type="button"
+              onClick={clear}
+              aria-label="Vymazat hledání"
+              className="absolute right-2.5 flex h-8 w-8 items-center justify-center rounded-full text-ink-2 hover:text-ink"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          )
         )}
       </div>
 
-      {isOpen && results.length > 0 && (
-        <div className="absolute left-0 right-0 mt-2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden z-50 divide-y divide-zinc-100 dark:divide-zinc-800/80">
-          <div className="px-4 py-2.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-50/70 dark:bg-zinc-950/40 flex items-center justify-between">
-            <span>Nalezená léčiva ({results.length})</span>
-            {isSearching && (
-              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">Hledám v SÚKL...</span>
-            )}
-          </div>
-          <div className="max-h-72 overflow-y-auto">
-            {results.map((item) => (
-              <button
-                key={item.kodSukl}
-                onClick={() => handleSelect(item.kodSukl)}
-                className="w-full text-left px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors flex items-center justify-between gap-3 group"
-              >
-                <div>
-                  <div className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {item.nazev}
-                  </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">
-                    {item.doplnek || "Léčivý přípravek"}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="inline-block font-medium text-[11px] px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/60">
-                    {item.kodSukl}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
+      <div role="status" className="sr-only">
+        {showList ? `Nalezeno ${results.length} léčiv` : showEmpty ? "Nic nenalezeno" : ""}
+      </div>
+
+      {showList && (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="Nalezená léčiva"
+          className="absolute inset-x-0 top-full z-30 mt-2 max-h-80 overflow-y-auto rounded-panel bg-bg py-2 shadow-pop ring-1 ring-line-soft"
+        >
+          {results.map((item, i) => (
+            <li
+              key={item.kodSukl}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === active}
+              onClick={() => handleSelect(item.kodSukl)}
+              onMouseMove={() => setActive(i)}
+              className={`flex cursor-pointer items-baseline justify-between gap-4 px-5 py-2.5 ${
+                i === active ? "bg-ink/[0.06]" : ""
+              }`}
+            >
+              <span className="min-w-0">
+                <span className="block text-ui font-semibold text-ink">{sentenceCase(item.nazev)}</span>
+                <span className="line-clamp-1 block text-small text-ink-2">
+                  {packageText(item.doplnek) || "Léčivý přípravek"}
+                </span>
+              </span>
+              <span className="figures shrink-0 text-small text-ink-2">{item.kodSukl}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {showEmpty && (
+        <div className="absolute inset-x-0 top-full z-30 mt-2 rounded-panel bg-bg px-5 py-4 text-ui text-ink-2 shadow-pop ring-1 ring-line-soft">
+          Nic jsme nenašli. Zkuste název účinné látky nebo kód SÚKL.
         </div>
       )}
     </div>

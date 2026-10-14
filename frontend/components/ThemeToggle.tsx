@@ -34,11 +34,8 @@ export default function ThemeToggle() {
     }
   };
 
-  if (!mounted) {
-    return (
-      <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
-    );
-  }
+  // Reserve the space so the header does not shift when the icon appears.
+  if (!mounted) return <div className="h-8 w-8" aria-hidden />;
 
   return (
     <button
@@ -46,13 +43,9 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={isDark ? "Přepnout na světlý režim" : "Přepnout na tmavý režim"}
       title={isDark ? "Světlý režim" : "Tmavý režim"}
-      className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-ctl text-ink-2 transition-colors hover:bg-ink/[0.07] hover:text-ink"
     >
-      {isDark ? (
-        <Sun className="w-4 h-4 text-amber-400 transition-transform duration-200 hover:rotate-45" />
-      ) : (
-        <Moon className="w-4 h-4 text-zinc-600 transition-transform duration-200 hover:-rotate-12" />
-      )}
+      {isDark ? <Sun className="h-[18px] w-[18px]" strokeWidth={1.75} /> : <Moon className="h-[18px] w-[18px]" strokeWidth={1.75} />}
     </button>
   );
 }

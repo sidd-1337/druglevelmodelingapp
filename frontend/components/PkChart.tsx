@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { KeyboardEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { PKCalculationPoint } from "@/lib/types";
+import { num, sig } from "@/lib/format";
+import Status from "@/components/ui/Status";
 
 interface PkChartProps {
   data: PKCalculationPoint[];
@@ -15,6 +17,56 @@ interface PkChartProps {
   primaryLabel?: string;
 }
 
+// Keeps a label legible where the curve passes behind it.
+const HALO = { stroke: "rgb(var(--bg))", strokeWidth: 4, paintOrder: "stroke" } as const;
+
+const MARGIN = { top: 22, right: 46, bottom: 28, left: 2 };
+
+/** Width of the element, tracked so the SVG is drawn at real pixel size and text stays legible. */
+function useWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setWidth(Math.round(el.getBoundingClientRect().width));
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width] as const;
+}
+
+function niceStep(max: number, count: number): number {
+  const raw = max / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / mag;
+  const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+  return m * mag;
+}
+
+function decimalsOf(step: number): number {
+  let d = 0;
+  while (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) > 1e-9 && d < 6) d++;
+  return d;
+}
+
+function hourStep(durationH: number, maxTicks: number): number {
+  const candidates = [1, 2, 3, 4, 6, 8, 12, 24, 48, 96];
+  return candidates.find((s) => durationH / s <= maxTicks) ?? 96;
+}
+
+function nearestIndex(data: PKCalculationPoint[], t: number): number {
+  let lo = 0;
+  let hi = data.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (data[mid].timeH < t) lo = mid;
+    else hi = mid;
+  }
+  return Math.abs(data[lo].timeH - t) <= Math.abs(data[hi].timeH - t) ? lo : hi;
+}
+
 export default function PkChart({
   data,
   mec,
@@ -23,357 +75,352 @@ export default function PkChart({
   durationH,
   doseTimes,
   secondaryData,
-  secondaryLabel = "2. dávka (redose)",
-  primaryLabel = "Hladina v krvi C(t)",
+  secondaryLabel = "2. dávka",
+  primaryLabel = "Hladina v krvi",
 }: PkChartProps) {
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [wrapRef, width] = useWidth<HTMLDivElement>();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+
+  const height = Math.round(Math.min(380, Math.max(240, width * 0.42)));
+  const plotW = Math.max(0, width - MARGIN.left - MARGIN.right);
+  const plotH = height - MARGIN.top - MARGIN.bottom;
+
+  const maxC = useMemo(() => {
+    const all = secondaryData ? [...data, ...secondaryData] : data;
+    const maxData = all.reduce((m, p) => Math.max(m, p.concentration), 0);
+    return Math.max(mtc * 1.15, maxData * 1.1) || 1;
+  }, [data, secondaryData, mtc]);
+
+  const peakIndex = useMemo(() => {
+    let best = 0;
+    data.forEach((p, i) => {
+      if (p.concentration > data[best].concentration) best = i;
+    });
+    return best;
+  }, [data]);
+
+  const getX = (t: number) => MARGIN.left + (Math.max(0, Math.min(durationH, t)) / durationH) * plotW;
+  const getY = (c: number) => MARGIN.top + plotH - (Math.max(0, Math.min(maxC, c)) / maxC) * plotH;
+
+  const toPath = (points: PKCalculationPoint[]) =>
+    points
+      .map((p, i) => `${i === 0 ? "M" : "L"}${getX(p.timeH).toFixed(1)} ${getY(p.concentration).toFixed(1)}`)
+      .join(" ");
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const primaryPath = useMemo(() => toPath(data), [data, width, height, maxC, durationH]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const secondaryPath = useMemo(
+    () => (secondaryData ? toPath(secondaryData) : null),
+    [secondaryData, width, height, maxC, durationH]
+  );
 
   if (!data || data.length === 0) return null;
 
-  const width = 800;
-  const height = 360;
-  const padding = { top: 25, right: 30, bottom: 45, left: 60 };
-  const chartW = width - padding.left - padding.right;
-  const chartH = height - padding.top - padding.bottom;
+  const cur = data[Math.min(selected ?? peakIndex, data.length - 1)];
+  const curSecondary =
+    secondaryData && secondaryData.length
+      ? secondaryData[nearestIndex(secondaryData, cur.timeH)]
+      : null;
 
-  const allPoints = secondaryData ? [...data, ...secondaryData] : data;
-  const maxDataC = Math.max(...allPoints.map((d) => d.concentration));
-  const maxC = Math.max(mtc * 1.3, maxDataC * 1.15, 0.1);
+  const scrub = (clientX: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || plotW <= 0) return;
+    const t = ((clientX - rect.left - MARGIN.left) / plotW) * durationH;
+    setSelected(nearestIndex(data, Math.max(0, Math.min(durationH, t))));
+  };
 
-  const getX = (t: number) => padding.left + (Math.max(0, Math.min(durationH, t)) / durationH) * chartW;
-  const getY = (c: number) => padding.top + chartH - (Math.max(0, c) / maxC) * chartH;
+  const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+    // Touch scrubs only while a finger is down; a mouse follows the pointer.
+    if (e.pointerType === "mouse" || e.buttons > 0) scrub(e.clientX);
+  };
+  const onPointerDown = (e: PointerEvent<SVGSVGElement>) => scrub(e.clientX);
+  const onPointerLeave = (e: PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === "mouse") setSelected(null);
+  };
 
-  // Build SVG path
-  const pathD = data
-    .map((pt, i) => `${i === 0 ? "M" : "L"} ${getX(pt.timeH)} ${getY(pt.concentration)}`)
-    .join(" ");
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = Math.max(1, Math.floor(data.length / 120));
+    const at = selected ?? peakIndex;
+    if (e.key === "ArrowRight") setSelected(Math.min(data.length - 1, at + step));
+    else if (e.key === "ArrowLeft") setSelected(Math.max(0, at - step));
+    else if (e.key === "Home") setSelected(0);
+    else if (e.key === "End") setSelected(data.length - 1);
+    else if (e.key === "Escape") setSelected(null);
+    else return;
+    e.preventDefault();
+  };
 
-  const secondaryPathD = secondaryData
-    ? secondaryData
-        .map((pt, i) => `${i === 0 ? "M" : "L"} ${getX(pt.timeH)} ${getY(pt.concentration)}`)
-        .join(" ")
-    : null;
+  // Axes
+  const yStep = niceStep(maxC, 4);
+  const yDecimals = decimalsOf(yStep);
+  const yTicks: number[] = [];
+  for (let v = 0; v <= maxC + 1e-9; v += yStep) yTicks.push(v);
 
-  // Find Cmax
-  let peakPoint = data[0];
-  for (const pt of data) {
-    if (pt.concentration > peakPoint.concentration) {
-      peakPoint = pt;
-    }
-  }
+  const xStep = hourStep(durationH, Math.max(3, Math.floor(plotW / 72)));
+  const xTicks: number[] = [];
+  for (let t = 0; t <= durationH + 1e-9; t += xStep) xTicks.push(t);
 
-  // Zone coordinates
   const yMtc = getY(mtc);
   const yMec = getY(mec);
   const yZero = getY(0);
+  const yTop = MARGIN.top;
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const relX = (mouseX / rect.width) * width;
-    const tHover = ((relX - padding.left) / chartW) * durationH;
+  const zone =
+    cur.concentration > mtc ? "bad" : cur.concentration >= mec ? "ok" : "neutral";
+  const zoneText =
+    zone === "bad"
+      ? "Toxická hladina, nad MTC"
+      : zone === "ok"
+      ? "Terapeutické rozmezí"
+      : "Pod terapeutickou hladinou";
 
-    if (tHover >= 0 && tHover <= durationH) {
-      const idx = Math.round((tHover / durationH) * (data.length - 1));
-      if (idx >= 0 && idx < data.length) {
-        setHoverIndex(idx);
-      }
-    } else {
-      setHoverIndex(null);
-    }
-  };
-
-  const hovered = hoverIndex !== null ? data[hoverIndex] : null;
-  const secondaryHovered = hoverIndex !== null && secondaryData ? secondaryData[hoverIndex] : null;
+  const peak = data[peakIndex];
+  const label = `Graf: ${primaryLabel.toLowerCase()} v čase. Vrchol ${sig(peak.concentration)} ${unit} v ${num(peak.timeH, 1)} h. Terapeutické okno ${sig(mec)} až ${sig(mtc)} ${unit}.`;
 
   return (
-    <div className="apple-card p-5 select-none">
-      <div className="flex flex-wrap items-center justify-between mb-4 text-xs gap-3">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 dark:bg-blue-400"></span>
-            <span className="text-zinc-800 dark:text-zinc-200 font-medium">{primaryLabel}</span>
-          </div>
-          {secondaryData && (
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-              <span className="text-zinc-800 dark:text-zinc-200 font-medium">{secondaryLabel}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/20 border border-emerald-500/50"></span>
-            <span className="text-zinc-500 dark:text-zinc-400">Terapeutické okno (MEC–MTC)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-rose-500/15 border border-rose-500/40"></span>
-            <span className="text-zinc-500 dark:text-zinc-400">Toxická zóna (&gt; MTC)</span>
-          </div>
+    <div>
+      {/* Readout: the value under the finger or pointer; the peak until you scrub. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div>
+          <p className="text-ui text-ink-2">
+            {selected === null ? "Vrchol" : "V čase"} {"t = "}
+            <span className="figures">{num(cur.timeH, 1)}</span>
+            {" h"}
+          </p>
+          <p className="figures text-figure">
+            {sig(cur.concentration)}
+            <span className="ml-2 text-h3 font-normal text-ink-2">{unit}</span>
+          </p>
         </div>
-
-        {peakPoint && (
-          <div className="text-xs px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700 font-medium">
-            Cmax: <strong>{peakPoint.concentration.toFixed(2)} {unit}</strong> (t = {peakPoint.timeH.toFixed(1)} h)
-          </div>
-        )}
+        <div className="text-ui sm:text-right">
+          <Status tone={zone}>{zoneText}</Status>
+          {curSecondary && (
+            <p className="figures mt-0.5 text-ink-2">
+              {secondaryLabel}: {sig(curSecondary.concentration)}
+              {" "}
+              {unit}
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="relative w-full aspect-[800/360]">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-full cursor-crosshair overflow-visible"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverIndex(null)}
-        >
-          {/* Toxic Zone (> MTC) */}
-          <rect
-            x={padding.left}
-            y={padding.top}
-            width={chartW}
-            height={Math.max(0, yMtc - padding.top)}
-            fill="rgba(239, 68, 68, 0.05)"
-          />
-
-          {/* Therapeutic Window (MEC - MTC) */}
-          <rect
-            x={padding.left}
-            y={Math.min(yMtc, yMec)}
-            width={chartW}
-            height={Math.abs(yMec - yMtc)}
-            fill="rgba(16, 185, 129, 0.06)"
-          />
-
-          {/* Sub-therapeutic Zone (< MEC) */}
-          <rect
-            x={padding.left}
-            y={yMec}
-            width={chartW}
-            height={Math.max(0, yZero - yMec)}
-            fill="rgba(113, 113, 122, 0.03)"
-          />
-
-          {/* Grid lines */}
-          {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-            const tVal = pct * durationH;
-            const x = getX(tVal);
-            return (
-              <g key={pct}>
-                <line
-                  x1={x}
-                  y1={padding.top}
-                  x2={x}
-                  y2={padding.top + chartH}
-                  stroke="rgba(113, 113, 122, 0.15)"
-                  strokeDasharray="4 4"
-                />
-                <text
-                  x={x}
-                  y={height - 15}
-                  fill="#71717a"
-                  fontSize="10"
-                  textAnchor="middle"
-                  fontFamily="system-ui, sans-serif"
-                >
-                  {tVal.toFixed(0)} h
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Dose event markers */}
-          {doseTimes &&
-            doseTimes.map((td, idx) => {
-              if (td > durationH) return null;
-              const x = getX(td);
-              return (
-                <g key={`dose-${idx}`}>
-                  <line
-                    x1={x}
-                    y1={padding.top}
-                    x2={x}
-                    y2={padding.top + chartH}
-                    stroke="rgba(0, 113, 227, 0.25)"
-                    strokeWidth="1.5"
-                    strokeDasharray="3 3"
-                  />
-                  <circle cx={x} cy={padding.top + chartH + 8} r="3" fill="#0071e3" />
-                  <text
-                    x={x}
-                    y={padding.top + chartH + 22}
-                    fill="#0071e3"
-                    fontSize="9"
-                    textAnchor="middle"
-                    fontFamily="monospace"
-                  >
-                    D{idx + 1}
-                  </text>
-                </g>
-              );
-            })}
-
-          {/* MTC line */}
-          <line
-            x1={padding.left}
-            y1={yMtc}
-            x2={padding.left + chartW}
-            y2={yMtc}
-            stroke="#ef4444"
-            strokeWidth="1.5"
-            strokeDasharray="5 3"
-          />
-          <text
-            x={padding.left + chartW - 5}
-            y={yMtc - 6}
-            fill="#ef4444"
-            fontSize="10"
-            textAnchor="end"
-            fontFamily="system-ui, sans-serif"
-            fontWeight="500"
+      <div
+        ref={wrapRef}
+        tabIndex={0}
+        role="group"
+        aria-label={`${label} Šipkami vlevo a vpravo procházíte jednotlivé časy.`}
+        onKeyDown={onKeyDown}
+        className="mt-5 select-none rounded-ctl"
+        style={{ height: height || 240 }}
+      >
+        {width > 0 && (
+          <svg
+            ref={svgRef}
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            className="block overflow-visible"
+            style={{ touchAction: "pan-y", cursor: "crosshair" }}
+            onPointerMove={onPointerMove}
+            onPointerDown={onPointerDown}
+            onPointerLeave={onPointerLeave}
+            aria-hidden
           >
-            MTC: {mtc.toFixed(2)} {unit}
-          </text>
-
-          {/* MEC line */}
-          <line
-            x1={padding.left}
-            y1={yMec}
-            x2={padding.left + chartW}
-            y2={yMec}
-            stroke="#10b981"
-            strokeWidth="1.5"
-            strokeDasharray="5 3"
-          />
-          <text
-            x={padding.left + chartW - 5}
-            y={yMec - 6}
-            fill="#10b981"
-            fontSize="10"
-            textAnchor="end"
-            fontFamily="system-ui, sans-serif"
-            fontWeight="500"
-          >
-            MEC: {mec.toFixed(2)} {unit}
-          </text>
-
-          {/* Y-axis ticks */}
-          {[0, maxC * 0.25, maxC * 0.5, maxC * 0.75, maxC].map((cVal, i) => {
-            const y = getY(cVal);
-            return (
-              <g key={i}>
-                <line
-                  x1={padding.left - 4}
-                  y1={y}
-                  x2={padding.left + chartW}
-                  y2={y}
-                  stroke="rgba(113, 113, 122, 0.12)"
-                />
-                <text
-                  x={padding.left - 8}
-                  y={y + 3}
-                  fill="#71717a"
-                  fontSize="10"
-                  textAnchor="end"
-                  fontFamily="monospace"
-                >
-                  {cVal.toFixed(1)}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Secondary curve */}
-          {secondaryPathD && (
-            <path
-              d={secondaryPathD}
-              fill="none"
-              stroke="#f59e0b"
-              strokeWidth="2.5"
-              strokeDasharray="4 2"
-              className="transition-all"
+            {/* Zones */}
+            <rect
+              x={MARGIN.left}
+              y={yTop}
+              width={plotW}
+              height={Math.max(0, yMtc - yTop)}
+              fill="rgb(var(--bad-fill) / 0.08)"
             />
-          )}
+            <rect
+              x={MARGIN.left}
+              y={Math.min(yMtc, yMec)}
+              width={plotW}
+              height={Math.abs(yMec - yMtc)}
+              fill="rgb(var(--ok-fill) / 0.13)"
+            />
 
-          {/* Primary curve */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke="#0071e3"
-            strokeWidth="2.5"
-            className="transition-all"
-          />
-
-          {/* Hover indicator */}
-          {hovered && (
-            <g>
-              <line
-                x1={getX(hovered.timeH)}
-                y1={padding.top}
-                x2={getX(hovered.timeH)}
-                y2={padding.top + chartH}
-                stroke="#0071e3"
-                strokeWidth="1"
-                strokeDasharray="2 2"
-              />
-              <circle
-                cx={getX(hovered.timeH)}
-                cy={getY(hovered.concentration)}
-                r="4.5"
-                fill="#0071e3"
-                stroke="#ffffff"
-                strokeWidth="2"
-              />
-              {secondaryHovered && (
-                <circle
-                  cx={getX(secondaryHovered.timeH)}
-                  cy={getY(secondaryHovered.concentration)}
-                  r="4.5"
-                  fill="#f59e0b"
-                  stroke="#ffffff"
-                  strokeWidth="2"
+            {/* Grid and y axis, labels on the right */}
+            {yTicks.map((v) => (
+              <g key={v}>
+                <line
+                  x1={MARGIN.left}
+                  x2={MARGIN.left + plotW}
+                  y1={getY(v)}
+                  y2={getY(v)}
+                  stroke="rgb(var(--line-soft))"
                 />
-              )}
-            </g>
-          )}
-        </svg>
+                <text
+                  x={width - 2}
+                  y={getY(v) + 4}
+                  textAnchor="end"
+                  fontSize={12}
+                  fill="rgb(var(--ink-2))"
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
+                  {num(v, yDecimals)}
+                </text>
+              </g>
+            ))}
+            <text
+              x={width - 2}
+              y={11}
+              textAnchor="end"
+              fontSize={12}
+              fill="rgb(var(--ink-2))"
+            >
+              {unit}
+            </text>
 
-        {/* Hover Tooltip Popup */}
-        {hovered && (
-          <div
-            className="absolute pointer-events-none z-20 backdrop-blur-md bg-white/95 dark:bg-zinc-800/95 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-3 text-xs space-y-1 transition-all"
-            style={{
-              left: `${Math.min(80, Math.max(10, (hovered.timeH / durationH) * 100))}%`,
-              top: "15%",
-            }}
-          >
-            <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center justify-between gap-4">
-              <span>Čas t:</span>
-              <span className="font-semibold text-blue-600 dark:text-blue-400">{hovered.timeH.toFixed(2)} h</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-zinc-500 dark:text-zinc-400">Koncentrace:</span>
-              <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                {hovered.concentration.toFixed(3)} {unit}
-              </span>
-            </div>
-            {secondaryHovered && (
-              <div className="flex items-center justify-between gap-4 pt-1 border-t border-zinc-100 dark:border-zinc-700/60">
-                <span className="text-amber-600 dark:text-amber-400">Po redosu:</span>
-                <span className="font-bold text-amber-600 dark:text-amber-400">
-                  {secondaryHovered.concentration.toFixed(3)} {unit}
-                </span>
-              </div>
+            {/* Therapeutic limits */}
+            <line
+              x1={MARGIN.left}
+              x2={MARGIN.left + plotW}
+              y1={yMtc}
+              y2={yMtc}
+              stroke="rgb(var(--bad-fill) / 0.7)"
+              strokeDasharray="4 4"
+            />
+            <text
+              x={MARGIN.left + 6}
+              y={yMtc - yTop < 16 ? yMtc + 15 : yMtc - 6}
+              fontSize={12}
+              fontWeight={500}
+              fill="rgb(var(--bad))"
+              {...HALO}
+            >
+              MTC {sig(mtc)}
+            </text>
+            <line
+              x1={MARGIN.left}
+              x2={MARGIN.left + plotW}
+              y1={yMec}
+              y2={yMec}
+              stroke="rgb(var(--ok-fill) / 0.8)"
+              strokeDasharray="4 4"
+            />
+            <text
+              x={MARGIN.left + 6}
+              y={yMec - 6}
+              fontSize={12}
+              fontWeight={500}
+              fill="rgb(var(--ok))"
+              {...HALO}
+            >
+              MEC {sig(mec)}
+            </text>
+
+            {/* x axis */}
+            <line
+              x1={MARGIN.left}
+              x2={MARGIN.left + plotW}
+              y1={yZero}
+              y2={yZero}
+              stroke="rgb(var(--line))"
+            />
+            {xTicks.map((t) => (
+              <text
+                key={t}
+                x={Math.min(getX(t), width - MARGIN.right - 2)}
+                y={yZero + 19}
+                textAnchor={t === 0 ? "start" : t >= durationH ? "end" : "middle"}
+                fontSize={12}
+                fill="rgb(var(--ink-2))"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {t === 0 ? "0 h" : t}
+              </text>
+            ))}
+
+            {/* Doses */}
+            {doseTimes?.map((td, i) =>
+              td > durationH ? null : (
+                <g key={`${td}-${i}`}>
+                  <line
+                    x1={getX(td)}
+                    x2={getX(td)}
+                    y1={yTop}
+                    y2={yZero}
+                    stroke="rgb(var(--ink) / 0.1)"
+                  />
+                  <circle cx={getX(td)} cy={yZero} r={3} fill="rgb(var(--ink-2))" />
+                </g>
+              )
             )}
-            <div className="pt-1 text-[10px] border-t border-zinc-100 dark:border-zinc-700/60 font-medium">
-              {hovered.concentration > mtc ? (
-                <span className="text-rose-600 dark:text-rose-400">⚠️ Toxická hladina (&gt; MTC)</span>
-              ) : hovered.concentration >= mec ? (
-                <span className="text-emerald-600 dark:text-emerald-400">✅ Terapeutické rozmezí</span>
-              ) : (
-                <span className="text-zinc-400 dark:text-zinc-500">⚪ Subterapeutická hladina</span>
-              )}
-            </div>
-          </div>
+
+            {/* Curves */}
+            {secondaryPath && (
+              <path
+                d={secondaryPath}
+                fill="none"
+                stroke="rgb(var(--ink-2))"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                strokeLinejoin="round"
+              />
+            )}
+            <path
+              d={primaryPath}
+              fill="none"
+              stroke="rgb(var(--ink))"
+              strokeWidth={2.25}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+
+            {/* Marker */}
+            <line
+              x1={getX(cur.timeH)}
+              x2={getX(cur.timeH)}
+              y1={yTop}
+              y2={yZero}
+              stroke="rgb(var(--ink) / 0.35)"
+            />
+            <circle
+              cx={getX(cur.timeH)}
+              cy={getY(cur.concentration)}
+              r={5.5}
+              fill="rgb(var(--ink))"
+              stroke="rgb(var(--bg))"
+              strokeWidth={2.5}
+            />
+          </svg>
         )}
       </div>
+
+      <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5 text-small text-ink-2">
+        <li className="flex items-center gap-2">
+          <span aria-hidden className="h-0.5 w-4 rounded-full bg-ink" />
+          {primaryLabel}
+        </li>
+        {secondaryData && (
+          <li className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="h-0 w-4 border-t-2 border-dashed border-ink-2"
+            />
+            {secondaryLabel}
+          </li>
+        )}
+        {doseTimes && (
+          <li className="flex items-center gap-2">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ink-2" />
+            Dávka
+          </li>
+        )}
+        <li className="flex items-center gap-2">
+          <span aria-hidden className="h-2.5 w-4 rounded-sm bg-ok-fill/25" />
+          Terapeutické okno (MEC až MTC)
+        </li>
+        <li className="flex items-center gap-2">
+          <span aria-hidden className="h-2.5 w-4 rounded-sm bg-bad-fill/20" />
+          Toxická zóna (nad MTC)
+        </li>
+      </ul>
     </div>
   );
 }

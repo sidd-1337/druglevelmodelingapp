@@ -1,132 +1,89 @@
 import React from "react";
 import Link from "next/link";
 import { SuklPackageDetail } from "@/lib/types";
+import { kc, packageText, sentenceCase } from "@/lib/format";
+import SectionHead from "../ui/SectionHead";
+import SpecList from "../ui/SpecList";
+import Status, { Tone } from "../ui/Status";
 
 interface ShortageSubstitutesTabProps {
   suklDetail: SuklPackageDetail;
 }
 
 export default function ShortageSubstitutesTab({ suklDetail }: ShortageSubstitutesTabProps) {
-  const isInterrupted = suklDetail.dostupnostStatus === "interrupted";
-  const isEnded = suklDetail.dostupnostStatus === "ended";
-  const isActive = suklDetail.dostupnostStatus === "active";
+  const status = suklDetail.dostupnostStatus;
+  const isInterrupted = status === "interrupted";
+
+  const tone: Tone =
+    status === "active" ? "ok" : status === "interrupted" ? "warn" : status === "ended" ? "bad" : "neutral";
+  const label =
+    status === "active"
+      ? "Dodávky jsou aktivní"
+      : status === "interrupted"
+      ? "Dodávky jsou přerušené"
+      : status === "ended"
+      ? "Dodávky byly ukončeny"
+      : "Bez hlášení o dostupnosti";
+
+  const details = [
+    suklDetail.terminObnoveni && {
+      label: "Předpokládané obnovení dodávek",
+      value: suklDetail.terminObnoveni,
+    },
+    suklDetail.duvodPreruseni && { label: "Důvod přerušení", value: suklDetail.duvodPreruseni },
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  const substitutes = suklDetail.substitutes ?? [];
 
   return (
-    <div className="space-y-6">
-      {/* Shortage Status Banner */}
-      <div className="apple-card p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div>
-            <h4 className="font-semibold text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              Hlášení o dostupnosti na trhu ČR
-            </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Evidováno dle § 33 zákona č. 378/2007 Sb., o léčivech
-            </p>
-          </div>
-
-          <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-              isActive
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60"
-                : isInterrupted
-                ? "bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60"
-                : isEnded
-                ? "bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60"
-                : "bg-zinc-100 text-zinc-700 border border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isActive
-                  ? "bg-emerald-500"
-                  : isInterrupted
-                  ? "bg-amber-500"
-                  : isEnded
-                  ? "bg-rose-500"
-                  : "bg-zinc-400"
-              }`}
-            />
-            {isActive
-              ? "Dodávky aktivní"
-              : isInterrupted
-              ? "Výpadek / Přerušení"
-              : isEnded
-              ? "Ukončeno"
-              : "Bez hlášení"}
-          </span>
-        </div>
-
-        <p className="text-sm text-zinc-600 dark:text-zinc-300 mb-4">{suklDetail.dostupnostText}</p>
-
-        {isInterrupted && (
-          <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200/80 dark:bg-amber-950/30 dark:border-amber-800/50 text-xs space-y-2">
-            {suklDetail.terminObnoveni && (
-              <div className="flex flex-wrap items-center gap-2 text-amber-900 dark:text-amber-200">
-                <span className="font-medium">Předpokládaný termín obnovení dodávek:</span>
-                <span className="font-mono bg-white dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700 font-semibold">
-                  {suklDetail.terminObnoveni}
-                </span>
-              </div>
-            )}
-            {suklDetail.duvodPreruseni && (
-              <div className="text-zinc-700 dark:text-zinc-300">
-                <span className="font-medium text-amber-900 dark:text-amber-200">Důvod přerušení:</span>{" "}
-                {suklDetail.duvodPreruseni}
-              </div>
-            )}
+    <div className="space-y-20">
+      <section>
+        <SectionHead title="Dostupnost na trhu v ČR">
+          Evidováno podle § 33 zákona č. 378/2007 Sb., o léčivech.
+        </SectionHead>
+        <p className="mt-8 text-sub">
+          <Status tone={tone}>{label}</Status>
+        </p>
+        <p className="mt-2 max-w-prose text-body text-ink-2">{suklDetail.dostupnostText}</p>
+        {isInterrupted && details.length > 0 && (
+          <div className="mt-8">
+            <SpecList items={details} />
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Available Generic Substitutes Table */}
-      <div className="apple-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h4 className="font-semibold text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              Dostupné generické náhrady bez výpadku
-            </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Přípravky se shodnou nebo terapeuticky ekvivalentní účinnou látkou, které jsou aktuálně dodávány do lékáren.
-            </p>
-          </div>
-        </div>
+      <section>
+        <SectionHead title="Dostupné náhrady">
+          Přípravky se stejnou nebo terapeuticky rovnocennou látkou, které se teď dodávají do lékáren.
+        </SectionHead>
 
-        {suklDetail.substitutes && suklDetail.substitutes.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-zinc-200/80 dark:border-zinc-800">
-            <table className="w-full text-left text-xs divide-y divide-zinc-200/80 dark:divide-zinc-800">
+        {substitutes.length > 0 ? (
+          <div className="-mx-5 mt-6 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+            <table className="w-full min-w-[480px] border-collapse text-left">
               <thead>
-                <tr className="text-zinc-500 dark:text-zinc-400 font-medium bg-zinc-50 dark:bg-zinc-800/60">
-                  <th className="py-3 px-4">Přípravek</th>
-                  <th className="py-3 px-4">Balení & Síla</th>
-                  <th className="py-3 px-4">Stav dodávek</th>
-                  <th className="py-3 px-4 text-right">Doplatek</th>
-                  <th className="py-3 px-4 text-right">Akce</th>
+                <tr className="text-ui text-ink-2">
+                  <th scope="col" className="border-b border-line py-3 pr-6 font-normal">
+                    Přípravek
+                  </th>
+                  <th scope="col" className="border-b border-line py-3 pr-6 font-normal">
+                    Balení a síla
+                  </th>
+                  <th scope="col" className="border-b border-line py-3 text-right font-normal">
+                    Doplatek
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
-                {suklDetail.substitutes.map((sub) => (
-                  <tr key={sub.kodSukl} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
-                      {sub.nazev}
-                    </td>
-                    <td className="py-3 px-4 text-zinc-500 dark:text-zinc-400">{sub.doplnek}</td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Bez výpadku
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono font-medium text-zinc-900 dark:text-zinc-100">
-                      {sub.doplatek.toFixed(2)} Kč
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <Link
-                        href={`/leky/${sub.kodSukl}`}
-                        className="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium text-xs border border-zinc-200/80 dark:border-zinc-700/80 transition-colors inline-block"
-                      >
-                        Detail ↗
+              <tbody>
+                {substitutes.map((sub) => (
+                  <tr key={sub.kodSukl}>
+                    <td className="border-b border-line-soft py-4 pr-6 text-body">
+                      <Link href={`/leky/${sub.kodSukl}`} className="link">
+                        {sentenceCase(sub.nazev)}
                       </Link>
+                    </td>
+                    <td className="border-b border-line-soft py-4 pr-6 text-ui text-ink-2">{packageText(sub.doplnek)}</td>
+                    <td className="figures border-b border-line-soft py-4 text-right text-body">
+                      {kc(sub.doplatek, 2)}
                     </td>
                   </tr>
                 ))}
@@ -134,11 +91,12 @@ export default function ShortageSubstitutesTab({ suklDetail }: ShortageSubstitut
             </table>
           </div>
         ) : (
-          <div className="text-center py-8 text-xs text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
-            Pro tento přípravek nejsou evidovány žádné hlášené výpadky nebo je jedinečným monopolem na trhu ČR.
-          </div>
+          <p className="mt-6 max-w-prose text-body text-ink-2">
+            Pro tento přípravek nejsou evidovány žádné náhrady. Buď nebyl hlášen výpadek, nebo jde o jediný
+            přípravek s touto látkou na českém trhu.
+          </p>
         )}
-      </div>
+      </section>
     </div>
   );
 }

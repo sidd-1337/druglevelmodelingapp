@@ -8,20 +8,61 @@ import {
 } from "@/lib/harm-reduction";
 import {
   PKModelParams,
-  calculateCmax,
   calculateMultipleDoseCurve,
-  calculateTmax,
   singleDosePoint,
 } from "@/lib/pk-engine";
 import { DrugPreset, PKCalculationPoint, RouteType, SuklPackageDetail } from "@/lib/types";
-import { ExternalLink } from "lucide-react";
+import { czDecimals, num, sig, stripEmoji } from "@/lib/format";
 import PkChart from "../PkChart";
 import RouteSelector from "../RouteSelector";
+import SectionHead from "../ui/SectionHead";
+import Slider from "../ui/Slider";
+import SpecList from "../ui/SpecList";
+import Status, { Tone } from "../ui/Status";
 
 interface KineticsHarmReductionTabProps {
   drug: DrugPreset | null;
   suklDetail: SuklPackageDetail;
 }
+
+const NBSP = " ";
+const hours = (h: number) => `${num(h, 1)}${NBSP}h`;
+
+const RISK_TONE: Record<string, Tone> = {
+  safe: "ok",
+  moderate: "neutral",
+  high: "warn",
+  critical_toxic: "bad",
+};
+
+const RISK_SURFACE: Record<string, string> = {
+  safe: "bg-band",
+  moderate: "bg-band",
+  high: "bg-warn-fill/15",
+  critical_toxic: "bg-bad-fill/12",
+};
+
+const ROUTE_LABEL: Record<RouteType, string> = {
+  oral: "Perorálně (spolknutí)",
+  iv_bolus: "Nitrožilně (injekce)",
+  insufflated: "Nazálně (šňupání)",
+  smoked: "Inhalačně (kouření)",
+};
+
+const PRINCIPLES = [
+  {
+    title: "Otestujte látku",
+    text: "Před užitím ji ověřte reagenciemi (Marquis, Mecke) a testovacími proužky na fentanyl, aby se vyloučily nebezpečné příměsi.",
+  },
+  {
+    title: "Začněte nízko, postupujte pomalu",
+    text: "Zkuste čtvrtinu obvyklé dávky. Než zvážíte další, počkejte alespoň do času Tmax.",
+  },
+  {
+    title: "Nekombinujte tlumivé látky",
+    text: "Benzodiazepiny, alkohol a opioidy dohromady mohou fatálně utlumit dech. Mějte po ruce naloxon.",
+  },
+];
 
 export default function KineticsHarmReductionTab({
   drug,
@@ -99,13 +140,12 @@ export default function KineticsHarmReductionTab({
     );
   }, [effectiveAmount, elapsedH, modelParams, mec, mtc, unit]);
 
-  const singleCmax = useMemo(() => {
-    return calculateCmax(effectiveAmount, modelParams);
+  // Route comparison timelines (each calculated with its own route model)
+  const routeTimelines = useMemo(() => {
+    return (["oral", "iv_bolus", "insufflated", "smoked"] as RouteType[]).map((r) =>
+      getRouteTimelineInfo(r, effectiveAmount, { ...modelParams, route: r })
+    );
   }, [effectiveAmount, modelParams]);
-
-  const singleTmax = useMemo(() => {
-    return calculateTmax(modelParams);
-  }, [modelParams]);
 
   // Stacking curve simulation for Harm Reduction section
   const { stackedCurveData, dose2CurveData, stackDurationH } = useMemo(() => {
@@ -126,312 +166,159 @@ export default function KineticsHarmReductionTab({
     return { stackedCurveData: sCurve, dose2CurveData: d2Curve, stackDurationH: horizon };
   }, [elapsedH, baseT12, effectiveAmount, modelParams]);
 
-  // Route comparison timelines (each calculated with its own route model)
-  const routeTimelines = useMemo(() => {
-    return (["oral", "iv_bolus", "insufflated", "smoked"] as RouteType[]).map((r) =>
-      getRouteTimelineInfo(r, effectiveAmount, { ...modelParams, route: r })
-    );
-  }, [effectiveAmount, modelParams]);
-
   const remainingToSafe = Math.max(0, safeIntervalH - elapsedH);
   const safeProgressPct = Math.min(100, Math.round((elapsedH / safeIntervalH) * 100));
 
+  const risk = stackingAssessment.riskLevel;
+  const doseDisplay = `${num(doseMg, Number.isInteger(doseMg) ? 0 : 1)}${NBSP}mg`;
+
   return (
-    <div className="space-y-6">
-      {/* Streamlit Deep Clinical Laboratory Banner */}
-      <div className="apple-card p-5 bg-gradient-to-r from-blue-50/70 via-white to-indigo-50/40 dark:from-zinc-800/80 dark:via-zinc-850 dark:to-zinc-800/60 border border-blue-200/70 dark:border-blue-900/40 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🔬</span>
-              <h4 className="font-semibold text-sm text-zinc-950 dark:text-zinc-50">
-                Pokročilá klinická laboratoř (Streamlit)
-              </h4>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-                Hloubková simulace
-              </span>
-            </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 max-w-2xl leading-relaxed">
-              Modelování <strong>vynechané či odložené dávky (Missed Dose)</strong>, semilogaritmický graf,
-              populační variační pásma eliminace a detailní TDM metriky v expertním simulátoru.
-            </p>
-          </div>
+    <div className="space-y-24">
+      {/* ------------------------------------------------------------- curve */}
+      <section aria-labelledby="krivka">
+        <SectionHead id="krivka" title="Hladina léku v krvi">
+          Simulace koncentrace v plazmě při zvoleném schématu dávkování.
+        </SectionHead>
 
-          <a
-            href={`http://localhost:8501/?drug=${drug?.id || "livizux"}&sukl=${suklDetail?.kodSukl || ""}&dose=${doseMg}&interval=${intervalH}&weight=${weightKg}&route=${route}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 transition-all shadow-sm shrink-0"
-          >
-            <span>Otevřít ve Streamlitu</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+        <div className="mt-8 max-w-lg">
+          <RouteSelector value={route} onChange={setRoute} />
         </div>
-      </div>
 
-      {/* Route Selector */}
-      <div className="apple-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              Cesta podání léčiva (Route of Administration)
-            </label>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Zvolte aplikační cestu pro okamžitý přepočet absorpční konstanty a biologické dostupnosti
-            </p>
-          </div>
-        </div>
-        <RouteSelector value={route} onChange={setRoute} />
-      </div>
-
-      {/* Regimen Sliders */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="apple-card p-4 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400 font-medium">Dávka léčiva:</span>
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">{doseMg} mg</span>
-          </div>
-          <input
-            type="range"
-            min={Math.max(1, Math.round(defaultDose * 0.2))}
-            max={Math.round(defaultDose * 3)}
-            step={defaultDose > 50 ? 5 : 0.5}
-            value={doseMg}
-            onChange={(e) => setDoseMg(parseFloat(e.target.value))}
-            className="w-full accent-apple-blue dark:accent-apple-darkblue cursor-pointer"
+        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-14">
+          <PkChart
+            data={curveData}
+            mec={mec}
+            mtc={mtc}
+            unit={unit}
+            durationH={durationH}
+            doseTimes={doseTimes}
           />
-        </div>
 
-        <div className="apple-card p-4 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400 font-medium">Dávkovací interval (τ):</span>
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">každých {intervalH} h</span>
-          </div>
-          <input
-            type="range"
-            min={4}
-            max={48}
-            step={2}
-            value={intervalH}
-            onChange={(e) => setIntervalH(parseInt(e.target.value, 10))}
-            className="w-full accent-apple-blue dark:accent-apple-darkblue cursor-pointer"
-          />
-        </div>
-
-        <div className="apple-card p-4 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400 font-medium">Tělesná hmotnost:</span>
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">{weightKg} kg</span>
-          </div>
-          <input
-            type="range"
-            min={40}
-            max={140}
-            step={1}
-            value={weightKg}
-            onChange={(e) => setWeightKg(parseInt(e.target.value, 10))}
-            className="w-full accent-apple-blue dark:accent-apple-darkblue cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* Interactive PK Curve Chart */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h4 className="font-semibold text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              Farmakokinetická křivka & Terapeutické okno (TDM)
-            </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Simulace plazmatických koncentrací v závislosti na čase a zvoleném schématu
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Cmax (1. dávka): <strong className="text-zinc-900 dark:text-zinc-100">{singleCmax < 0.1 ? singleCmax.toFixed(3) : singleCmax.toFixed(2)} {unit}</strong></span>
-            <span>•</span>
-            <span>Tmax: <strong className="text-zinc-900 dark:text-zinc-100">{singleTmax.toFixed(2)} h</strong></span>
+          <div className="panel space-y-5 p-6 lg:sticky lg:top-24 lg:self-start">
+            <Slider
+              label="Dávka"
+              display={doseDisplay}
+              value={doseMg}
+              min={Math.max(1, Math.round(defaultDose * 0.2))}
+              max={Math.round(defaultDose * 3)}
+              step={defaultDose > 50 ? 5 : 0.5}
+              onChange={setDoseMg}
+            />
+            <Slider
+              label="Dávkovací interval"
+              display={`každých${NBSP}${intervalH}${NBSP}h`}
+              value={intervalH}
+              min={4}
+              max={48}
+              step={2}
+              onChange={setIntervalH}
+            />
+            <Slider
+              label="Tělesná hmotnost"
+              display={`${weightKg}${NBSP}kg`}
+              value={weightKg}
+              min={40}
+              max={140}
+              step={1}
+              onChange={setWeightKg}
+            />
           </div>
         </div>
+      </section>
 
-        <PkChart
-          data={curveData}
-          mec={mec}
-          mtc={mtc}
-          unit={unit}
-          durationH={durationH}
-          doseTimes={doseTimes}
-        />
-      </div>
+      {/* ---------------------------------------------------- safe interval */}
+      <section aria-labelledby="odstup">
+        <SectionHead id="odstup" title="Bezpečný odstup mezi dávkami">
+          Kolik času má uplynout, než užijete další dávku, aby se hladiny nesečetly nad toxickou mez (MTC).
+        </SectionHead>
 
-      {/* Harm Reduction Calculator Module */}
-      <div className="apple-card p-6 space-y-6">
-        <div className="flex flex-wrap items-center justify-between border-b border-zinc-200/80 dark:border-zinc-800 pb-4 gap-3">
-          <div>
-            <h4 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              Harm Reduction Kalkulačka – Bezpečný odstup & Vrstvení dávek
-            </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Predikce kumulace v krvi při opakovaném užití pro zamezení překročení toxického prahu (MTC).
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60">
-            Doporučený odstup: ≥ {safeIntervalH.toFixed(1)} h
-          </span>
-        </div>
-
-        {/* 4 Harm Reduction KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 text-center">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Doporučený bezpečný odstup</span>
-            <span className="text-xl font-bold tracking-tight text-apple-blue dark:text-apple-darkblue block">
-              {safeIntervalH.toFixed(1)} h
-            </span>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Minimální doba před další dávkou</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 text-center">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Aktuální zbytková hladina</span>
-            <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 block">
-              {stackingAssessment.currentLevel.toFixed(2)} {unit}
-            </span>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">V čase t = {elapsedH.toFixed(1)} h</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 text-center">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Kumulativní vrchol (peak)</span>
-            <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 block">
-              {stackingAssessment.stackedPeak.toFixed(2)} {unit}
-            </span>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">MTC limit: {mtc} {unit}</span>
-          </div>
-
-          <div
-            className={`p-4 rounded-xl border text-center transition-all ${
-              remainingToSafe > 0
-                ? "bg-amber-50/70 border-amber-200/80 dark:bg-amber-950/30 dark:border-amber-800/50"
-                : "bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/30 dark:border-emerald-800/50"
-            }`}
-          >
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 block mb-1">Odpočet do bezpečného užití</span>
-            <span
-              className={`text-xl font-bold tracking-tight block ${
-                remainingToSafe > 0
-                  ? "text-amber-700 dark:text-amber-400"
-                  : "text-emerald-700 dark:text-emerald-400"
-              }`}
-            >
-              {remainingToSafe > 0 ? `${remainingToSafe.toFixed(1)} h` : "0.0 h (Bezpečné)"}
-            </span>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              {remainingToSafe > 0 ? "Vyčkejte na odbourání" : "Lze bezpečně podat"}
-            </span>
-          </div>
-        </div>
-
-        {/* Elapsed Time Slider & Live Countdown Bar */}
-        <div className="bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-zinc-700 dark:text-zinc-300 font-medium">
-              Uplynulý čas od podání předchozí dávky:
-            </span>
-            <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
-              {elapsedH.toFixed(1)} hodin
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={Math.max(24, Math.ceil(baseT12 * 4))}
-            step={0.5}
-            value={elapsedH}
-            onChange={(e) => setElapsedH(parseFloat(e.target.value))}
-            className="w-full accent-apple-blue dark:accent-apple-darkblue cursor-pointer"
-          />
-          <div className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-            <span>0 h (okamžité redávkování)</span>
-            <span>{baseT12.toFixed(1)} h (1× poločas t½)</span>
-            <span>{(baseT12 * 2).toFixed(1)} h</span>
-            <span>{(baseT12 * 4).toFixed(1)} h</span>
-          </div>
-
-          {/* Progress bar towards safe redose */}
-          <div className="pt-2">
-            <div className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400 mb-1.5">
-              <span>Postup odbourání k bezpečnému rozestupu:</span>
-              <span className="font-mono font-medium text-zinc-800 dark:text-zinc-200">{safeProgressPct} %</span>
-            </div>
-            <div className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${
-                  safeProgressPct >= 100
-                    ? "bg-emerald-500 dark:bg-emerald-400"
-                    : "bg-apple-blue dark:bg-apple-darkblue"
-                }`}
-                style={{ width: `${safeProgressPct}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Stacking Evaluation Alert Box */}
-        <div
-          className={`p-4 rounded-xl border transition-all ${
-            stackingAssessment.riskLevel === "critical_toxic"
-              ? "bg-rose-50/80 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800/60"
-              : stackingAssessment.riskLevel === "high"
-              ? "bg-amber-50/80 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60"
-              : stackingAssessment.riskLevel === "moderate"
-              ? "bg-blue-50/80 border-blue-200 dark:bg-blue-950/40 dark:border-blue-800/60"
-              : "bg-emerald-50/80 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60"
-          }`}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex-1 min-w-[240px]">
-              <div
-                className={`font-semibold text-sm mb-1 ${
-                  stackingAssessment.riskLevel === "critical_toxic"
-                    ? "text-rose-800 dark:text-rose-300"
-                    : stackingAssessment.riskLevel === "high"
-                    ? "text-amber-800 dark:text-amber-300"
-                    : stackingAssessment.riskLevel === "moderate"
-                    ? "text-blue-800 dark:text-blue-300"
-                    : "text-emerald-800 dark:text-emerald-300"
-                }`}
-              >
-                {stackingAssessment.riskHeadline}
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                {stackingAssessment.riskExplanation}
+        <div className="mt-10 grid gap-8 lg:grid-cols-2 lg:gap-14">
+          <div className="panel space-y-6 p-6 sm:p-8 lg:self-start">
+            <div>
+              <p className="text-ui text-ink-2">Doporučený odstup mezi dávkami</p>
+              <p className="figures text-figure">
+                {"≥"}
+                {NBSP}
+                {hours(safeIntervalH)}
               </p>
             </div>
 
-            <div className="text-right shrink-0">
-              <span className="text-xs block text-zinc-500 dark:text-zinc-400">Kumulativní vrchol:</span>
-              <span className="font-mono text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                {stackingAssessment.stackedPeak.toFixed(2)} {unit}
-              </span>
-              <span className="text-[11px] block text-zinc-500 dark:text-zinc-400 mt-0.5">
-                (MTC limit: {mtc} {unit})
-              </span>
+            <div>
+              <Slider
+                label="Od poslední dávky uplynulo"
+                display={hours(elapsedH)}
+                value={elapsedH}
+                min={0}
+                max={Math.max(24, Math.ceil(baseT12 * 4))}
+                step={0.5}
+                onChange={setElapsedH}
+              />
+              <p className="mt-1 text-small text-ink-2">Poločas léčiva je {hours(baseT12)}.</p>
             </div>
+
+            <div>
+              <div className="flex items-baseline justify-between text-ui">
+                <span className="text-ink-2">Odbourání k bezpečnému odstupu</span>
+                <span className="figures font-semibold">{safeProgressPct}{NBSP}%</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Odbourání k bezpečnému odstupu"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={safeProgressPct}
+                className="mt-2 h-1 overflow-hidden rounded-full bg-line"
+              >
+                <div
+                  className={`h-full rounded-full transition-[width] duration-300 ${
+                    safeProgressPct >= 100 ? "bg-ok-fill" : "bg-accent"
+                  }`}
+                  style={{ width: `${safeProgressPct}%` }}
+                />
+              </div>
+              <p className="mt-3 text-ui">
+                {remainingToSafe > 0
+                  ? `Vyčkejte ještě ${hours(remainingToSafe)}.`
+                  : "Další dávku už lze bezpečně podat."}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div className={`rounded-panel p-6 sm:p-8 ${RISK_SURFACE[risk] ?? "bg-band"}`}>
+              <h3 className="text-h3">
+                <Status tone={RISK_TONE[risk] ?? "neutral"}>{czDecimals(stripEmoji(stackingAssessment.riskHeadline))}</Status>
+              </h3>
+              <p className="mt-2 text-ui text-ink-2">{czDecimals(stripEmoji(stackingAssessment.riskExplanation))}</p>
+            </div>
+
+            <SpecList
+              items={[
+                {
+                  label: "Zbytková hladina",
+                  value: `${sig(stackingAssessment.currentLevel)}${NBSP}${unit}`,
+                  note: `v čase t = ${hours(elapsedH)}`,
+                },
+                {
+                  label: "Vrchol po další dávce",
+                  value: `${sig(stackingAssessment.stackedPeak)}${NBSP}${unit}`,
+                  note: `limit MTC ${sig(mtc)}${NBSP}${unit}`,
+                },
+              ]}
+            />
           </div>
         </div>
 
-        {/* Dose Stacking Simulation Chart */}
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h5 className="font-semibold text-xs uppercase tracking-wider text-zinc-600 dark:text-zinc-400 flex items-center gap-2">
-              Simulace vrstvení hladin (Dávka 1 + Dávka 2 při t = {elapsedH.toFixed(1)} h)
-            </h5>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
-              Čárkovaně: 2. dávka | Plně: Souhrnná hladina
-            </span>
-          </div>
+        <div className="mt-16">
+          <h3 className="text-h3">Vrstvení dávek</h3>
+          <p className="mb-8 mt-1 max-w-prose text-body text-ink-2">
+            První dávka v čase 0 a druhá po {hours(elapsedH)}. Plná čára je součet obou.
+          </p>
           <PkChart
             data={stackedCurveData}
             secondaryData={dose2CurveData}
-            secondaryLabel={`2. dávka (+${elapsedH.toFixed(1)} h)`}
-            primaryLabel="Kumulativní hladina"
+            secondaryLabel="Samotná 2. dávka"
+            primaryLabel="Součet obou dávek"
             mec={mec}
             mtc={mtc}
             unit={unit}
@@ -439,69 +326,101 @@ export default function KineticsHarmReductionTab({
             doseTimes={[0, elapsedH]}
           />
         </div>
+      </section>
 
-        {/* Route Timeline Matrix */}
-        <div className="space-y-3">
-          <h5 className="font-semibold text-xs uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-            Porovnání kinetiky a nástupu podle cest podání
-          </h5>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {routeTimelines.map((tl) => (
-              <div
-                key={tl.route}
-                className={`p-3.5 rounded-xl border text-xs transition-all ${
-                  route === tl.route
-                    ? "bg-blue-50/60 border-apple-blue ring-1 ring-apple-blue dark:bg-blue-950/30 dark:border-apple-darkblue dark:ring-apple-darkblue"
-                    : "bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200/80 dark:border-zinc-700/60"
-                }`}
-              >
-                <div className="font-semibold text-zinc-900 dark:text-zinc-100 mb-2 flex items-center justify-between">
-                  <span>{tl.labelCs}</span>
-                  {route === tl.route && (
-                    <span className="text-[10px] text-apple-blue dark:text-apple-darkblue uppercase font-mono font-medium">Vybráno</span>
-                  )}
-                </div>
-                <div className="space-y-1 text-zinc-600 dark:text-zinc-400">
-                  <div><strong>Nástup:</strong> {tl.onsetStr}</div>
-                  <div><strong>Vrchol (Tmax):</strong> {tl.tmaxH} h</div>
-                  <div><strong>Trvání:</strong> {tl.durationStr}</div>
-                  <div><strong>Dostupnost F:</strong> {tl.bioavailabilityPct} %</div>
-                </div>
-                <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 border-t border-zinc-200/80 dark:border-zinc-800 pt-2">
-                  {tl.descriptionCs}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* ------------------------------------------------------------ routes */}
+      <section aria-labelledby="cesty">
+        <SectionHead id="cesty" title="Porovnání cest podání">
+          Stejná dávka, jiná cesta: liší se nástup, vrchol i délka účinku.
+        </SectionHead>
 
-        {/* Harm Reduction Golden Rules */}
-        <div className="space-y-3">
-          <h5 className="font-semibold text-xs uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-            Zásady Harm Reduction a prevence předávkování
-          </h5>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 block mb-1">1. Testujte látku (Drug Checking)</span>
-              <p className="text-zinc-600 dark:text-zinc-400">
-                Před užitím otestujte substanci reagenciemi (Marquis, Mecke) a proužky na fentanyl k vyloučení nebezpečných příměsí.
-              </p>
-            </div>
-            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 block mb-1">2. Start low, go slow</span>
-              <p className="text-zinc-600 dark:text-zinc-400">
-                Začněte s malou testovací dávkou (1/4 obvyklého množství). Vyčkejte alespoň na Tmax před zvažováním další dávky.
-              </p>
-            </div>
-            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60">
-              <span className="font-semibold text-rose-700 dark:text-rose-400 block mb-1">3. Nekombinujte tlumivé látky</span>
-              <p className="text-zinc-600 dark:text-zinc-400">
-                Kombinace benzodiazepinů, alkoholu a opioidů vede k fatálnímu útlumu dechu. Mějte po ruce Naloxone.
-              </p>
-            </div>
-          </div>
+        <div className="-mx-5 mt-8 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+          <table className="w-full min-w-[640px] border-collapse text-left">
+            <thead>
+              <tr>
+                <td className="w-40 border-b border-line-soft" />
+                {routeTimelines.map((tl) => (
+                  <th
+                    key={tl.route}
+                    scope="col"
+                    aria-current={route === tl.route ? "true" : undefined}
+                    className={`border-b pb-3 pr-6 align-bottom text-ui font-semibold ${
+                      route === tl.route ? "border-b-2 border-ink text-ink" : "border-line-soft text-ink-2"
+                    }`}
+                  >
+                    {ROUTE_LABEL[tl.route] ?? tl.labelCs}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="text-ui">
+              {[
+                { label: "Nástup", cell: (tl: (typeof routeTimelines)[number]) => czDecimals(tl.onsetStr) },
+                {
+                  label: "Vrchol (Tmax)",
+                  cell: (tl: (typeof routeTimelines)[number]) => `${num(tl.tmaxH, tl.tmaxH < 1 ? 2 : 1)}${NBSP}h`,
+                },
+                { label: "Trvání", cell: (tl: (typeof routeTimelines)[number]) => czDecimals(tl.durationStr) },
+                {
+                  label: "Biologická dostupnost",
+                  cell: (tl: (typeof routeTimelines)[number]) => `${num(tl.bioavailabilityPct)}${NBSP}%`,
+                },
+                {
+                  label: "Poznámka",
+                  cell: (tl: (typeof routeTimelines)[number]) => czDecimals(tl.descriptionCs),
+                },
+              ].map((row) => (
+                <tr key={row.label} className="align-top">
+                  <th scope="row" className="border-b border-line-soft py-3.5 pr-6 font-normal text-ink-2">
+                    {row.label}
+                  </th>
+                  {routeTimelines.map((tl) => (
+                    <td
+                      key={tl.route}
+                      className={`figures border-b border-line-soft py-3.5 pr-6 ${
+                        row.label === "Poznámka" ? "text-small text-ink-2" : "text-ink"
+                      }`}
+                    >
+                      {row.cell(tl)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+      </section>
+
+      {/* -------------------------------------------------------- principles */}
+      <section aria-labelledby="zasady">
+        <SectionHead id="zasady" title="Zásady bezpečnějšího užití" />
+        <div className="mt-8 grid gap-x-12 gap-y-8 md:grid-cols-3">
+          {PRINCIPLES.map((p) => (
+            <div key={p.title} className="border-t border-line pt-5">
+              <h3 className="text-h3">{p.title}</h3>
+              <p className="mt-2 text-ui text-ink-2">{p.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------- advanced */}
+      <section className="border-t border-line-soft pt-10">
+        <h3 className="text-h3">Pokročilý simulátor</h3>
+        <p className="mt-2 max-w-prose text-body text-ink-2">
+          Vynechané nebo opožděné dávky, semilogaritmický graf, pásma variability mezi pacienty a podrobné
+          TDM metriky.
+        </p>
+        <a
+          href={`http://localhost:8501/?drug=${drug?.id || "livizux"}&sukl=${suklDetail?.kodSukl || ""}&dose=${doseMg}&interval=${intervalH}&weight=${weightKg}&route=${route}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link mt-4 inline-block text-body"
+        >
+          Otevřít ve Streamlitu
+          <span className="sr-only"> (otevře se v novém okně)</span>
+        </a>
+      </section>
     </div>
   );
 }

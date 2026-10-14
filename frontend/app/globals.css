@@ -2,104 +2,230 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ tokens */
+
 :root {
-  --canvas: #f5f5f7;
-  --card: #ffffff;
-  --foreground: #1d1d1f;
-  --secondary: #86868b;
-  --border: #e4e4e7;
-  --accent: #0071e3;
-  color-scheme: light dark;
+  --bg: 251 251 253; /* page */
+  --band: 245 245 247; /* alternate band and tool surfaces */
+  --ink: 29 29 31;
+  --ink-2: 110 110 115; /* secondary text, 4.7:1 on band */
+  --line: 210 210 215;
+  --line-soft: 232 232 237;
+  --link: 0 102 204;
+  --accent: 0 113 227;
+  --ok: 36 138 61;
+  --warn: 173 76 0;
+  --bad: 215 0 21;
+  --ok-fill: 52 199 89;
+  --warn-fill: 255 159 10;
+  --bad-fill: 255 59 48;
+  --thumb: 255 255 255;
+  color-scheme: light;
 }
 
 html.dark {
-  --canvas: #000000;
-  --card: #18181b;
-  --foreground: #f4f4f5;
-  --secondary: #a1a1a6;
-  --border: #27272a;
-  --accent: #2997ff;
+  --bg: 0 0 0;
+  --band: 28 28 30;
+  --ink: 245 245 247;
+  --ink-2: 161 161 166;
+  --line: 66 66 69;
+  --line-soft: 44 44 46;
+  --link: 41 151 255;
+  --accent: 10 132 255;
+  --ok: 48 209 88;
+  --warn: 255 159 10;
+  --bad: 255 105 97;
+  --ok-fill: 48 209 88;
+  --warn-fill: 255 159 10;
+  --bad-fill: 255 69 58;
+  --thumb: 99 99 102;
+  color-scheme: dark;
 }
 
-body {
-  background-color: var(--canvas);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Inter, system-ui, sans-serif;
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.25s ease, color 0.25s ease;
+/* -------------------------------------------------------------------- base */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 4rem;
+  }
+
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
+    font-size: 1.0625rem;
+    line-height: 1.47;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  dd {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.22);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
+
+  button {
+    cursor: pointer;
+  }
 }
 
-/* Apple Card */
-.apple-card {
-  background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 1.25rem;
-  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+/* -------------------------------------------------------------- components */
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-page px-5 sm:px-8;
+  }
+
+  /* Plain text link. Blue, underline on hover, no glyphs. */
+  .link {
+    color: rgb(var(--link));
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  .link:hover {
+    text-decoration-line: underline;
+  }
+
+  /* A surface that holds a tool (calculator, chart controls). Content never gets one. */
+  .panel {
+    @apply rounded-panel bg-band;
+  }
+
+  .figures {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum", "cv05";
+  }
 }
 
-html.dark .apple-card {
-  background-color: #18181b;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
-}
+/* ----------------------------------------------------------------- slider */
 
-.apple-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.08);
-}
-
-html.dark .apple-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, 0.6);
-  border-color: rgba(255, 255, 255, 0.16);
-}
-
-/* Apple Segmented Control / Pill Bar */
-.apple-segmented-track {
-  background-color: #f4f4f5;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 9999px;
-  padding: 0.25rem;
-}
-
-html.dark .apple-segmented-track {
-  background-color: #27272a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.apple-segmented-active {
-  background-color: #ffffff;
-  color: #18181b;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-}
-
-html.dark .apple-segmented-active {
-  background-color: #3f3f46;
-  color: #fafafa;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-}
-
-/* Native / Clean Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
+.slider {
+  --pct: 0%;
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 0;
   background: transparent;
+  cursor: pointer;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
   border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    rgb(var(--accent)) var(--pct),
+    rgb(var(--line)) var(--pct)
+  );
 }
-html.dark ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -10px;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.1), 0 2px 6px rgb(0 0 0 / 0.28);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(var(--line));
 }
-html.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.35);
+.slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(var(--accent));
+}
+.slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.1), 0 2px 6px rgb(0 0 0 / 0.28);
+}
+.slider:focus-visible {
+  outline: none;
+}
+.slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+.slider:focus-visible::-moz-range-thumb {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ hero motion */
+/* One orchestrated moment on first paint: the band settles, the line is drawn,
+   each dose tick appears as the line reaches it. Nothing else on the site moves
+   unprompted. */
+
+@keyframes curve-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes curve-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.curve-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: curve-draw 2.6s cubic-bezier(0.55, 0, 0.25, 1) 0.35s both;
+}
+.curve-band {
+  animation: curve-fade 0.9s ease-out both;
+}
+.curve-tick {
+  animation: curve-fade 0.5s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curve-line,
+  .curve-band,
+  .curve-tick {
+    animation: none;
+  }
+}
+
+/* -------------------------------------------------------------- scrollbars */
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
