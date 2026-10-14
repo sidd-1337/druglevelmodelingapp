@@ -19,6 +19,7 @@ Aplikace je přímo napojena na otevřené databáze Státního ústavu pro kont
 
 ## Obsah
 
+- [Náhled designu](#náhled-designu)
 - [Jak projekt zprovoznit](#jak-projekt-zprovoznit)
   - [Možnost A: Kompletní stack přes Docker Compose (Doporučeno)](#moznost-a-kompletni-stack-pres-docker-compose-doporuceno)
   - [Možnost B: Lokální vývojové prostředí](#moznost-b-lokalni-vyvojove-prostredi)
@@ -33,6 +34,47 @@ Aplikace je přímo napojena na otevřené databáze Státního ústavu pro kont
 - [Testování a verifikace](#testovani-a-verifikace)
 - [Zdravotnické upozornění](#zdravotnicke-upozorneni)
 - [Licence](#licence)
+
+---
+
+## Náhled designu
+
+Webový portál ([`frontend/`](frontend/)) má klidný design ve stylu Apple: velké písmo, tenké dělicí linky místo karet, jedna modrá barva a jediný výrazný prvek, křivka koncentrace. Je logem, čárou nakreslenou na úvodní stránce i interaktivním grafem na stránce každého léku. Světlý a tmavý motiv se řídí nastavením systému a rozložení funguje až po šířku telefonu.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/preview/home-dark.png">
+  <img src="docs/preview/home-light.png" alt="Úvodní stránka s nadpisem „Co se s lékem děje v těle.“, vyhledávacím polem a ilustrační křivkou dávkování v terapeutickém okně">
+</picture>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/preview/drug-light.png" alt="Stránka léku Ritalin se záložkami a přehledem údajů z registru">
+      <br><sub><b>Stránka léku.</b> Údaje z registru jako prosté řádky a čtyři záložky: přehled, cena a úhrada, dostupnost, hladina v těle.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/preview/kinetics-dark.png">
+        <img src="docs/preview/kinetics-light.png" alt="Interaktivní graf koncentrace s terapeutickým oknem a posuvníky dávky, intervalu a hmotnosti">
+      </picture>
+      <br><sub><b>Hladina v těle.</b> Tažením, dotykem nebo šipkami zjistíte koncentraci v libovolném čase.</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/preview/home-mobile.png" width="240" alt="Úvodní stránka v telefonu">
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/preview/kinetics-mobile.png" width="240" alt="Graf koncentrace v telefonu">
+</p>
+
+<sub>Snímky ukazují celý stack (Next.js a FastAPI) pro balení Ritalin 10 mg.</sub>
+
+**Kde design najdete**
+
+- Barvy, typografie a rozestupy jsou CSS proměnné v [`frontend/app/globals.css`](frontend/app/globals.css), namapované v [`frontend/tailwind.config.ts`](frontend/tailwind.config.ts).
+- Sdílené prvky rozhraní (Slider, Segmented, Tabs, Status, SpecList) jsou v [`frontend/components/ui/`](frontend/components/ui/).
+- Typografie: SF Pro na zařízeních Apple, jinde přibalené písmo Inter Variable. České nezlomitelné mezery a desetinné čárky řeší [`frontend/lib/typo.ts`](frontend/lib/typo.ts) a [`frontend/lib/format.ts`](frontend/lib/format.ts).
 
 ---
 
@@ -53,7 +95,7 @@ docker compose up -d --build
 
 #### Přehled běžících služeb:
 
-* **Webový portál (Next.js 15, Apple UI styl)**: [http://localhost:3000](http://localhost:3000)
+* **Webový portál (Next.js 15, klidný design ve stylu Apple, viz [Náhled designu](#náhled-designu))**: [http://localhost:3000](http://localhost:3000)
   * Okamžité vyhledávání léků v SÚKL, stažení SPC/PIL v PDF, kalkulačka cen a ochranného limitu na doplatky, výpadky na trhu, reaktivní křivky a kalkulačka Harm Reduction.
 * **REST API backend (FastAPI)**: [http://localhost:8000](http://localhost:8000)
   * Interaktivní dokumentace OpenAPI Swagger dostupná na [http://localhost:8000/docs](http://localhost:8000/docs).
@@ -122,10 +164,10 @@ druglevelmodelingapp/
 │   ├── drug_database.py        # Správa presetů, validace a továrna modelů
 │   ├── metrics.py              # Klinické metriky, TDM klasifikace, obnova profilu
 │   └── sukl_client.py          # Klient pro otevřené REST API SÚKL a mapování ATC
-├── frontend/                   # Produkční Next.js 15 portál (Apple / Nuxt UI design)
+├── frontend/                   # Produkční Next.js 15 portál (klidný design ve stylu Apple, viz Náhled designu)
 │   ├── app/                    # App Router: /, /leky/[kod], /slovnik
-│   ├── components/             # Bento grid, PkChart (SVG), CopayCalculator, ThemeToggle
-│   └── lib/                    # Klientské API, PK výpočetní jádro, SÚKL cache
+│   ├── components/             # Prvky ui/, HeroCurve, PkChart (SVG), CopayCalculator, ThemeToggle
+│   └── lib/                    # Klientské API, PK výpočetní jádro, SÚKL cache, české formátování
 ├── ui/                         # Streamlit prezentační vrstva
 │   ├── charts.py               # Vykreslování interaktivních Plotly grafů s TDM zónami
 │   ├── reporting.py            # Generování dávkovacích protokolů a export do CSV
@@ -155,7 +197,7 @@ druglevelmodelingapp/
 | **Populační rozptyl**                | Pásmo spolehlivosti zohledňující interindividuální rozdíly v poločase eliminace$t_{1/2}$.                                                                                 |
 | **Integrace otevřených dat SÚKL**   | Živé dotazování do databáze SÚKL: automatické načtení síly léku, SPC/PIL příbalových letáků, hlášení výpadků dle § 33 a režimů úhrad.                    |
 | **Kalkulačka ochranného limitu**     | Výpočet čerpání zákonného ročního limitu na započitatelné doplatky (5 000 / 1 000 / 500 Kč).                                                                          |
-| **Čistý design**                     | Podpora Light i Night módu s automatickou detekcí systému, bez problikávání motivu (Zero FOUC).                                                                             |
+| **Čistý design**                     | Klidné rozhraní ve stylu Apple se světlým i tmavým motivem (automatická detekce systému, bez problikávání), písmem SF Pro / Inter, ovládáním z klávesnice a rozložením až po šířku telefonu. |
 
 ---
 

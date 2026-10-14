@@ -18,6 +18,7 @@ It is paired with live Czech State Institute for Drug Control (SÚKL) open regis
 
 ## Table of Contents
 
+- [Design Preview](#design-preview)
 - [Quickstart & Getting Started](#quickstart--getting-started)
   - [Option A: Complete Stack via Docker Compose (Recommended)](#option-a-complete-stack-via-docker-compose-recommended)
   - [Option B: Local Development Environment](#option-b-local-development-environment)
@@ -32,6 +33,47 @@ It is paired with live Czech State Institute for Drug Control (SÚKL) open regis
 - [Testing & Verification](#testing--verification)
 - [Medical Disclaimer](#medical-disclaimer)
 - [License](#license)
+
+---
+
+## Design Preview
+
+The web portal ([`frontend/`](frontend/)) uses a quiet, Apple-style design: large type, hairline rows instead of cards, one blue accent and a single memorable element, the concentration curve. It is the logo mark, the line drawn on the home page and the interactive chart on every drug page. Light and dark themes follow the system setting, and the layout works down to phone width.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/preview/home-dark.png">
+  <img src="docs/preview/home-light.png" alt="Home page with the headline "Co se s lékem děje v těle.", a drug search field and an illustrated dosing curve inside the therapeutic window">
+</picture>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/preview/drug-light.png" alt="Drug page for Ritalin with tabs and a list of registry data">
+      <br><sub><b>Drug page.</b> Registry data as plain rows, four tabs: overview, price and copay, availability, body-level curve.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/preview/kinetics-dark.png">
+        <img src="docs/preview/kinetics-light.png" alt="Interactive concentration chart with the therapeutic window and dose, interval and weight sliders">
+      </picture>
+      <br><sub><b>Body-level curve.</b> Drag, touch or use the arrow keys to read the concentration at any time.</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/preview/home-mobile.png" width="240" alt="Home page on a phone">
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/preview/kinetics-mobile.png" width="240" alt="Concentration chart on a phone">
+</p>
+
+<sub>Screenshots show the full stack (Next.js and FastAPI) for the Ritalin 10 mg package. The portal itself is in Czech.</sub>
+
+**Where the design lives**
+
+- Colour, type and spacing are CSS variables in [`frontend/app/globals.css`](frontend/app/globals.css), mapped in [`frontend/tailwind.config.ts`](frontend/tailwind.config.ts).
+- Shared UI primitives (Slider, Segmented, Tabs, Status, SpecList) are in [`frontend/components/ui/`](frontend/components/ui/).
+- Typography: SF Pro on Apple devices, bundled Inter Variable elsewhere. Czech non-breaking spaces and decimal commas are handled in [`frontend/lib/typo.ts`](frontend/lib/typo.ts) and [`frontend/lib/format.ts`](frontend/lib/format.ts).
 
 ---
 
@@ -51,7 +93,7 @@ docker compose up -d --build
 ```
 
 #### Services overview:
-* **Web Portal (Next.js 15, Apple UI)**: [http://localhost:3000](http://localhost:3000)
+* **Web Portal (Next.js 15, quiet Apple-style UI, see [Design Preview](#design-preview))**: [http://localhost:3000](http://localhost:3000)
   * Drug autocomplete search, SÚKL DLP data, SPC/PIL PDFs, pricing and copay protection calculators, shortage alerts, and harm reduction calculator.
 * **REST API (FastAPI)**: [http://localhost:8000](http://localhost:8000)
   * Interactive OpenAPI Swagger documentation available at [http://localhost:8000/docs](http://localhost:8000/docs).
@@ -119,10 +161,10 @@ druglevelmodelingapp/
 │   ├── drug_database.py        # Preset loader, validation, and PK model factory
 │   ├── metrics.py              # Clinical metrics, TDM classification, crossing times & recovery
 │   └── sukl_client.py          # SÚKL public REST API client, dosage parser, and ATC mapping
-├── frontend/                   # Modern Next.js 15 web portal (Apple / Nuxt UI design)
+├── frontend/                   # Next.js 15 web portal (quiet Apple-style design, see Design Preview)
 │   ├── app/                    # App Router: /, /leky/[kod], /slovnik
-│   ├── components/             # Bento grid, PkChart (SVG), CopayCalculator, ThemeToggle
-│   └── lib/                    # Client-side API client, PK calculation engine, SÚKL cache
+│   ├── components/             # ui/ primitives, HeroCurve, PkChart (SVG), CopayCalculator, ThemeToggle
+│   └── lib/                    # Client-side API client, PK calculation engine, SÚKL cache, Czech formatting
 ├── ui/                         # Streamlit presentation components
 │   ├── charts.py               # Interactive Plotly chart builders with shaded TDM zones
 │   ├── reporting.py            # Tabular data exports and clinical dosing protocol generation
@@ -152,7 +194,7 @@ druglevelmodelingapp/
 | **Linear & Semi-Log Plotting** | Instant toggle between linear scale and semi-logarithmic ($\log_{10} C$ vs. $t$) view to inspect first-order elimination kinetics. |
 | **SÚKL Registry Integration** | Live query into the Czech State Institute for Drug Control (SÚKL) open database with auto-dosing, shortage status, and reimbursement tiers. |
 | **Copay Limit Calculator** | Annual out-of-pocket statutory protection limit calculator (5 000 / 1 000 / 500 CZK). |
-| **Design Aesthetic** | Light & Night mode support with system preference auto-detection, zero-FOUC initialization, and accessible contrast. |
+| **Design Aesthetic** | Quiet Apple-style interface with Light & Night mode (system preference auto-detection, zero-FOUC initialization), SF Pro / Inter typography, keyboard-operable controls and a responsive layout down to phone width. |
 
 ---
 

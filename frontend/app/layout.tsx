@@ -1,12 +1,22 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import "@fontsource-variable/inter/opsz.css";
+import Mark from "@/components/Mark";
+import SiteNav from "@/components/SiteNav";
 import ThemeToggle from "@/components/ThemeToggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lékový Portál ČR – Informace, Úhrady, Výpadky & Farmakokinetika",
+  title: "Lékový portál ČR – cena, úhrada, dostupnost a hladina léku v těle",
   description:
-    "Jednoduchý a moderní lékový portál s otevřenými daty SÚKL ČR, cenami a úhradami pojišťoven, výpadky na trhu a klinickou farmakokinetikou.",
+    "Vyhledejte lék v registru SÚKL a zjistěte jeho cenu a úhradu, dostupnost v lékárnách a modelovanou hladinu v krvi.",
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbfbfd" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 };
 
 export default function RootLayout({
@@ -17,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="cs" suppressHydrationWarning>
       <head>
-        {/* FOUC prevention script */}
+        {/* Applies the saved or system theme before first paint to avoid a flash. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -34,64 +44,43 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="flex flex-col min-h-screen text-zinc-900 dark:text-zinc-100 antialiased selection:bg-blue-500/20 selection:text-blue-700 dark:selection:text-blue-300">
-        {/* Apple Style Frosted Header */}
-        <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-black/80 border-b border-zinc-200/80 dark:border-zinc-800 px-4 sm:px-8 py-3 transition-colors">
-          <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center text-sm font-semibold shadow-sm transition-transform group-hover:scale-105">
-                💊
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-semibold text-base tracking-tight text-zinc-950 dark:text-zinc-50">
-                  Lékový portál ČR
-                </span>
-                <span className="hidden sm:inline-block text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                  SÚKL & PK
-                </span>
-              </div>
+      <body className="flex min-h-screen flex-col font-sans">
+        <a
+          href="#obsah"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-[60] focus:rounded-ctl focus:bg-bg focus:px-4 focus:py-2 focus:text-ui focus:shadow-pop"
+        >
+          Přeskočit na obsah
+        </a>
+
+        <header className="sticky top-0 z-50 border-b border-line-soft bg-bg/80 backdrop-blur-xl backdrop-saturate-150">
+          <div className="page flex h-12 items-center justify-between">
+            <Link href="/" className="flex items-center gap-2.5 text-ui font-semibold">
+              <Mark />
+              <span>Lékový portál ČR</span>
             </Link>
-
-            <div className="flex items-center gap-3 sm:gap-6">
-              <nav className="flex items-center gap-1 sm:gap-4 text-sm font-medium">
-                <Link
-                  href="/"
-                  className="px-2.5 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-                >
-                  Hledání
-                </Link>
-                <Link
-                  href="/slovnik"
-                  className="px-2.5 py-1.5 rounded-lg text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
-                >
-                  Slovník
-                </Link>
-              </nav>
-
-              <div className="pl-2 sm:pl-3 border-l border-zinc-200 dark:border-zinc-800">
-                <ThemeToggle />
-              </div>
+            <div className="flex items-center gap-1">
+              <SiteNav />
+              <ThemeToggle />
             </div>
           </div>
         </header>
 
-        {/* Main View */}
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 sm:py-12">
+        <main id="obsah" className="flex-1">
           {children}
         </main>
 
-        {/* Apple Style Restrained Footer */}
-        <footer className="border-t border-zinc-200/80 dark:border-zinc-800 bg-white/50 dark:bg-black/40 px-4 sm:px-8 py-8 text-xs text-zinc-500 dark:text-zinc-400 transition-colors">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p>
-              Zdravotnické upozornění: Data vycházejí z otevřených registrů SÚKL ČR. Aplikace slouží pro výukové, modelovací a harm reduction účely.
+        <footer className="bg-band">
+          <div className="page py-12 text-small text-ink-2">
+            <p className="max-w-prose">
+              Zdravotnické upozornění. Data vycházejí z otevřených registrů SÚKL ČR. Portál slouží k výuce,
+              modelování a snižování rizik při užívání látek. Simulace jsou orientační, nejsou zdravotnickým
+              prostředkem a nenahrazují radu lékaře ani lékárníka.
             </p>
-            <div className="flex items-center gap-3 text-zinc-400 dark:text-zinc-500">
-              <span>Next.js 15</span>
-              <span>•</span>
-              <span>FastAPI</span>
-              <span>•</span>
-              <span>Data SÚKL</span>
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-t border-line pt-4">
+              <span>Zdroj dat: SÚKL, otevřené registry</span>
+              <Link href="/slovnik" className="hover:text-ink">
+                Slovník pojmů
+              </Link>
             </div>
           </div>
         </footer>
