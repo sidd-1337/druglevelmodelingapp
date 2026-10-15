@@ -1,0 +1,28 @@
+# Produkční compose pro Coolify. Veřejný je jen frontend (Coolify mu přiřadí
+# doménu a TLS); backend zůstává interní. Prohlížeč volá stejný origin
+# (https://leky.sidd1337.dev/api/v1/*) a Next.js to proxuje na backend
+# (viz rewrites v frontend/next.config.ts). Porty se nepublikují (jen expose),
+# aby se nepraly s Coolify. Streamlit UI se nenasazuje (šetří RAM).
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        INTERNAL_API_URL: http://backend:8000
+        NEXT_PUBLIC_API_URL: https://leky.sidd1337.dev
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_URL: http://backend:8000
+      PORT: "3000"
+    expose:
+      - "3000"
+    depends_on:
+      - backend
