@@ -2,7 +2,8 @@
 # doménu a TLS); backend zůstává interní. Prohlížeč volá stejný origin
 # (https://leky.sidd1337.dev/api/v1/*) a Next.js to proxuje na backend
 # (viz rewrites v frontend/next.config.ts). Porty se nepublikují (jen expose),
-# aby se nepraly s Coolify. Streamlit UI se nenasazuje (šetří RAM).
+# aby se nepraly s Coolify. Streamlit (laboratoř) běží pod cestou /lab na stejné
+# doméně (v Coolify mu nastav doménu https://leky.sidd1337.dev/lab).
 services:
   backend:
     build:
@@ -26,3 +27,27 @@ services:
       - "3000"
     depends_on:
       - backend
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command:
+      - streamlit
+      - run
+      - app.py
+      - --server.port=8501
+      - --server.address=0.0.0.0
+      - --server.headless=true
+      - --server.baseUrlPath=lab
+    # Dockerfile healthcheck cílí na /_stcore/health; s baseUrlPath je pod /lab.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/lab/_stcore/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 700m
+    expose:
+      - "8501"
