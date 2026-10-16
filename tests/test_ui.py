@@ -1,4 +1,5 @@
 import re
+import tomllib
 from pathlib import Path
 
 import numpy as np
@@ -63,3 +64,25 @@ def test_dataframe_columns_and_zones():
     assert list(df["zone"]) == ["subtherapeutic", "therapeutic", "toxic"]
     assert "concentration_mg/L" in df.columns
     assert Route.ORAL.value == "oral"
+
+
+def test_streamlit_config_defines_light_and_dark_themes():
+    cfg = tomllib.loads((ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+    light, dark = cfg["theme"]["light"], cfg["theme"]["dark"]
+    for theme in (light, dark):
+        assert {"primaryColor", "backgroundColor", "secondaryBackgroundColor", "textColor"} <= set(theme)
+    assert light["backgroundColor"] != dark["backgroundColor"]
+
+
+def test_dose_markers_stay_visible_on_dark_backgrounds():
+    # The viewer can switch theme without a rerun, so the marker carries its own light halo.
+    T = make_translator("en")
+    drug = get_drug("ibuprofen")
+    model = drug.to_pk_model(70)
+    events = regular_schedule(400.0, 8, 24)
+    t = time_grid(24)
+    w = TherapeuticWindow(drug.mec, drug.mtc)
+    fig = build_figure(t, concentration_profile(t, events, model), w, "ug/mL", T,
+                       dose_times=[e.time_h for e in events])
+    markers = next(tr for tr in fig.data if tr.name == T("doses")).marker
+    assert markers.line.width >= 1 and markers.line.color.startswith("rgba(248")

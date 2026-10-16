@@ -88,7 +88,10 @@ def build_figure(
     if shown:
         fig.add_trace(go.Scatter(
             x=shown, y=[marker_y] * len(shown), mode="markers", name=T("doses"),
-            marker=dict(symbol="triangle-up", size=9, color="#0f172a"),
+            # Dark fill with a light halo: readable on both themes (the viewer can switch
+            # theme without a rerun, so the colour cannot depend on the current one).
+            marker=dict(symbol="triangle-up", size=9, color="#0f172a",
+                        line=dict(width=1, color="rgba(248,250,252,0.9)")),
             hovertemplate="t = %{x:.2f} h<extra>" + T("dose_marker") + "</extra>"))
     if missed_time is not None and x0 <= missed_time <= x1:
         fig.add_trace(go.Scatter(
