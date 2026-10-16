@@ -4,8 +4,8 @@
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/Pytest-229%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Tests](https://img.shields.io/badge/Pytest-572%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function), intravenous (IV) bolus, intranasal (insufflated), and inhaled/smoked administration routes, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.
@@ -98,7 +98,7 @@ docker compose up -d --build
 * **REST API (FastAPI)**: [http://localhost:8000](http://localhost:8000)
   * Interactive OpenAPI Swagger documentation available at [http://localhost:8000/docs](http://localhost:8000/docs).
 * **Clinical Laboratory (Streamlit)**: [http://localhost:8501](http://localhost:8501)
-  * Deep pharmacometric modeling: missed dose simulations, semi-logarithmic axes, confidence envelopes, and raw CSV exports.
+  * Deep pharmacometric modeling: missed dose simulations, semi-logarithmic axes, confidence envelopes, and raw CSV exports. Light and night themes follow the system setting; switch manually in the app menu (⋮ → Settings).
 
 To stop the containers:
 ```bash

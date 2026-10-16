@@ -5,8 +5,8 @@
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.42+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Testy](https://img.shields.io/badge/Pytest-229%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Testy](https://img.shields.io/badge/Pytest-572%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![Licence: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Otevřená platforma pro farmakokinetické simulace a lékový přehled postavená pro zdravotnické inženýry, farmakology, lékaře i edukaci pacientů. Systém implementuje exaktní jednokompartmentové farmakokinetické modely s perorální absorpcí (Batemanova funkce), nitrožilním bolusem (IV), intranazálním (šňupání) a inhalačním (kouření) podáním, analýzu kumulace v ustáleném stavu (*steady-state*), simulaci vynechané dávky (*missed dose*) a terapeutické monitorování hladin léčiv (TDM).
@@ -100,7 +100,7 @@ docker compose up -d --build
 * **REST API backend (FastAPI)**: [http://localhost:8000](http://localhost:8000)
   * Interaktivní dokumentace OpenAPI Swagger dostupná na [http://localhost:8000/docs](http://localhost:8000/docs).
 * **Klinická laboratoř (Streamlit)**: [http://localhost:8501](http://localhost:8501)
-  * Expertní simulátor: modelování vynechané dávky (*missed dose*), semilogaritmické osy, populační variační pásma eliminace a exporty do CSV.
+  * Expertní simulátor: modelování vynechané dávky (*missed dose*), semilogaritmické osy, populační variační pásma eliminace a exporty do CSV. Světlý a tmavý (noční) motiv se řídí nastavením systému, ručně jde přepnout v menu aplikace (⋮ → Settings).
 
 Pro zastavení kontejnerů:
 

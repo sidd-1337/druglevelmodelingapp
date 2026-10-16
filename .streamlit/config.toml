@@ -1,9 +1,21 @@
+# Two themes with the same teal accent. Streamlit follows the system setting by
+# default; the viewer can override it in the app menu (⋮ → Settings → Theme).
 [theme]
+font = "sans serif"
+
+[theme.light]
 primaryColor = "#0F766E"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F1F5F9"
 textColor = "#0F172A"
-font = "sans serif"
+
+# Slate surfaces to match the light slate palette; the lighter teal keeps slider
+# values, checkboxes and links readable on the dark background.
+[theme.dark]
+primaryColor = "#2DD4BF"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+textColor = "#E2E8F0"
 
 [server]
 headless = true
