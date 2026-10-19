@@ -100,6 +100,8 @@ docker compose up -d --build
 * **Clinical Laboratory (Streamlit)**: [http://localhost:8501](http://localhost:8501)
   * Deep pharmacometric modeling: missed dose simulations, semi-logarithmic axes, confidence envelopes, and raw CSV exports. Light and night themes follow the system setting; switch manually in the app menu (⋮ → Settings).
 
+The portal and the lab link to each other, and both default to `localhost`. On another host set `NEXT_PUBLIC_STREAMLIT_URL` (build argument of the frontend) and `PORTAL_URL` (environment of the Streamlit service) to a full URL, or to a path such as `/lab` and `/` when both are served from one domain, as in `docker-compose.prod.yml`.
+
 To stop the containers:
 ```bash
 docker compose down

@@ -79,3 +79,19 @@ def test_app_glossary_tab_and_tooltips():
     metrics_with_help = [m for m in at.metric if m.help]
     assert len(metrics_with_help) >= 5
 
+
+@pytest.mark.parametrize("portal_url, expected", [
+    (None, "](http://localhost:3000/leky/"),
+    ("https://portal.example/", "](https://portal.example/leky/"),
+    ("/", "](/leky/"),
+])
+def test_app_back_link_follows_portal_url(monkeypatch, portal_url, expected):
+    if portal_url is None:
+        monkeypatch.delenv("PORTAL_URL", raising=False)
+    else:
+        monkeypatch.setenv("PORTAL_URL", portal_url)
+    at = AppTest.from_file(ROOT_APP, default_timeout=60)
+    at.query_params["drug"] = "ibuprofen"
+    at.run()
+    assert not at.exception
+    assert any(expected in box.value for box in at.info)

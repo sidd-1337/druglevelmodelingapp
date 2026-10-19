@@ -102,6 +102,8 @@ docker compose up -d --build
 * **Klinická laboratoř (Streamlit)**: [http://localhost:8501](http://localhost:8501)
   * Expertní simulátor: modelování vynechané dávky (*missed dose*), semilogaritmické osy, populační variační pásma eliminace a exporty do CSV. Světlý a tmavý (noční) motiv se řídí nastavením systému, ručně jde přepnout v menu aplikace (⋮ → Settings).
 
+Portál a laboratoř na sebe odkazují a obě adresy jsou ve výchozím stavu `localhost`. Na jiném hostiteli nastav `NEXT_PUBLIC_STREAMLIT_URL` (build argument frontendu) a `PORTAL_URL` (proměnná služby Streamlit) na celou URL, nebo na cestu `/lab` a `/`, pokud obě služby běží na jedné doméně jako v `docker-compose.prod.yml`.
+
 Pro zastavení kontejnerů:
 
 ```bash

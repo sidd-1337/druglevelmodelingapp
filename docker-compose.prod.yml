@@ -19,6 +19,9 @@ services:
       args:
         INTERNAL_API_URL: http://backend:8000
         NEXT_PUBLIC_API_URL: https://leky.sidd1337.dev
+        # Odkaz "Otevřít ve Streamlitu" vede na cestu /lab stejné domény, takže
+        # v repozitáři není žádná konkrétní adresa.
+        NEXT_PUBLIC_STREAMLIT_URL: /lab
     restart: unless-stopped
     environment:
       INTERNAL_API_URL: http://backend:8000
@@ -33,6 +36,9 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      # Odkaz zpět na portál (kořen stejné domény).
+      PORTAL_URL: /
     command:
       - streamlit
       - run

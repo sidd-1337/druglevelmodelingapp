@@ -25,6 +25,10 @@ interface KineticsHarmReductionTabProps {
   suklDetail: SuklPackageDetail;
 }
 
+// Where the browser finds the Streamlit lab. Set at build time; a path such as "/lab"
+// works when the lab is served from the portal's own domain.
+const STREAMLIT_URL = (process.env.NEXT_PUBLIC_STREAMLIT_URL || "http://localhost:8501").replace(/\/+$/, "");
+
 const NBSP = " ";
 const hours = (h: number) => `${num(h, 1)}${NBSP}h`;
 
@@ -412,7 +416,7 @@ export default function KineticsHarmReductionTab({
           TDM metriky.
         </p>
         <a
-          href={`http://localhost:8501/?drug=${drug?.id || "livizux"}&sukl=${suklDetail?.kodSukl || ""}&dose=${doseMg}&interval=${intervalH}&weight=${weightKg}&route=${route}`}
+          href={`${STREAMLIT_URL}/?drug=${drug?.id || "livizux"}&sukl=${suklDetail?.kodSukl || ""}&dose=${doseMg}&interval=${intervalH}&weight=${weightKg}&route=${route}`}
           target="_blank"
           rel="noopener noreferrer"
           className="link mt-4 inline-block text-body"

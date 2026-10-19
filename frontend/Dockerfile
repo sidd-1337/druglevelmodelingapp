@@ -9,6 +9,9 @@ COPY . .
 
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Kam vede odkaz "Otevřít ve Streamlitu" (URL nebo cesta, např. /lab)
+ARG NEXT_PUBLIC_STREAMLIT_URL=http://localhost:8501
+ENV NEXT_PUBLIC_STREAMLIT_URL=$NEXT_PUBLIC_STREAMLIT_URL
 # Cíl rewrites v next.config.ts (vyhodnocuje se při buildu)
 ARG INTERNAL_API_URL=http://backend:8000
 ENV INTERNAL_API_URL=$INTERNAL_API_URL

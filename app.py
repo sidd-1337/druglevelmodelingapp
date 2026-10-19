@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import os
 
 import numpy as np
 import streamlit as st
@@ -39,6 +40,9 @@ from ui.i18n import LANGUAGES, make_translator
 from ui.reporting import build_dataframe, build_protocol
 
 st.set_page_config(page_title="PK/PD Simulator & TDM", page_icon="💊", layout="wide")
+
+# Where the browser finds the web portal (link back from the lab). A URL or a path.
+PORTAL_URL = os.environ.get("PORTAL_URL", "http://localhost:3000").rstrip("/")
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -257,7 +261,7 @@ if qp_sukl or qp_drug:
     ref_code = qp_sukl or (active_sukl_code if "active_sukl_code" in locals() else "")
     st.info(
         f"🔗 **Propojeno z Lékového Portálu ČR** (SÚKL: `{ref_code}`, Lék: `{base.name}`). "
-        f"[← Zpět na moderní portál](http://localhost:3000/leky/{ref_code})"
+        f"[← Zpět na moderní portál]({PORTAL_URL}/leky/{ref_code})"
     )
 
 active_sukl_code = sukl_med.kod_sukl if sukl_med else PRESET_DEFAULT_SUKL_CODES.get(drug_id)
