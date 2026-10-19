@@ -1,5 +1,5 @@
 {
-  "_comment": "Enzyme activity registry. enzymes: genotype_activity is the clearance multiplier for that phenotype relative to a normal metaboliser, back-derived where possible from the AUC ratio of a sensitive substrate that is named in the note; phenotype_frequency is European. perpetrators: residual enzyme activity is NOT stored - it is derived at load time from index_auc_ratio and the index substrate's own index_fm, as residual = (1/ratio - (1 - fm)) / fm, and checked against the FDA class band. Reading a residual straight off the AUC ratio would overstate the remaining activity. CAVEAT: every index substrate here (desipramine, omeprazole, tizanidine, midazolam) was dosed ORALLY, so the ratios include gut-wall inhibition and loss of first-pass extraction and residuals derived from them overstate the purely hepatic effect - most for CYP3A4. A second caveat for genotype_activity: it is applied to one pathway, but several values were read off whole-drug exposure ratios without an fm correction; see each note. verified=true: the value was checked against the primary document named in source - an SPC or regulator label, the original study's full text (or its abstract, where the note says 'abstract only'), or a registry's posted results - and the note says where. verified=false: no primary could be reached, primaries disagree, or a field is calibrated rather than observed; the note says which. Drug-information aggregators and label mirrors are never a source for a verified value (tests/test_data_provenance.py).",
+  "_comment": "Enzyme activity registry. enzymes: genotype_activity is the clearance multiplier for that phenotype relative to a normal metaboliser, back-derived where possible from the AUC ratio of a sensitive substrate that is named in the note; phenotype_frequency is European. Each enzyme also carries a turnover block: the degradation half-life of the enzyme pool, half_life_h, from which kdeg = ln2/half_life_h. kdeg - not a perpetrator's own half-life - sets the timescale over which a mechanism-based inactivation or an induction effect builds and then wanes after the perpetrator is removed; it is consumed by the dynamic interaction model (see docs/multi-drug-ddi-plan.md), not by any single-drug curve, so adding it changes no existing behaviour. The turnover values are literature-consensus (Yang 2008) with a wide spread - CYP3A4 ranges 10-140 h - so they are verified=false and are the dominant uncertainty in any interaction prediction; the intestinal CYP3A4 pool (faster, ~23 h) is a separate pool introduced in Phase 3 and is noted but not yet stored. perpetrators: residual enzyme activity is NOT stored - it is derived at load time from index_auc_ratio and the index substrate's own index_fm, as residual = (1/ratio - (1 - fm)) / fm, and checked against the FDA class band. Reading a residual straight off the AUC ratio would overstate the remaining activity. CAVEAT: every index substrate here (desipramine, omeprazole, tizanidine, midazolam) was dosed ORALLY, so the ratios include gut-wall inhibition and loss of first-pass extraction and residuals derived from them overstate the purely hepatic effect - most for CYP3A4. A second caveat for genotype_activity: it is applied to one pathway, but several values were read off whole-drug exposure ratios without an fm correction; see each note. PROVENANCE: verified=true means the value was checked against the primary document named in source - an SPC or regulator label, the original study's full text (or its abstract, where the note says 'abstract only'), or a registry's posted results - and the note says where. verified=false means no primary could be reached, primaries disagree, or a field is a consensus or calibrated value rather than a single observed datum; the note says which. A third tier, 'anchored', is reserved for the dynamic model's in-vitro interaction constants that are fitted in vivo to one clinical DDI pair (e.g. fluvoxamine on CYP1A2) because the raw in-vitro value mispredicts; such a constant stays verified=false and its note names the anchor pair and the PBPK source. No value here is anchored yet - the first appear with the mechanistic constants in Phase 2. Drug-information aggregators and label mirrors are never a source for a verified value (tests/test_data_provenance.py).",
   "enzymes": {
     "CYP2D6": {
       "genotype_activity": {
@@ -16,7 +16,13 @@
       },
       "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=309de576-c318-404a-bc15-660c2b1876fb",
       "verified": false,
-      "note": "Not verifiable as a single number. Strattera label: atomoxetine AUC about 10-fold higher in poor metabolisers (1/10 = 0.10); its PK table, corrected for bioavailability (63 % vs 94 %), gives a clearance ratio of 0.128. Ultrarapid: the nortriptyline gene-copy series (Dalen 1998) implies about 1.33. Intermediate is the CPIC activity score 0.5, not a measured ratio. CAVEAT: the multiplier is applied to one pathway but derived from whole-drug ratios without an fm correction. Frequencies: phenotypic PM 7.0 % (Sachse 1997, 589 Germans); genotype-predicted European PM 5.44 % (Gaedigk 2017). Risperidone is deliberately not the anchor: its active moiety is CYP2D6-independent."
+      "note": "Not verifiable as a single number. Strattera label: atomoxetine AUC about 10-fold higher in poor metabolisers (1/10 = 0.10); its PK table, corrected for bioavailability (63 % vs 94 %), gives a clearance ratio of 0.128. Ultrarapid: the nortriptyline gene-copy series (Dalen 1998) implies about 1.33. Intermediate is the CPIC activity score 0.5, not a measured ratio. CAVEAT: the multiplier is applied to one pathway but derived from whole-drug ratios without an fm correction. Frequencies: phenotypic PM 7.0 % (Sachse 1997, 589 Germans); genotype-predicted European PM 5.44 % (Gaedigk 2017). Risperidone is deliberately not the anchor: its active moiety is CYP2D6-independent.",
+      "turnover": {
+        "half_life_h": 51.0,
+        "source": "https://pubmed.ncbi.nlm.nih.gov/18537575/",
+        "verified": false,
+        "note": "Hepatic CYP2D6 degradation half-life ~51 h (kdeg ~0.0136 /h), the value used in the Simcyp system library. Yang 2008 reviews the estimates; ex-vivo liver-slice data put it higher at 70-104 h, so this is the fast (conservative-for-recovery) end and is flagged for the sensitivity analysis the plan mandates. Consensus value, not a single measured datum: verified=false."
+      }
     },
     "CYP2C19": {
       "genotype_activity": {
@@ -35,7 +41,13 @@
       },
       "source": "https://pubmed.ncbi.nlm.nih.gov/17203292/",
       "verified": false,
-      "note": "Not verifiable as stated. Poor: oral omeprazole AUC ratios (7.5-fold, Klotz) are confounded by bioavailability; the IV arm of PMID 17203292 gives clearance multipliers of 0.23 (PM) and 0.58 (heterozygous EM). Ultrarapid 2.1 is exact (Baldwin 2008: *17/*17 omeprazole AUC 1973 vs 4151). The '12-fold' figure could not be traced. Poor-metaboliser frequency 0.03: Prilosec label, 'approximately 3% of Caucasians'. CPIC does not use activity scores for CYP2C19."
+      "note": "Not verifiable as stated. Poor: oral omeprazole AUC ratios (7.5-fold, Klotz) are confounded by bioavailability; the IV arm of PMID 17203292 gives clearance multipliers of 0.23 (PM) and 0.58 (heterozygous EM). Ultrarapid 2.1 is exact (Baldwin 2008: *17/*17 omeprazole AUC 1973 vs 4151). The '12-fold' figure could not be traced. Poor-metaboliser frequency 0.03: Prilosec label, 'approximately 3% of Caucasians'. CPIC does not use activity scores for CYP2C19.",
+      "turnover": {
+        "half_life_h": 26.0,
+        "source": "https://pubmed.ncbi.nlm.nih.gov/18537575/",
+        "verified": false,
+        "note": "Hepatic CYP2C19 degradation half-life ~26 h (kdeg ~0.0267 /h), in the Yang 2008 'unstable' 23-36 h band used by PBPK practice. Consensus value, not a single measured datum: verified=false."
+      }
     },
     "CYP2C9": {
       "genotype_activity": {
@@ -50,7 +62,13 @@
       },
       "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2d6675e4-5859-4be2-8037-a20ce9f707aa",
       "verified": false,
-      "note": "Celebrex label: celecoxib systemic levels 3- to 7-fold higher in *3/*3 than in a pooled *1/*1 or *1/*3 group, so 0.14-0.33 and, against *1/*1 alone, lower. CPIC NSAID guideline: *3/*3 ratio of means 4.16. Intermediate 0.5 lumps *1/*2 (no effect) with *1/*3 (x1.62). No preset uses a CYP2C9 pathway."
+      "note": "Celebrex label: celecoxib systemic levels 3- to 7-fold higher in *3/*3 than in a pooled *1/*1 or *1/*3 group, so 0.14-0.33 and, against *1/*1 alone, lower. CPIC NSAID guideline: *3/*3 ratio of means 4.16. Intermediate 0.5 lumps *1/*2 (no effect) with *1/*3 (x1.62). No preset uses a CYP2C9 pathway.",
+      "turnover": {
+        "half_life_h": 104.0,
+        "source": "https://pubmed.ncbi.nlm.nih.gov/18537575/",
+        "verified": false,
+        "note": "Hepatic CYP2C9 degradation half-life ~104 h (kdeg ~0.0067 /h), the long-lived end of the Yang 2008 estimates and independently corroborated there. Consensus value, not a single measured datum: verified=false."
+      }
     },
     "CYP3A4": {
       "genotype_activity": {
@@ -59,7 +77,13 @@
       "phenotype_frequency": {},
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10409991/table/T1",
       "verified": false,
-      "note": "No poor/intermediate/ultrarapid system exists for CYP3A4, so there is no genotype selector - only inhibition and induction. 'normal' = 1.0 is the loader's normalisation, not a datum. The cited table is from a CYP3A4*22/tacrolimus meta-analysis and does not address phenotype classes. CYP3A5 expresser status is a separate axis not modelled here."
+      "note": "No poor/intermediate/ultrarapid system exists for CYP3A4, so there is no genotype selector - only inhibition and induction. 'normal' = 1.0 is the loader's normalisation, not a datum. The cited table is from a CYP3A4*22/tacrolimus meta-analysis and does not address phenotype classes. CYP3A5 expresser status is a separate axis not modelled here.",
+      "turnover": {
+        "half_life_h": 36.0,
+        "source": "https://pubmed.ncbi.nlm.nih.gov/18537575/",
+        "verified": false,
+        "note": "HEPATIC CYP3A4 degradation half-life ~36 h (kdeg ~0.0193 /h), the Simcyp system-library value. This is the most contested CYP turnover: Yang 2008 reports a 10-140 h range across methods, so it is the single largest source of uncertainty for every CYP3A4 inactivation and induction prediction and must carry a sensitivity analysis. The INTESTINAL pool is faster (half-life ~23 h, kdeg ~0.03 /h) and is the most influential, least certain parameter for oral DDIs; it will be a separate gut enzyme pool in Phase 3 and is noted here, not yet stored."
+      }
     },
     "CYP1A2": {
       "genotype_activity": {
@@ -68,7 +92,13 @@
       "phenotype_frequency": {},
       "source": "https://www.knmp.nl/sites/default/files/2023-11/CYP1A2_English.pdf",
       "verified": false,
-      "note": "No validated genotype-based activity multiplier; the *1F effect appears only alongside an inducer such as smoking (KNMP/DPWG background text, a guideline rather than a primary), so no genotype selector is offered."
+      "note": "No validated genotype-based activity multiplier; the *1F effect appears only alongside an inducer such as smoking (KNMP/DPWG background text, a guideline rather than a primary), so no genotype selector is offered.",
+      "turnover": {
+        "half_life_h": 38.5,
+        "source": "https://pubmed.ncbi.nlm.nih.gov/18537575/",
+        "verified": false,
+        "note": "Hepatic CYP1A2 degradation half-life ~38.5 h (kdeg ~0.0180 /h), independently corroborated in the Yang 2008 review. Consensus value, not a single measured datum: verified=false."
+      }
     }
   },
   "perpetrators": [

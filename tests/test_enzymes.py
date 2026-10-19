@@ -7,6 +7,7 @@ from core.enzymes import (
     CLASS_BANDS,
     Enzyme,
     Perpetrator,
+    Turnover,
     derived_exposure_factor,
     find_perpetrators,
     genotype_activity,
@@ -31,6 +32,22 @@ def test_registry_loads_and_cites_sources():
     assert all(e.source.startswith("http") for e in enzymes.values())
     assert all(p.source.startswith("http") for p in perpetrators)
     assert all(isinstance(e.verified, bool) for e in enzymes.values())
+
+
+def test_every_enzyme_carries_a_plausible_turnover():
+    for name, e in load_enzymes().items():
+        assert e.turnover is not None, f"{name} has no turnover block"
+        assert isinstance(e.turnover, Turnover), name
+        # A CYP turnover half-life of a few hours to a few days; outside this a datum is a typo.
+        assert 10.0 <= e.turnover.half_life_h <= 150.0, f"{name}: {e.turnover.half_life_h} h is implausible"
+        assert e.turnover.kdeg_per_h == pytest.approx(math.log(2.0) / e.turnover.half_life_h)
+        assert e.turnover.source.startswith("http"), name
+        assert e.turnover.note, name
+
+
+def test_turnover_rejects_a_non_positive_half_life():
+    with pytest.raises(ValueError):
+        Turnover(half_life_h=0.0)
 
 
 def test_every_drug_pathway_resolves_to_a_known_enzyme_or_a_non_enzyme_route():

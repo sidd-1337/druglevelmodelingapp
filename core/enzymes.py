@@ -19,6 +19,7 @@ enzyme, which is what :func:`derived_exposure_factor` does.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -36,6 +37,32 @@ CLASS_BANDS: dict[str, tuple[float, float]] = {
 
 
 @dataclass(frozen=True)
+class Turnover:
+    """Degradation (turnover) of one enzyme pool, as a half-life.
+
+    The active fraction recovers towards baseline at ``kdeg = ln2 / half_life_h`` after
+    an inactivator or an inducer is removed, so this - not the perpetrator's own
+    half-life - sets the timescale of an inactivation or induction effect and of its
+    offset. The values are literature-consensus (Yang 2008) with a wide spread, so they
+    are ``verified=false`` and the note says so; the spread is the dominant uncertainty
+    in any mechanism-based or induction prediction and warrants a sensitivity analysis.
+    """
+
+    half_life_h: float
+    source: str = ""
+    verified: bool = False
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        if self.half_life_h <= 0:
+            raise ValueError("turnover half_life_h must be > 0")
+
+    @property
+    def kdeg_per_h(self) -> float:
+        return math.log(2.0) / self.half_life_h
+
+
+@dataclass(frozen=True)
 class Enzyme:
     name: str
     genotype_activity: dict[str, float]
@@ -43,6 +70,7 @@ class Enzyme:
     source: str
     verified: bool = False
     note: str = ""
+    turnover: Turnover | None = None
 
     def __post_init__(self) -> None:
         if self.genotype_activity.get(NORMAL_PHENOTYPE) != 1.0:
@@ -95,11 +123,19 @@ class Perpetrator:
         return self.name_cs if lang == "cs" and self.name_cs else self.name
 
 
+def _with_turnover(cfg: Mapping) -> dict:
+    """Enzyme config with its ``turnover`` dict promoted to a :class:`Turnover`."""
+    out = dict(cfg)
+    if out.get("turnover") is not None:
+        out["turnover"] = Turnover(**out["turnover"])
+    return out
+
+
 @lru_cache(maxsize=4)
 def _load(path: str) -> tuple[dict[str, Enzyme], tuple[Perpetrator, ...]]:
     with open(path, encoding="utf-8") as fh:
         raw = json.load(fh)
-    enzymes = {name: Enzyme(name=name, **cfg) for name, cfg in raw["enzymes"].items()}
+    enzymes = {name: Enzyme(name=name, **_with_turnover(cfg)) for name, cfg in raw["enzymes"].items()}
     perpetrators = tuple(Perpetrator(**entry) for entry in raw["perpetrators"])
     unknown = {p.enzyme for p in perpetrators} - set(enzymes)
     if unknown:
