@@ -179,8 +179,11 @@ def test_app_perpetrator_applies_measured_factor_and_timing():
     at.selectbox[0].set_value("risperidone").run()
     at.multiselect[1].set_value(["Paroxetine 20 mg/day"]).run()  # measured active-moiety AUC ratio 1.6
     assert not at.exception
-    # Time-varying: paroxetine builds toward (never past) its measured factor over the simulation.
-    factor = next(float(m.value.rstrip("x")) for m in at.metric if "Exposure vs. alone" in m.label)
-    assert 1.3 < factor <= 1.6
-    # A timing control is offered for a perpetrator with known PK.
+    factor = lambda: next(float(m.value.rstrip("x")) for m in at.metric if "Exposure vs. alone" in m.label)
+    # Default: already being taken, so the measured factor applies from the start.
+    assert factor() == pytest.approx(1.6, abs=0.005)
+    # Started on day 0 instead, paroxetine builds toward (never past) its measured factor.
+    next(c for c in at.checkbox if "already taking" in c.label).uncheck().run()
+    assert not at.exception
     assert any("start day" in str(n.label).lower() for n in at.number_input)
+    assert 1.3 < factor() < 1.6

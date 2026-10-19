@@ -56,9 +56,13 @@ class PerpetratorCourse:
     an inhibitor, > 1 for an inducer); it shapes the induction lag and the display
     curve, not the victim magnitude. ``t_half_h`` is the perpetrator's own
     elimination half-life, which sets how fast its concentration - and so its
-    effect - builds and fades. ``start_h`` is when it is first taken, ``stop_h`` when
-    stopped (``None`` = throughout). ``interval_h`` records the regimen the residual
-    was measured at.
+    effect - builds. ``offset_t_half_h`` sets how fast the effect fades after it is
+    stopped, where that is slower than its own clearance (an active metabolite, a
+    tissue reservoir, or an enzyme it destroyed having to be resynthesised); it
+    defaults to ``t_half_h``. ``start_h`` is when it is first taken, ``None`` meaning
+    it was already being taken at steady state before the simulation begins;
+    ``stop_h`` is when it is stopped (``None`` = throughout). ``interval_h`` records
+    the regimen the residual was measured at.
     """
 
     enzyme: str
@@ -66,8 +70,9 @@ class PerpetratorCourse:
     t_half_h: float
     induces: bool
     interval_h: float = 24.0
-    start_h: float = 0.0
+    start_h: float | None = 0.0
     stop_h: float | None = None
+    offset_t_half_h: float | None = None
 
     def __post_init__(self) -> None:
         if self.residual < 0:
@@ -78,7 +83,9 @@ class PerpetratorCourse:
             raise ValueError("a reversible inhibitor must have residual <= 1")
         if self.t_half_h <= 0 or self.interval_h <= 0:
             raise ValueError("t_half_h and interval_h must be > 0")
-        if self.stop_h is not None and self.stop_h < self.start_h:
+        if self.offset_t_half_h is not None and self.offset_t_half_h <= 0:
+            raise ValueError("offset_t_half_h must be > 0")
+        if self.stop_h is not None and self.start_h is not None and self.stop_h < self.start_h:
             raise ValueError("stop_h must be >= start_h")
 
 
@@ -86,11 +93,16 @@ def _exposure_envelope(course: PerpetratorCourse, t: np.ndarray) -> np.ndarray:
     """The perpetrator's exposure over ``t`` as a fraction of its steady-state level (0..1)."""
     t = np.asarray(t, dtype=float)
     ke = LN2 / course.t_half_h
-    env = np.where(t >= course.start_h, 1.0 - np.exp(-ke * np.clip(t - course.start_h, 0.0, None)), 0.0)
+    if course.start_h is None:  # already at steady state
+        env = np.ones_like(t)
+        at_stop = 1.0
+    else:
+        env = np.where(t >= course.start_h, 1.0 - np.exp(-ke * np.clip(t - course.start_h, 0.0, None)), 0.0)
+        at_stop = None if course.stop_h is None else 1.0 - math.exp(-ke * max(course.stop_h - course.start_h, 0.0))
     if course.stop_h is not None:
-        at_stop = 1.0 - math.exp(-ke * max(course.stop_h - course.start_h, 0.0))
+        ke_off = LN2 / (course.offset_t_half_h or course.t_half_h)
         after = t >= course.stop_h
-        env = np.where(after, at_stop * np.exp(-ke * np.clip(t - course.stop_h, 0.0, None)), env)
+        env = np.where(after, at_stop * np.exp(-ke_off * np.clip(t - course.stop_h, 0.0, None)), env)
     return env
 
 
@@ -100,7 +112,9 @@ def _induction_pool(t: np.ndarray, h: np.ndarray, residual: float, kdeg_per_h: f
         raise ValueError("enzyme turnover kdeg must be > 0")
     target = 1.0 + (residual - 1.0) * np.asarray(h, dtype=float)
     e = np.empty_like(t)
-    e[0] = 1.0
+    # Start at the pool's steady value for the exposure at t[0]: baseline for a
+    # perpetrator not yet taken, fully induced for one already taken at steady state.
+    e[0] = target[0]
     for i in range(1, len(t)):
         dt = t[i] - t[i - 1]
         decay = math.exp(-kdeg_per_h * dt)
@@ -125,10 +139,28 @@ def effect_fraction(course: PerpetratorCourse, t: np.ndarray, turnover_per_h: fl
     return (pool - 1.0) / (course.residual - 1.0)
 
 
+def exposure_fraction(course: PerpetratorCourse, t: np.ndarray) -> np.ndarray:
+    """The perpetrator's own exposure over ``t`` as a fraction of its steady state (no enzyme lag)."""
+    return _exposure_envelope(course, np.asarray(t, dtype=float))
+
+
+def activity_from_fraction(course: PerpetratorCourse, g: np.ndarray) -> np.ndarray:
+    """Enzyme activity (1 = baseline) for an effect developed to ``g``; ``residual`` at g = 1.
+
+    A reversible inhibitor acts as 1 / (1 + beta g) with beta = (1 - r) / r, the
+    concentration-response of competitive inhibition; an inducer's pool is linear in g.
+    """
+    g = np.asarray(g, dtype=float)
+    if course.induces:
+        return 1.0 + (course.residual - 1.0) * g
+    beta = (1.0 - course.residual) / max(course.residual, 1e-9)
+    return 1.0 / (1.0 + beta * g)
+
+
 def enzyme_activity_curve(course: PerpetratorCourse, t: np.ndarray,
                           turnover_per_h: float | None = None) -> np.ndarray:
-    """The enzyme's activity over ``t`` (1 = baseline), for display. Reaches ``residual`` at full effect."""
-    return 1.0 + (course.residual - 1.0) * effect_fraction(course, t, turnover_per_h)
+    """The enzyme's activity over ``t`` (1 = baseline). Reaches ``residual`` at full effect."""
+    return activity_from_fraction(course, effect_fraction(course, t, turnover_per_h))
 
 
 @dataclass(frozen=True)

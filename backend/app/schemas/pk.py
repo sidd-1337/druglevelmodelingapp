@@ -286,6 +286,26 @@ class CoMedicationIn(BaseModel):
     interval_h: float | None = Field(default=None, gt=0)
     route: str = "oral"
     formulation: str | None = None
+    start_h: float | None = Field(default=None, ge=0, description=(
+        "Perpetrator entries: hour it is first taken. Omit when it is already being taken at steady state."))
+    stop_h: float | None = Field(default=None, gt=0, description="Perpetrator entries: hour it is stopped")
+
+
+class AppliedInteractionResponse(BaseModel):
+    perpetrator: str
+    site: str
+    factor: float | None = Field(description="Steady-state exposure factor applied; null if not applied as a factor")
+    timed: bool = Field(description="Builds and fades with the perpetrator's own pharmacokinetics")
+    via_enzyme: bool = Field(description="Applied through a shared enzyme pool instead of as a factor")
+    skipped: str = Field(default="", description="'qualitative' or 'iv' when it changes nothing")
+
+
+class ClashResponse(BaseModel):
+    effect: str
+    participants: list[str] = Field(description="Drug ids, or 'substance:<name>' for an added perpetrator")
+    names: list[str]
+    overlap_h: float = Field(description="Time at least two of them are active together")
+    first_h: float | None = None
 
 
 class InteractionResponse(BaseModel):
@@ -314,11 +334,13 @@ class MultiDrugSeriesResponse(BaseModel):
     concentrations_alone: list[float]
     mec: float
     mtc: float
-    exposure_factor: float = Field(description="Steady-state exposure with co-medication / alone")
-    t_half_h: float
-    steady_state: SteadyStateResponse
+    exposure_factor: float = Field(description="Exposure over the last dosing interval, with co-medication / alone")
+    t_half_h: float = Field(description="The drug's own terminal half-life; interactions scale exposure, not it")
+    steady_state: SteadyStateResponse = Field(description="Steady state alone, levels scaled by exposure_factor")
     tdm: TDMAssessmentResponse
     interactions: list[InteractionResponse]
+    applied: list[AppliedInteractionResponse] = Field(default_factory=list)
+    drivers: list[str] = Field(default_factory=list, description="What makes its interaction effect time-varying")
 
 
 class MultiDrugRequest(BaseModel):
@@ -334,3 +356,8 @@ class MultiDrugResponse(BaseModel):
     series: list[MultiDrugSeriesResponse]
     unmatched_perpetrators: list[str] = Field(
         default_factory=list, description="Named perpetrators with no interaction data for any simulated drug")
+    enzyme_activity: dict[str, list[float]] = Field(
+        default_factory=dict, description="Active enzyme as a fraction of baseline over time_grid")
+    enzyme_drivers: dict[str, list[str]] = Field(default_factory=dict)
+    clashes: list[ClashResponse] = Field(default_factory=list)
+    pd_unassessed: list[str] = Field(default_factory=list, description="Participants not assessed for PD effects")

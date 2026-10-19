@@ -83,10 +83,12 @@
       "index_fm": 0.85,
       "source": "https://pubmed.ncbi.nlm.nih.gov/14730412/",
       "verified": true,
-      "note": "Laine 2004 (abstract): paroxetine 20 mg/day for 8 days, single 100 mg desipramine, n=15, AUC x4.8. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss. PK: PAXIL FDA label: mean elimination half-life ~21 h; once daily.",
+      "note": "Laine 2004 (abstract): paroxetine 20 mg/day for 8 days, single 100 mg desipramine, n=15, AUC x4.8. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss. PK: PAXIL FDA label: mean elimination half-life ~21 h; once daily. Fade: CYP2D6 inhibition half-life after discontinuation 2.9 +- 1.9 days (Liston 2002, abstract only), longer than paroxetine's 21 h because it is a mechanism-based inhibitor and CYP2D6 must be resynthesised (modelled at 51 h by Venkatakrishnan & Obach 2005, PMID 15788540).",
       "t_half_h": 21,
       "interval_h": 24,
-      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2017/020710s038lbl.pdf"
+      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2017/020710s038lbl.pdf",
+      "offset_t_half_h": 70,
+      "offset_source": "https://pubmed.ncbi.nlm.nih.gov/11910262/"
     },
     {
       "name": "Fluoxetine 20 mg/day",
@@ -98,10 +100,12 @@
       "index_fm": 0.85,
       "source": "https://pubmed.ncbi.nlm.nih.gov/8195463/",
       "verified": true,
-      "note": "Preskorn 1994 (abstract): fluoxetine 20 mg/day, desipramine 50 mg/day at steady state, 18 healthy extensive metabolisers, AUC0-24 x4.8. The previously cited review table has no numbers. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss. PK: Prozac FDA label: parent chronic half-life 4-6 days (120 h). Offset is longer: the active metabolite norfluoxetine has a 8.6-9.3 day half-life, so a single half-life understates how slowly CYP2D6 inhibition fades.",
+      "note": "Preskorn 1994 (abstract): fluoxetine 20 mg/day, desipramine 50 mg/day at steady state, 18 healthy extensive metabolisers, AUC0-24 x4.8. The previously cited review table has no numbers. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss. PK: Prozac FDA label: parent chronic half-life 4-6 days (120 h). Offset is longer: the active metabolite norfluoxetine has a 8.6-9.3 day half-life, so a single half-life understates how slowly CYP2D6 inhibition fades. Fade: CYP2D6 inhibition half-life after discontinuation 7.0 +- 1.5 days (Liston 2002, J Clin Psychopharmacol 22:169, abstract only; dextromethorphan ratio, 45 volunteers). Norfluoxetine's own terminal half-life is 9.3 days after multiple dosing (Prozac label).",
       "t_half_h": 120,
       "interval_h": 24,
-      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2009/018936s088,020101s042,021235s014lbl.pdf"
+      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2009/018936s088,020101s042,021235s014lbl.pdf",
+      "offset_t_half_h": 168,
+      "offset_source": "https://pubmed.ncbi.nlm.nih.gov/11910262/"
     },
     {
       "name": "Bupropion",
@@ -128,10 +132,12 @@
       "index_fm": 0.85,
       "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2019/020539s033lbl.pdf",
       "verified": true,
-      "note": "Lamisil label 7.1: desipramine AUC 5-fold (Madani 2002: 482 -> 2383 ng*h/mL, x4.94, terbinafine 250 mg/day for 21 days); still present at the last observation 4 weeks after stopping. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss. PK: LAMISIL FDA label: effective half-life ~36 h governs plasma decline; a 200-400 h tissue terminal phase explains the ~4-week persistence of CYP2D6 inhibition, which a single half-life understates. Once daily.",
+      "note": "Lamisil label 7.1: desipramine AUC 5-fold (Madani 2002: 482 -> 2383 ng*h/mL, x4.94, terbinafine 250 mg/day for 21 days); still present at the last observation 4 weeks after stopping. Index substrate desipramine, fm 0.85 = 1 - 15/102 from median clearances in poor vs extensive metabolisers (Brøsen 1993, abstract); this assumes no residual activity in poor metabolisers, whereas enzymes.json gives them 0.12, which would make fm about 0.97. Orally dosed, so the ratio includes first-pass loss. PK: LAMISIL FDA label: effective half-life ~36 h governs plasma decline; a 200-400 h tissue terminal phase explains the ~4-week persistence of CYP2D6 inhibition, which a single half-life understates. Once daily. Fade: midpoint of the label's 200-400 h tissue terminal half-life; the label reports the desipramine interaction still present at the last observation, 4 weeks after stopping. It does not give a half-life for the inhibition itself.",
       "t_half_h": 36,
       "interval_h": 24,
-      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2019/020539s033lbl.pdf"
+      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2019/020539s033lbl.pdf",
+      "offset_t_half_h": 300,
+      "offset_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2019/020539s033lbl.pdf"
     },
     {
       "name": "Fluvoxamine 50 mg/day",
@@ -146,7 +152,10 @@
       "note": "Yasui-Furukori 2004 (Br J Clin Pharmacol 57:487) Table 1: fluvoxamine 25 mg b.i.d. (50 mg/day, not 100-150) for 6 days, single 40 mg omeprazole, homozygous extensive metabolisers, AUC ratio of geometric means 8340/1483 = 5.62 (the text's 6.2-fold is a mean of individual ratios). Inhibition is dose-dependent. Index substrate omeprazole: fm 0.85 is not established by any primary; the primaries bracket it at 0.84-0.90 (1 - 1/6.29 = 0.84 from Kang 2002; 0.87-0.90 from Yasui-Furukori's poor vs homozygous extensive metabolisers). Orally dosed, so the ratio includes first-pass loss. PK: Fluvoxamine maleate FDA label: steady-state half-life 15.6 h; 50 mg once daily.",
       "t_half_h": 15.6,
       "interval_h": 24,
-      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/021519s026lbl.pdf"
+      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/021519s026lbl.pdf",
+      "aliases": [
+        "Fluvoxamine 100-150 mg/day"
+      ]
     },
     {
       "name": "Fluconazole",
@@ -218,10 +227,12 @@
       "index_fm": 0.96,
       "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b98b02bb-2609-49a0-b29f-e5911aa0cbc1",
       "verified": false,
-      "note": "Primaries disagree on the same study (Gorski 1998, clarithromycin 500 mg b.i.d. for 7 days): the clarithromycin label gives oral midazolam AUC +600 % (x7.0), FDA's index-inhibitor table x9.61, and Quinney 2008 restates x8.1 (its elderly cohort: x8.0). The stored 8.4 matches none exactly. Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic. PK: Clarithromycin label: half-life 5-7 h at 500 mg; every 12 h. Also a mechanism-based inhibitor, so offset lags its own clearance.",
+      "note": "Primaries disagree on the same study (Gorski 1998, clarithromycin 500 mg b.i.d. for 7 days): the clarithromycin label gives oral midazolam AUC +600 % (x7.0), FDA's index-inhibitor table x9.61, and Quinney 2008 restates x8.1 (its elderly cohort: x8.0). The stored 8.4 matches none exactly. Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic. PK: Clarithromycin label: half-life 5-7 h at 500 mg; every 12 h. Also a mechanism-based inhibitor, so offset lags its own clearance. Fade: a mechanism-based CYP3A4 inhibitor, so the effect fades as CYP3A4 is resynthesised (turnover 36 h), not at clarithromycin's own 5 h. The label states no duration.",
       "t_half_h": 5,
       "interval_h": 12,
-      "pk_source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b98b02bb-2609-49a0-b29f-e5911aa0cbc1"
+      "pk_source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b98b02bb-2609-49a0-b29f-e5911aa0cbc1",
+      "offset_t_half_h": 36,
+      "offset_source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6310869/"
     },
     {
       "name": "Diltiazem",
@@ -251,7 +262,10 @@
       "note": "Kanefendt 2024 (abstract only): carbamazepine 300 mg b.i.d. for 10 days after titration (this name says 400 mg b.i.d., the regimen of the paired mirtazapine study), healthy volunteers, midazolam AUC ratio 0.282 (second study 0.323). In chronically treated patients the midazolam label gives -94 % (x0.06). Induction takes at least 2 weeks to build and to wane (Czech risperidone SPC 4.5). Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic. PK: TEGRETOL FDA label: autoinduced steady-state half-life 12-17 h (14 h); b.i.d. Induction onset is set by enzyme turnover, not this value.",
       "t_half_h": 14,
       "interval_h": 12,
-      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/018927Orig1s061;016608Orig1s122;020234Orig1s055lbl.pdf"
+      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/018927Orig1s061;016608Orig1s122;020234Orig1s055lbl.pdf",
+      "aliases": [
+        "Carbamazepine"
+      ]
     },
     {
       "name": "Rifampicin",

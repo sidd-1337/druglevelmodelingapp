@@ -421,3 +421,35 @@ def test_unknown_enzyme_phenotype_is_rejected():
         "drug_id": "diazepam", "dose_mg": 10.0, "interval_h": 24.0, "duration_h": 48.0,
         "patient": {"phenotypes": {"CYP2C19": "nonsense"}}})
     assert res.status_code == 400
+
+
+def test_multi_drug_perpetrator_timing_and_drivers():
+    base = {"drugs": [{"drug_id": "risperidone"}, {"perpetrator": "Paroxetine 20 mg/day"}], "duration_h": 240}
+    steady = client.post("/api/v1/pk/multi-drug", json=base).json()["series"][0]
+    assert steady["exposure_factor"] == pytest.approx(1.6, rel=1e-3)  # already taken: measured factor
+    late = {**base, "drugs": [{"drug_id": "risperidone"},
+                              {"perpetrator": "Paroxetine 20 mg/day", "start_h": 120.0}]}
+    s = client.post("/api/v1/pk/multi-drug", json=late).json()["series"][0]
+    assert 1.0 < s["exposure_factor"] < 1.6
+    assert s["applied"][0]["timed"] and s["drivers"] == ["Paroxetine 20 mg/day"]
+    bad = {**base, "drugs": [{"drug_id": "risperidone"},
+                             {"perpetrator": "Paroxetine 20 mg/day", "start_h": 100.0, "stop_h": 50.0}]}
+    assert client.post("/api/v1/pk/multi-drug", json=bad).status_code == 422
+
+
+def test_multi_drug_reports_shared_enzyme_and_clashes():
+    payload = {"drugs": [{"drug_id": "risperidone"}, {"drug_id": "mdma"}], "duration_h": 120}
+    data = client.post("/api/v1/pk/multi-drug", json=payload).json()
+    assert data["enzyme_drivers"] == {"CYP2D6": ["MDMA (ecstasy)"]}
+    assert len(data["enzyme_activity"]["CYP2D6"]) == len(data["time_grid"])
+    assert min(data["enzyme_activity"]["CYP2D6"]) < 0.2
+    pd = client.post("/api/v1/pk/multi-drug", json={"drugs": [{"drug_id": "lithium"}, {"drug_id": "mirtazapine"}]}).json()
+    sero = next(c for c in pd["clashes"] if c["effect"] == "serotonergic")
+    assert set(sero["participants"]) == {"lithium", "mirtazapine"}
+
+
+def test_multi_drug_bioavailability_interaction_skips_iv():
+    payload = {"drugs": [{"drug_id": "ketamine", "route": "iv_bolus"}, {"perpetrator": "Clarithromycin"}]}
+    s = client.post("/api/v1/pk/multi-drug", json=payload).json()["series"][0]
+    assert s["exposure_factor"] == pytest.approx(1.0)
+    assert s["applied"][0]["skipped"] == "iv"

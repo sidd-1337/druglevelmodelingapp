@@ -21,6 +21,8 @@ from backend.app.schemas.pk import (
     SimulateRequest,
     SimulateResponse,
     SteadyStateResponse,
+    AppliedInteractionResponse,
+    ClashResponse,
     InteractionResponse,
     MultiDrugRequest,
     MultiDrugResponse,
@@ -41,7 +43,8 @@ from core.harm_reduction import (
     get_route_timeline,
 )
 from core.individualize import Observation, fit_individual, individual_band
-from core.interactions import apply_interactions, derived_interactions, find, interactions_for
+from core.interactions import interactions_for
+from core.regimen import AddedSubstance, RegimenDrug, simulate_regimen as run_regimen
 from core.metrics import (
     TDMAssessment,
     TherapeuticWindow,
@@ -480,60 +483,72 @@ def drug_interactions(drug_id: str) -> list[InteractionResponse]:
 
 @router.post("/multi-drug", response_model=MultiDrugResponse)
 def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
-    """Simulate several drugs on one time grid, applying their mutual interactions."""
-    entries = []
+    """Simulate several drugs on one time grid, with their interactions over time and PD clashes.
+
+    Same model as the Streamlit co-medication tab (core.regimen): a shared enzyme a
+    drug destroys is simulated as a pool, an added perpetrator with known PK builds
+    and fades from start_h / stop_h (omit start_h when it is already being taken),
+    and drugs or perpetrators sharing a PD effect class are flagged while both are
+    active.
+    """
+    picked, added = [], []
     for item in req.drugs:
         if item.drug_id is None:
             if not item.perpetrator:
                 raise HTTPException(status_code=422, detail="each entry needs drug_id or perpetrator")
+            if item.stop_h is not None and item.start_h is not None and item.stop_h <= item.start_h:
+                raise HTTPException(status_code=422, detail=f"{item.perpetrator}: stop_h must be after start_h")
+            added.append(AddedSubstance(item.perpetrator, item.start_h, item.stop_h))
             continue
         try:
-            entries.append((item, _with_formulation(get_drug(item.drug_id), item.formulation)))
+            picked.append((item, _with_formulation(get_drug(item.drug_id), item.formulation)))
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Drug with id {item.drug_id!r} not found in presets.")
-    if not entries:
+    if not picked:
         raise HTTPException(status_code=422, detail="at least one entry must name a preset drug_id")
 
     crcl = _resolve_crcl(req.patient, req.body_weight_kg)
     t = time_grid(req.duration_h)
-    # Every other drug in the regimen, plus any named perpetrator, can act on each drug.
-    named = [i.perpetrator for i in req.drugs if i.perpetrator]
-    co_names = {d.name for _, d in entries} | {d.id for _, d in entries} | set(named)
-    used_perpetrators: set[str] = set()
-
-    series = []
-    for item, drug in entries:
-        others = co_names - {drug.name, drug.id}
-        acting = [i for i in interactions_for(drug.id) if i.perpetrator in others]
-        acting += find(drug.id, named, drug=drug)
-        # mechanistic estimates for the other simulated drugs too, where no study exists
-        acting += [i for i in derived_interactions(drug, others)
-                   if i.perpetrator not in {a.perpetrator for a in acting}]
-        acting = list({(i.perpetrator, i.site): i for i in acting}.values())
-        used_perpetrators |= {i.perpetrator for i in acting}
-
-        route = _resolve_route(item.route)
-        alone = drug.to_pk_model(req.body_weight_kg, route=route, crcl_ml_min=crcl)
-        model = apply_interactions(alone, acting)
+    entries = []
+    for item, drug in picked:
+        model = drug.to_pk_model(req.body_weight_kg, route=_resolve_route(item.route), crcl_ml_min=crcl)
         dose_mg = item.dose_mg if item.dose_mg is not None else drug.default_dose_mg
         interval_h = item.interval_h if item.interval_h is not None else drug.default_interval_h
-        amount = drug.amount_from_dose_mg(dose_mg)
-        events = regular_schedule(amount, interval_h, req.duration_h)
+        events = tuple(regular_schedule(drug.amount_from_dose_mg(dose_mg), interval_h, req.duration_h))
+        entries.append(RegimenDrug(drug, model, events, interval_h, drug.enzyme_shares(req.body_weight_kg, crcl)))
+    res = run_regimen(t, entries, added)
+
+    series = []
+    for (item, drug), r in zip(picked, res.drugs):
+        dose_mg = item.dose_mg if item.dose_mg is not None else drug.default_dose_mg
+        amount, f = drug.amount_from_dose_mg(dose_mg), r.exposure_factor
+        alone_ss = steady_state_summary(amount, r.entry.interval_h, r.entry.model)
+        ss = dataclasses.replace(alone_ss, cmax_ss=alone_ss.cmax_ss * f, cmin_ss=alone_ss.cmin_ss * f,
+                                 cavg_ss=alone_ss.cavg_ss * f)
         window = TherapeuticWindow(mec=drug.mec, mtc=drug.mtc)
-        ss = steady_state_summary(amount, interval_h, model)
-        c = concentration_profile(t, events, model)
+        assess_from = min(ss.time_to_ss_h, max(0.0, req.duration_h - r.entry.interval_h))
         series.append(MultiDrugSeriesResponse(
             drug_id=drug.id, drug_name=drug.name, unit=drug.concentration_unit, dose_mg=dose_mg,
-            interval_h=interval_h, concentrations=_round_list(c),
-            concentrations_alone=_round_list(concentration_profile(t, events, alone)),
-            mec=drug.mec, mtc=drug.mtc,
-            exposure_factor=round(ss.cavg_ss / steady_state_summary(amount, interval_h, alone).cavg_ss, 4),
-            t_half_h=round(model.terminal_half_life_h, 3),
+            interval_h=r.entry.interval_h, concentrations=_round_list(r.concentrations),
+            concentrations_alone=_round_list(r.alone), mec=drug.mec, mtc=drug.mtc,
+            exposure_factor=round(f, 4), t_half_h=round(r.entry.model.terminal_half_life_h, 3),
             steady_state=_steady_state_response(ss),
-            tdm=_tdm_response(assess_tdm(t, c, window, min(ss.time_to_ss_h, max(0.0, req.duration_h - interval_h)))),
-            interactions=[_interaction_response(i) for i in acting],
+            tdm=_tdm_response(assess_tdm(t, r.concentrations, window, assess_from)),
+            interactions=[_interaction_response(a.interaction) for a in r.applied],
+            applied=[AppliedInteractionResponse(
+                perpetrator=a.interaction.perpetrator, site=a.interaction.site,
+                factor=round(a.factor, 4) if a.factor is not None else None, timed=a.timed,
+                via_enzyme=a.via_enzyme, skipped=a.skipped) for a in r.applied],
+            drivers=r.drivers,
         ))
     return MultiDrugResponse(
         time_grid=_round_list(t, 4), crcl_ml_min=round(crcl, 1) if crcl is not None else None, series=series,
-        unmatched_perpetrators=sorted(set(named) - used_perpetrators),
+        unmatched_perpetrators=sorted(res.unmatched),
+        enzyme_activity={e: _round_list(a) for e, a in res.enzyme_activity.items()},
+        enzyme_drivers=res.enzyme_drivers,
+        clashes=[ClashResponse(effect=c.effect, participants=list(c.drug_ids),
+                               names=[res.labels[k][0] for k in c.drug_ids], overlap_h=round(c.overlap_h, 2),
+                               first_h=round(c.first_h, 2) if c.first_h is not None else None)
+                 for c in res.clashes],
+        pd_unassessed=res.unassessed,
     )

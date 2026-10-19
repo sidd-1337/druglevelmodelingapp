@@ -766,7 +766,8 @@ class CoDrug:
     def __post_init__(self) -> None:
         if bool(self.inactivates) != bool(self.model.inactivation_fraction):
             raise ValueError("inactivates must name the enzyme exactly when the model inactivates one")
-        if any(not 0 <= s <= 1 for s in self.enzyme_shares.values()) or sum(self.enzyme_shares.values()) > 1 + 1e-9:
+        # Check the shares actually used, after the inactivated enzyme's override.
+        if any(not 0 <= s <= 1 for s in self.shares.values()) or sum(self.shares.values()) > 1 + 1e-9:
             raise ValueError("enzyme shares must be in [0, 1] and sum to <= 1")
 
     @property
@@ -783,7 +784,8 @@ class CoupledProfiles:
     enzyme_activity: dict[str, np.ndarray]  # active fraction of each enzyme a drug of the regimen destroys
 
 
-def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
+def coupled_profiles(t, drugs: Sequence[CoDrug],
+                     enzyme_multipliers: Mapping[str, np.ndarray] | None = None) -> CoupledProfiles:
     """Concentrations of drugs taken together, coupled through the enzymes they share.
 
     An enzyme that a drug of the regimen inactivates is one pool for all of them. Its
@@ -796,6 +798,12 @@ def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
     follows the inactivator's own levels and recovers at the enzyme's turnover rate,
     instead of being a fixed factor. Drugs that share no such enzyme are computed
     alone, so their curves are exactly those of :func:`concentration_profile`.
+
+    ``enzyme_multipliers`` gives, over the same ``t``, a further activity factor for an
+    enzyme that is one of these pools - e.g. a reversible inhibitor acting on the
+    same enzyme. The pool's activity is multiplied by it, so the combined effect
+    stays within what losing the whole enzyme can do. Multipliers for any other
+    enzyme are ignored.
     """
     t_arr = np.asarray(t, dtype=float)
     turnover: dict[str, float] = {}
@@ -815,8 +823,10 @@ def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
     if coupled:
         flat = t_arr.reshape(-1)
         order = np.argsort(flat)
+        multipliers = {e: np.asarray(m, dtype=float).reshape(-1)[order]
+                       for e, m in (enzyme_multipliers or {}).items() if e in turnover}
         conc, act = _coupled_states(flat[order], [drugs[i] for i in coupled], [shares[i] for i in coupled],
-                                    turnover)
+                                    turnover, multipliers)
         for i, c in zip(coupled, conc):
             out[i] = np.empty_like(flat)
             out[i][order] = c
@@ -829,16 +839,18 @@ def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
 
 
 def _coupled_states(ts: np.ndarray, drugs: Sequence[CoDrug], shares: Sequence[Mapping[str, float]],
-                    turnover: Mapping[str, float]) -> tuple[list[np.ndarray], dict[str, np.ndarray]]:
+                    turnover: Mapping[str, float], multipliers: Mapping[str, np.ndarray]
+                    ) -> tuple[list[np.ndarray], dict[str, np.ndarray]]:
     """Integrate one ODE for all ``drugs`` over sorted ``ts``: (reported concentrations, enzyme activities).
 
     State: a 5-slot block per drug laid out as in :func:`_nonlinear_states` (its own
-    enzyme slot unused), then one active fraction per shared enzyme.
+    enzyme slot unused), then one active fraction per shared enzyme. An enzyme's
+    activity is its pool times its multiplier over ``ts`` (1 without one).
     """
     n, enzymes = len(drugs), list(turnover)
     e0 = 5 * n
     blocks = [_block_rhs(d.model) for d in drugs]
-    on_enzymes = [[(e0 + enzymes.index(e), s) for e, s in sh.items()] for sh in shares]
+    on_enzymes = [[(e0 + enzymes.index(e), s, multipliers.get(e)) for e, s in sh.items()] for sh in shares]
     destroyers = [(k, e0 + enzymes.index(d.inactivates), d.model.kinact_per_h, d.model.ki)
                   for k, d in enumerate(drugs) if d.inactivates]
     kdeg = np.array([turnover[e] for e in enzymes])
@@ -848,7 +860,8 @@ def _coupled_states(ts: np.ndarray, drugs: Sequence[CoDrug], shares: Sequence[Ma
         conc = np.empty(n)
         for k, block in enumerate(blocks):
             o = 5 * k
-            factor = 1.0 + sum(s * (y[j] - 1.0) for j, s in on_enzymes[k])
+            factor = 1.0 + sum(s * (y[j] * (1.0 if m is None else float(np.interp(_t, ts, m))) - 1.0)
+                               for j, s, m in on_enzymes[k])
             (dy[o], dy[o + 1], dy[o + 2], dy[o + 4]), conc[k] = block(y[o:o + 5], factor)
         dy[e0:] = kdeg * (1.0 - y[e0:])
         for k, j, kinact, ki in destroyers:
@@ -873,4 +886,5 @@ def _coupled_states(ts: np.ndarray, drugs: Sequence[CoDrug], shares: Sequence[Ma
             y, ys = _integrate(rhs, y, t0, t1, ts[mask], atol)
             states[:, mask] = ys
     conc = [_reported(states[5 * k:5 * k + 5], d.model) for k, d in enumerate(drugs)]
-    return conc, {e: states[e0 + j] for j, e in enumerate(enzymes)}
+    return conc, {e: states[e0 + j] * multipliers[e] if e in multipliers else states[e0 + j]
+                  for j, e in enumerate(enzymes)}

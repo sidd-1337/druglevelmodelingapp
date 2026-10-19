@@ -84,6 +84,12 @@ class Perpetrator:
     t_half_h: float | None = None
     interval_h: float = 24.0
     pk_source: str = ""
+    # Slower fade after stopping (active metabolite, tissue reservoir, destroyed enzyme).
+    offset_t_half_h: float | None = None
+    offset_source: str = ""
+    # Other perpetrator strings in data/interactions.json naming this same drug, so a
+    # measured pair recorded under a different regimen label still gets this PK.
+    aliases: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.drug_class not in CLASS_BANDS:
@@ -94,6 +100,9 @@ class Perpetrator:
             raise ValueError(f"{self.name}: index_fm must be in (0, 1]")
         if self.t_half_h is not None and (self.t_half_h <= 0 or self.interval_h <= 0):
             raise ValueError(f"{self.name}: t_half_h and interval_h must be > 0")
+        if self.offset_t_half_h is not None and self.offset_t_half_h <= 0:
+            raise ValueError(f"{self.name}: offset_t_half_h must be > 0")
+        object.__setattr__(self, "aliases", tuple(self.aliases))
         lo, hi = CLASS_BANDS[self.drug_class]
         if not lo - 1e-9 <= self.residual_activity <= hi + 1e-9:
             raise ValueError(
@@ -110,14 +119,19 @@ class Perpetrator:
     def induces(self) -> bool:
         return self.drug_class == "inducer"
 
-    def course(self, start_h: float = 0.0, stop_h: float | None = None):
-        """A :class:`~core.perpetrator_timecourse.PerpetratorCourse`, or None without known PK."""
+    def course(self, start_h: float | None = None, stop_h: float | None = None):
+        """A :class:`~core.perpetrator_timecourse.PerpetratorCourse`, or None without known PK.
+
+        ``start_h`` None (the default) means the patient was already taking it at
+        steady state, which is what a static interaction factor assumes.
+        """
         if self.t_half_h is None:
             return None
         from core.perpetrator_timecourse import PerpetratorCourse  # avoids an import cycle
 
         return PerpetratorCourse(self.enzyme, self.residual_activity, self.t_half_h, self.induces,
-                                 interval_h=self.interval_h, start_h=start_h, stop_h=stop_h)
+                                 interval_h=self.interval_h, start_h=start_h, stop_h=stop_h,
+                                 offset_t_half_h=self.offset_t_half_h)
 
     def display_name(self, lang: str = "en") -> str:
         return self.name_cs if lang == "cs" and self.name_cs else self.name
@@ -132,6 +146,14 @@ def _load(path: str) -> tuple[dict[str, Enzyme], tuple[Perpetrator, ...]]:
     unknown = {p.enzyme for p in perpetrators} - set(enzymes)
     if unknown:
         raise ValueError(f"perpetrators name unknown enzymes: {sorted(unknown)}")
+    # Induction onset needs the enzyme's turnover; fail at load, not in the UI.
+    missing = sorted({p.name for p in perpetrators
+                      if p.induces and p.t_half_h is not None and enzymes[p.enzyme].turnover_h is None})
+    if missing:
+        raise ValueError(f"inducers on an enzyme without turnover_h: {missing}")
+    names = [n for p in perpetrators for n in (p.name, *p.aliases)]
+    if len(names) != len(set(names)):
+        raise ValueError("a perpetrator name or alias is used twice")
     return enzymes, perpetrators
 
 
@@ -167,6 +189,14 @@ def resolve_enzyme_activity(genotypes: Mapping[str, str],
     """Phenotype labels per enzyme -> activity multipliers."""
     return {enzyme: genotype_activity(enzyme, phenotype, path)
             for enzyme, phenotype in genotypes.items()}
+
+
+def perpetrator_pk(name: str, path: str | Path = DEFAULT_ENZYMES_PATH) -> Perpetrator | None:
+    """The perpetrator whose name or alias is ``name`` (for its PK), or None."""
+    for p in _load(str(path))[1]:
+        if name == p.name or name in p.aliases:
+            return p
+    return None
 
 
 def find_perpetrators(names: Iterable[str],

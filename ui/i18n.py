@@ -102,19 +102,26 @@ _TEXT: dict[str, dict[str, str]] = {
                                  "Units and windows differ between drugs, so this is the only scale they share; "
                                  "hover for the concentration in the drug's own unit.",
         "multi_enzyme_title": "Shared enzyme activity",
-        "multi_destroyed_by": "{enzyme} destroyed by {drug}",
-        "multi_enzyme_caption": "Active enzyme as % of this patient's baseline ({pairs}). A destroyed enzyme comes "
-                                "back only as new enzyme is made, so it recovers over days, not hours, and every "
-                                "drug cleared by it is slowed accordingly at each moment.",
+        "multi_enzyme_driver": "{enzyme}: {drugs}",
+        "multi_enzyme_caption": "Active enzyme as % of this patient's baseline ({pairs}). A destroyed or induced "
+                                "enzyme changes only as enzyme is made or broken down, over days; a reversible "
+                                "inhibitor's effect follows its own levels. Every drug cleared by the enzyme is "
+                                "slowed or sped up accordingly at each moment.",
         "axis_window": "Position in therapeutic window (0 = MEC, 1 = MTC)",
         "axis_enzyme": "Active enzyme [% of baseline]",
         "multi_factor_sim": "Exposure vs. alone (steady state, simulated)",
         "multi_follows": "Time-varying: builds and fades with {drugs}.",
         "multi_timing": "When each added substance is taken",
-        "multi_timing_help": "For a substance with known pharmacokinetics, set the day it starts and the day it "
-                             "stops (stop 0 = taken throughout). Its effect then builds and fades with its own "
-                             "levels: fast for a short-lived inhibitor, slowly over a week or two for an inducer.",
-        "multi_start": "{name}: start day", "multi_stop": "{name}: stop day (0 = throughout)",
+        "multi_timing_help": "By default a substance is already being taken, at its full effect. Untick that to "
+                             "start it on a given day, and set a stop day (0 = taken throughout). Its effect then "
+                             "builds and fades with its own pharmacokinetics: within a day for a short-lived "
+                             "inhibitor, over a week or two for an inducer, and for weeks after fluoxetine.",
+        "multi_already": "{name}: already taking", "multi_start": "{name}: start day",
+        "multi_stop": "{name}: stop day (0 = throughout)",
+        "multi_stop_before_start": "{name}: the stop day is not after the start day, so it is treated as taken "
+                                   "throughout.",
+        "multi_skip_iv": "none on an IV dose", "multi_via_enzyme": "through the shared enzyme (simulated)",
+        "multi_timed": "simulated from its PK",
         "multi_curve": "{name}: curve alone and with co-medication",
         "pd_title": "Effect clashes (pharmacodynamic)",
         "pd_effect": "Effect", "pd_effect_serotonergic": "serotonergic", "pd_effect_cns_depressant": "CNS depressant",
@@ -346,19 +353,26 @@ _TEXT: dict[str, dict[str, str]] = {
                                  "1 = MTC. Jednotky i okna se mezi léčivy liší, proto je to jediná společná škála; "
                                  "po najetí myší se zobrazí koncentrace ve vlastní jednotce léčiva.",
         "multi_enzyme_title": "Aktivita sdíleného enzymu",
-        "multi_destroyed_by": "{enzyme} ničí {drug}",
-        "multi_enzyme_caption": "Aktivní enzym v % výchozí hodnoty tohoto pacienta ({pairs}). Zničený enzym se "
-                                "obnovuje jen tvorbou nového, tedy během dnů, ne hodin, a každé léčivo, které ho "
-                                "odbourává, se v každém okamžiku odpovídajícím způsobem zpomalí.",
+        "multi_enzyme_driver": "{enzyme}: {drugs}",
+        "multi_enzyme_caption": "Aktivní enzym v % výchozí hodnoty tohoto pacienta ({pairs}). Zničený nebo "
+                                "indukovaný enzym se mění jen tvorbou či odbouráváním enzymu, tedy během dnů; "
+                                "účinek reverzibilního inhibitoru sleduje jeho hladiny. Každé léčivo, které enzym "
+                                "odbourává, se v každém okamžiku odpovídajícím způsobem zpomalí či zrychlí.",
         "axis_window": "Poloha v terapeutickém okně (0 = MEC, 1 = MTC)",
         "axis_enzyme": "Aktivní enzym [% výchozí hodnoty]",
         "multi_factor_sim": "Expozice oproti samostatnému užití (ustálený stav, simulace)",
         "multi_follows": "Časově proměnné: nastupuje a odeznívá s {drugs}.",
         "multi_timing": "Kdy se každá přidaná látka užívá",
-        "multi_timing_help": "U látky se známou farmakokinetikou nastavte den zahájení a den ukončení (ukončení 0 = "
-                             "užívá se po celou dobu). Účinek pak nastupuje a odeznívá podle jejích hladin: rychle "
-                             "u krátce působícího inhibitoru, pomalu v řádu týdnů u induktoru.",
-        "multi_start": "{name}: den zahájení", "multi_stop": "{name}: den ukončení (0 = po celou dobu)",
+        "multi_timing_help": "Výchozí stav: látka se už užívá a působí plně. Po odškrtnutí ji lze zahájit "
+                             "v daný den a nastavit den ukončení (0 = užívá se po celou dobu). Účinek pak nastupuje "
+                             "a odeznívá podle její farmakokinetiky: do dne u krátce působícího inhibitoru, za týden "
+                             "až dva u induktoru a týdny po vysazení fluoxetinu.",
+        "multi_already": "{name}: už užívá", "multi_start": "{name}: den zahájení",
+        "multi_stop": "{name}: den ukončení (0 = po celou dobu)",
+        "multi_stop_before_start": "{name}: den ukončení není po dni zahájení, proto se počítá s užíváním po "
+                                   "celou dobu.",
+        "multi_skip_iv": "u IV dávky žádný", "multi_via_enzyme": "přes sdílený enzym (simulováno)",
+        "multi_timed": "simulováno z její PK",
         "multi_curve": "{name}: křivka samostatně a se souběžnou medikací",
         "pd_title": "Střety účinků (farmakodynamické)",
         "pd_effect": "Účinek", "pd_effect_serotonergic": "serotonergní", "pd_effect_cns_depressant": "tlumivý na CNS",

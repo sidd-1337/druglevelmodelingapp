@@ -190,16 +190,28 @@ def build_overlay_figure(
 
 def build_enzyme_figure(t: np.ndarray, activity: dict[str, np.ndarray], T: Callable[..., str],
                         height: int = 260) -> go.Figure:
-    """Active fraction of each shared enzyme over time, in percent of baseline."""
+    """Active fraction of each shared enzyme over time, in percent of baseline.
+
+    An inducer can take an enzyme far above baseline (rifampicin: about 26-fold), so
+    once any curve rises above it the axis turns logarithmic; inhibition (down to a
+    few %) and induction then stay readable on one chart.
+    """
     fig = go.Figure()
-    for (enzyme, a), colour in zip(activity.items(), SERIES[::-1]):
-        fig.add_trace(go.Scatter(x=t, y=100.0 * np.asarray(a), mode="lines", name=enzyme,
-                                 line=dict(color=colour, width=2.5),
+    pct = {e: 100.0 * np.asarray(a, dtype=float) for e, a in activity.items()}
+    for (enzyme, a), colour in zip(pct.items(), SERIES[::-1]):
+        fig.add_trace(go.Scatter(x=t, y=a, mode="lines", name=enzyme, line=dict(color=colour, width=2.5),
                                  hovertemplate="%{y:.0f} %<extra>" + enzyme + "</extra>"))
+    top = max((float(np.max(a)) for a in pct.values()), default=100.0)
+    bottom = min((float(np.min(a)) for a in pct.values()), default=100.0)
+    induced = top > 105.0
+    fig.add_hline(y=100.0, line=dict(color=_rgba(GREY, 0.7), width=1, dash="dot"))
+    yaxis = (dict(title=T("axis_enzyme"), type="log",
+                  range=[np.log10(max(bottom, 1.0) / 1.5), np.log10(top * 1.3)]) if induced
+             else dict(title=T("axis_enzyme"), range=[0, 105]))
     fig.update_layout(
         template="plotly_white", height=height, hovermode="x unified", margin=dict(l=10, r=10, t=30, b=10),
         showlegend=len(activity) > 1,
         xaxis=dict(title=T("axis_time"), range=[float(t[0]), float(t[-1])]),
-        yaxis=dict(title=T("axis_enzyme"), range=[0, 105]),
+        yaxis=yaxis,
     )
     return fig

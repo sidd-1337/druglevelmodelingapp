@@ -97,3 +97,19 @@ def test_validation_rejects_inconsistent_courses(kwargs):
 def test_stop_before_start_rejected():
     with pytest.raises(ValueError):
         PerpetratorCourse("CYP2D6", 0.5, 10.0, False, start_h=48.0, stop_h=24.0)
+
+
+def test_already_taking_means_full_effect_from_the_start():
+    inhib = PerpetratorCourse("CYP2D6", 0.07, 120.0, False, start_h=None)
+    assert effect_fraction(inhib, T)[0] == pytest.approx(1.0)
+    induc = PerpetratorCourse("CYP3A4", 26.0, 3.5, True, start_h=None)
+    g = effect_fraction(induc, T, turnover_per_h=math.log(2) / 36.0)
+    assert g[0] == pytest.approx(1.0) and _at(g, 10) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_offset_half_life_slows_only_the_fade():
+    short = PerpetratorCourse("CYP2D6", 0.07, 21.0, False, start_h=None, stop_h=2 * DAY)
+    long = PerpetratorCourse("CYP2D6", 0.07, 21.0, False, start_h=None, stop_h=2 * DAY, offset_t_half_h=220.0)
+    gs, gl = effect_fraction(short, T), effect_fraction(long, T)
+    assert _at(gs, 1) == _at(gl, 1) == pytest.approx(1.0)  # identical while still taken
+    assert _at(gs, 9) < 0.01 and _at(gl, 9) > 0.55  # norfluoxetine-like tail: still largely active a week later

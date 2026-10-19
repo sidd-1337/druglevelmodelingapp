@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/Pytest-572%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/Pytest-611%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function), intravenous (IV) bolus, intranasal (insufflated), and inhaled/smoked administration routes, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.
@@ -188,6 +188,9 @@ druglevelmodelingapp/
 | **Multiple Routes of Administration** | Supports Oral ($p.o.$), Intravenous ($i.v.$ bolus), Insufflated (intranasal), and Smoked/Inhaled. |
 | **Steady-State Analytics** | Computes $C_{ss,\max}$, $C_{ss,\min}$, $C_{ss,\text{avg}}$, accumulation factor $R$, and peak-trough fluctuation $\%$. |
 | **Therapeutic Drug Monitoring (TDM)** | Real-time classification into **Toxic** ($> \text{MTC}$), **Therapeutic Window** ($\text{MEC}\text{--}\text{MTC}$), and **Sub-therapeutic** ($< \text{MEC}$). |
+| **Co-medication (multi-drug)** | Several drugs on one chart, each as its position in its own therapeutic window; a shared enzyme a drug destroys (MDMA→CYP2D6) is simulated as one pool. |
+| **Interaction time course** | Each interaction keeps its measured or derived factor but builds and fades with the perpetrator's pharmacokinetics; inhibitors over their half-life, inducers over ~a week; start/stop days supported. |
+| **Pharmacodynamic clash check** | Flags serotonergic, CNS-depressant, QT-prolonging or sympathomimetic effects shared by two drugs that are active at once, from primary labels. |
 | **Harm Reduction Calculator** | Safe redosing countdown timer, dose stacking prevention alerts, and phase timeline estimators. |
 | **Missed Dose Simulation** | Evaluates clinical impact when a patient skips a dose or takes it delayed (+X hours). Calculates recovery time. |
 | **Patient Variability Bands** | Shaded confidence envelope reflecting clinical $t_{1/2}$ inter-individual differences. |
@@ -275,7 +278,7 @@ The application includes curated pharmacokinetic profiles in [`data/drugs.json`]
 
 ## Testing & Verification
 
-The test suite covers numerical formulas, ODE cross-validation, SÚKL registry data extraction, and FastAPI REST endpoints across 229 automated tests (the SÚKL live-lookup tests need network access). `tests/test_reference_pk.py` checks every preset against published Cmax, Tmax, AUC and steady-state levels; `python -m core.validation` prints the predicted/observed table (exposure 1.08x, Cmax 1.14x, Tmax 1.10x, MDMA redosing 1.06x geometric mean fold error). The reference values were collected from search excerpts of the cited labels and papers (`verified: false`) and still need checking against the full documents.
+The test suite covers numerical formulas, ODE cross-validation, SÚKL registry data extraction, and FastAPI REST endpoints across 611 passing automated tests (the SÚKL live-lookup tests need network access). `tests/test_reference_pk.py` checks every preset against published Cmax, Tmax, AUC and steady-state levels; `python -m core.validation` prints the predicted/observed table (exposure 1.08x, Cmax 1.14x, Tmax 1.10x, MDMA redosing 1.06x geometric mean fold error). The reference values were collected from search excerpts of the cited labels and papers (`verified: false`) and still need checking against the full documents.
 
 ```bash
 # Run test suite

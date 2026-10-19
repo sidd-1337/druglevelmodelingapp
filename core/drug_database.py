@@ -233,7 +233,7 @@ class Drug:
         """
         shares = pathway_shares(body_weight_kg, self._clearance_pathways, crcl_ml_min,
                                 self._activity(genotypes, None))
-        return {name: s for name, s in shares.items() if name != RENAL}
+        return {name: s for name, s in shares.items() if name not in (RENAL, self.inactivated_enzyme)}
 
     def unknown_phenotype_log_sd(self, genotypes: Mapping[str, str] | None = None) -> float:
         """Extra clearance spread from metaboliser phenotypes the patient has not given.

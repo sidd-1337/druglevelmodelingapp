@@ -47,17 +47,32 @@ class Clash:
     first_h: float | None  # when that first happens
 
 
+def _tags(entry: dict) -> tuple[EffectTag, ...]:
+    return tuple(EffectTag(effect, **tag) for effect, tag in entry["effects"].items())
+
+
 @lru_cache(maxsize=4)
-def _load(path: str) -> dict[str, tuple[EffectTag, ...]]:
+def _load(path: str) -> tuple[dict[str, tuple[EffectTag, ...]], dict[str, tuple[EffectTag, ...]]]:
     with open(path, encoding="utf-8") as fh:
         raw = json.load(fh)
-    return {drug_id: tuple(EffectTag(effect, **tag) for effect, tag in entry["effects"].items())
-            for drug_id, entry in raw["drugs"].items()}
+    drugs = {drug_id: _tags(entry) for drug_id, entry in raw["drugs"].items()}
+    substances: dict[str, tuple[EffectTag, ...]] = {}
+    for entry in raw.get("substances", {}).values():
+        for name in entry["names"]:
+            if name in substances:
+                raise ValueError(f"substance name {name!r} is tagged twice")
+            substances[name] = _tags(entry)
+    return drugs, substances
 
 
 def load_pd_effects(path: str | Path = DEFAULT_PD_PATH) -> dict[str, tuple[EffectTag, ...]]:
     """Drug id -> its effect tags, for every assessed drug (an empty tuple: assessed, none stated)."""
-    return dict(_load(str(path)))
+    return dict(_load(str(path))[0])
+
+
+def load_substance_effects(path: str | Path = DEFAULT_PD_PATH) -> dict[str, tuple[EffectTag, ...]]:
+    """Perpetrator name (as in data/interactions.json) -> effect tags, for assessed added substances."""
+    return dict(_load(str(path))[1])
 
 
 def find_clashes(

@@ -481,3 +481,113 @@ went 0.96 → 0.63, still inside its 1.6 tolerance. The Tmax group GMFE moved 1.
   concentrations and non-zero "pre-dose" samples. It is seeded with `verified: false`.
 
 None of these was tuned away. Each is a decision for a later modelling pass (§7).
+
+---
+
+## 11. Co-medication: several drugs, interactions over time, effect clashes
+
+Built on `develop` from `453b042`. The question: what happens to each drug's level when
+several are taken together, and when do two drugs add up in effect without either level
+changing? Until then the co-medication tab drew each drug in its own chart and applied
+every interaction as a constant factor from the first hour.
+
+### 11.1 What the model now does
+
+All of it sits in one function, `core.regimen.simulate_regimen`. The Streamlit tab and
+`POST /api/v1/pk/multi-drug` both call it, so the lab and the API give the same answer.
+
+- **One scale for all drugs.** Each curve is shown as its position in its own
+  therapeutic window, (C − MEC) / (MTC − MEC). Drugs in mg/L, ng/mL and mmol/L then share
+  one axis, and the zones line up.
+- **A shared enzyme pool.** An enzyme a drug in the regimen destroys (MDMA → CYP2D6) is
+  one ODE state for every drug cleared by it. Its activity follows the destroyer's own
+  level and recovers at the enzyme's turnover rate (`core.pk_engine.coupled_profiles`). A
+  single-drug run reproduces the existing engine to about 1e-7.
+- **Interaction timing.** An added perpetrator keeps its magnitude: the measured AUC
+  ratio where a study exists, the mechanistic estimate otherwise. That magnitude is now
+  reached over time, factor(t) = 1 + (F − 1)·g(t) (`core.perpetrator_timecourse`).
+  - For a reversible inhibitor, g(t) builds at the perpetrator's own half-life.
+  - For an inducer, g(t) follows an enzyme pool, dE/dt = kdeg·(S(t) − E), so induction
+    lags the inducer by days.
+  - Fading uses a separate half-life where the effect outlasts the drug.
+  - The default is "already being taken", which is what a static factor assumed.
+- **Effect clashes.** Four effect classes: serotonergic, CNS-depressant,
+  QT-prolonging and sympathomimetic. They come from primary labels (or, for MDMA, the
+  original studies). A clash is flagged while two tagged participants are active
+  together:
+  - a simulated drug counts as active above its MEC;
+  - an added substance counts as active from half its steady-state exposure.
+
+  A participant that was never assessed is listed as such, never left out.
+
+### 11.2 Decisions where the answer could have gone the other way
+
+- **Exposure, not one clearance.** The factor scales the victim's reported exposure
+  curve.
+  - Scaling the parent's clearance turned risperidone + paroxetine into about 1.1×,
+    because the parent-plus-9-OH sum is buffered. The Risperdal label's measured
+    active-moiety ratio is 1.6×. Applied to exposure, any victim reproduces its measured
+    factor exactly.
+  - Cost: the victim's own re-equilibration half-life is not modelled. The API's
+    `t_half_h` is therefore the drug's own.
+- **Timing calibrated to the verified magnitude, not to in vitro Ki.** At steady state
+  the residual activity is exactly the one `data/enzymes.json` already derives and
+  verifies. Published Ki values span about 100-fold between test systems, and would have
+  contradicted those residuals.
+- **Two mechanisms on one enzyme.** An added inhibitor on an enzyme that a regimen drug
+  destroys goes into that pool as an activity multiplier, not as a factor on top.
+  - Stacking the two gave risperidone up to about ×8 with MDMA + paroxetine. The ceiling
+    for its CYP2D6 share of 0.8 is 1/(1 − 0.8) = ×5.
+  - The cost is that this pair then uses the mechanistic size, not the measured 1.6×.
+- **Bioavailability.** A bioavailability interaction does nothing to an IV dose, and is
+  capped so F stays ≤ 1.
+
+### 11.3 Data added
+
+- **Perpetrator PK.** Each of the 13 perpetrators now has its elimination half-life and
+  dosing interval, from its FDA/DailyMed label.
+- **Enzyme turnover.** CYP3A4 turnover is 36 h (kdeg 0.0193 /h, Fan et al.,
+  PMC6310869). This sets how fast induction builds.
+- **Fade half-lives:**
+  - paroxetine 70 h and fluoxetine 168 h: the CYP2D6 inhibition half-life measured after
+    stopping (Liston 2002, abstract only);
+  - terbinafine 300 h: the label's 200-400 h tissue half-life, with the interaction still
+    present at 4 weeks;
+  - clarithromycin 36 h: a mechanism-based CYP3A4 inhibitor, so it fades as CYP3A4 is
+    resynthesised.
+  - Bupropion has no sourced value and uses its own half-life.
+- **Aliases.** "Carbamazepine" and "Fluvoxamine 100-150 mg/day" are measured pairs
+  recorded under other names. Both are now linked to their PK entry.
+- **PD tags.** `data/pd_effects.json` covers all 15 presets: 11 tagged, 4 assessed with
+  none. Every tag is `verified: true` against the primary document and covered by
+  `tests/test_data_provenance.py`.
+  - A symptom that appears only in an adverse-event table is not tagged. That is why
+    pregabalin has no QT tag and ibuprofen's NSAID hypertension is not counted as
+    sympathomimetic.
+- **MDMA's CYP2D6 recovery** stays at 46.6 h (O'Mathúna 2008), now with its source. An
+  independent study found 27.6-36.6 h (Yubero-Lahoz 2011), so the model sits at the slow
+  end and errs toward overstating how long a substrate stays raised.
+
+### 11.4 Checked numbers
+
+| case | result |
+|---|---|
+| lithium + ibuprofen (measured 1.15×) | 1.15× |
+| risperidone + paroxetine, already taken (measured 1.6×) | 1.60× |
+| risperidone + paroxetine started day 5 | 1.00× on day 3, 1.41× on day 6, 1.60× by day 20 |
+| diazepam + rifampicin started day 0 | 0.60× day 1, 0.29× day 3, 0.12× day 7, 0.09× day 20 |
+| risperidone + MDMA, 72 h | 1.33× (CYP2D6 to about 5 % after one 100 mg dose) |
+| ketamine IV + clarithromycin (bioavailability 2.6×) | 1.00× (no first pass to inhibit) |
+
+### 11.5 Known gaps
+
+- **Not built:** per-indication target windows, and the Next.js portal view.
+- **Fluoxetine's build-up** uses the parent's 120 h, though norfluoxetine accumulates
+  more slowly still.
+- **Terbinafine's fade** comes from its tissue half-life. The label gives persistence
+  (at least 4 weeks), not a half-life for the inhibition.
+- **Clash presence is a proxy.** QT and sedation risk rise with concentration, and some
+  effects outlast the level.
+- **No timing for some perpetrators.** Perpetrators without a PK entry (phenytoin,
+  cimetidine, omeprazole, probenecid, hydrochlorothiazide, ACE inhibitors) still act
+  from the first hour.
