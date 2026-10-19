@@ -215,7 +215,7 @@
       "note": "FDA index-substrate table: oral midazolam AUC ratio 15.90 with ketoconazole (Olkkola 1994: 400 mg once daily for 4 days, n=9; midazolam syrup label +1490 %). Tsunoda 1999 gave 16-fold with 200 mg doses, the regimen in this entry's name (same daily dose). Index substrate midazolam (oral): fm 0.96 is uncited, and the published static-model value is 0.91-0.92 (Loue & Tod 2014, from Ohno 2007), so not verified. Oral ratios include gut-wall CYP3A4, so residuals derived from them overstate the hepatic effect on drugs whose fm is hepatic. PK: Ketoconazole tablets label: biphasic elimination, terminal half-life 8 h; the DDI-study regimen was 200 mg b.i.d.",
       "t_half_h": 8,
       "interval_h": 12,
-      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2013/019084s045lbl.pdf"
+      "pk_source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2013/018533s040lbl.pdf"
     },
     {
       "name": "Clarithromycin",

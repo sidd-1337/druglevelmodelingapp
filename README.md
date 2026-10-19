@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/Pytest-611%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/Pytest-623%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An open-source clinical pharmacokinetic simulation platform built for healthtech engineers, pharmacologists, and clinical researchers. The system implements exact one-compartment pharmacokinetic models with oral absorption (Bateman function), intravenous (IV) bolus, intranasal (insufflated), and inhaled/smoked administration routes, steady-state accumulation analysis, missed-dose impact simulations, and interactive Therapeutic Drug Monitoring (TDM) with patient variability bounds.
@@ -278,7 +278,7 @@ The application includes curated pharmacokinetic profiles in [`data/drugs.json`]
 
 ## Testing & Verification
 
-The test suite covers numerical formulas, ODE cross-validation, SÚKL registry data extraction, and FastAPI REST endpoints across 611 passing automated tests (the SÚKL live-lookup tests need network access). `tests/test_reference_pk.py` checks every preset against published Cmax, Tmax, AUC and steady-state levels; `python -m core.validation` prints the predicted/observed table (exposure 1.08x, Cmax 1.14x, Tmax 1.10x, MDMA redosing 1.06x geometric mean fold error). The reference values were collected from search excerpts of the cited labels and papers (`verified: false`) and still need checking against the full documents.
+The test suite covers numerical formulas, ODE cross-validation, SÚKL registry data extraction, and FastAPI REST endpoints across 623 passing automated tests (the SÚKL live-lookup tests need network access). `tests/test_reference_pk.py` checks every preset against published Cmax, Tmax, AUC and steady-state levels; `python -m core.validation` prints the predicted/observed table (exposure 1.08x, Cmax 1.14x, Tmax 1.10x, MDMA redosing 1.06x geometric mean fold error). The reference values were collected from search excerpts of the cited labels and papers (`verified: false`) and still need checking against the full documents.
 
 ```bash
 # Run test suite

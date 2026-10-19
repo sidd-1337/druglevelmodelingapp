@@ -62,3 +62,25 @@ def test_data_file_parses_and_covers_only_known_effects_and_drugs():
     for drug_id, drug_tags in tags.items():
         assert drug_id in ids, drug_id
         assert all(tag.effect in EFFECTS for tag in drug_tags)
+
+
+def test_substance_tags_parse_and_name_known_perpetrators():
+    from core.enzymes import load_perpetrators
+    from core.interactions import load_interactions
+    from core.pd_effects import EFFECTS, load_substance_effects
+    subs = load_substance_effects()
+    known = ({p.name for p in load_perpetrators()} | {i.perpetrator for i in load_interactions()}
+             | {n for p in load_perpetrators() for n in p.aliases})
+    for name, tags in subs.items():
+        assert name in known, name
+        assert all(tag.effect in EFFECTS for tag in tags)
+
+
+def test_every_timed_perpetrator_is_pd_assessed():
+    # A perpetrator we can place on the timeline should also be checked for PD clashes.
+    from core.enzymes import load_perpetrators
+    from core.pd_effects import load_substance_effects
+    subs = load_substance_effects()
+    for p in load_perpetrators():
+        if p.t_half_h:
+            assert p.name in subs, p.name

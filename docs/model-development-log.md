@@ -558,9 +558,9 @@ All of it sits in one function, `core.regimen.simulate_regimen`. The Streamlit t
   - Bupropion has no sourced value and uses its own half-life.
 - **Aliases.** "Carbamazepine" and "Fluvoxamine 100-150 mg/day" are measured pairs
   recorded under other names. Both are now linked to their PK entry.
-- **PD tags.** `data/pd_effects.json` covers all 15 presets: 11 tagged, 4 assessed with
-  none. Every tag is `verified: true` against the primary document and covered by
-  `tests/test_data_provenance.py`.
+- **PD tags.** `data/pd_effects.json` covers all 15 presets (11 tagged, 4 none) and the
+  18 added perpetrators (9 tagged, 9 none). Every tag is `verified: true` against the
+  primary document and covered by `tests/test_data_provenance.py`.
   - A symptom that appears only in an adverse-event table is not tagged. That is why
     pregabalin has no QT tag and ibuprofen's NSAID hypertension is not counted as
     sympathomimetic.
@@ -590,4 +590,5 @@ All of it sits in one function, `core.regimen.simulate_regimen`. The Streamlit t
   effects outlast the level.
 - **No timing for some perpetrators.** Perpetrators without a PK entry (phenytoin,
   cimetidine, omeprazole, probenecid, hydrochlorothiazide, ACE inhibitors) still act
-  from the first hour.
+  from the first hour. All of them are PD-assessed, and none carries one of the four
+  effect classes, so this affects only their level effect, not the clash check.

@@ -1,5 +1,5 @@
 {
- "_comment": "Pharmacodynamic effect classes per preset, for the co-medication clash check (core/pd_effects.py). A drug is tagged with a class only where its PRIMARY document - a regulatory label (DailyMed/FDA/EMA/SUKL SPC) or, for MDMA which has none, the original clinical studies - states the effect in a way that bears on COMBINING drugs: a warning, a stated drug interaction, or a described mechanism/pharmacodynamic effect. A symptom appearing only as an adverse-event frequency row is not enough (so pregabalin's 'rare: QT prolongation' table entry and levetiracetam's infant diastolic-BP finding are not tagged, and ibuprofen's NSAID hypertension is not a sympathomimetic action). A drug present here with an empty 'effects' is assessed and carries none of the four; a drug missing from the file has not been assessed, which the UI shows as 'not assessed'. verified/source/note follow the same rule as every other data file and are checked by tests/test_data_provenance.py: verified=true cites a primary document and the note says what it says. The clash is flagged while two tagged drugs are both above their MEC, a concentration proxy for 'both pharmacologically active'; the real risk of serotonin syndrome, additive sedation, QT prolongation or a pressor interaction is not a blood-level quantity and is not computed. The four classes are deliberately coarse.",
+ "_comment": "Pharmacodynamic effect classes per preset, for the co-medication clash check (core/pd_effects.py). A drug is tagged with a class only where its PRIMARY document - a regulatory label (DailyMed/FDA/EMA/SUKL SPC) or, for MDMA which has none, the original clinical studies - states the effect in a way that bears on COMBINING drugs: a warning, a stated drug interaction, or a described mechanism/pharmacodynamic effect. A symptom appearing only as an adverse-event frequency row is not enough (so pregabalin's 'rare: QT prolongation' table entry and levetiracetam's infant diastolic-BP finding are not tagged, and ibuprofen's NSAID hypertension is not a sympathomimetic action). A drug present here with an empty 'effects' is assessed and carries none of the four; a drug missing from the file has not been assessed, which the UI shows as 'not assessed'. verified/source/note follow the same rule as every other data file and are checked by tests/test_data_provenance.py: verified=true cites a primary document and the note says what it says. The clash is flagged while two tagged drugs are both above their MEC, a concentration proxy for 'both pharmacologically active'; the real risk of serotonin syndrome, additive sedation, QT prolongation or a pressor interaction is not a blood-level quantity and is not computed. The four classes are deliberately coarse. The substances section tags the co-medication perpetrators from data/interactions.json and data/enzymes.json by the same rule (a stated combination effect, not a PK-mediated one or an adverse-event row); 'names' lists every perpetrator string that refers to that substance. An entry with empty effects is assessed and carries none of the four.",
  "drugs": {
   "lithium": {
    "effects": {
@@ -155,6 +155,179 @@
    "effects": {}
   },
   "amoxicillin": {
+   "effects": {}
+  }
+ },
+ "substances": {
+  "paroxetine": {
+   "names": [
+    "Paroxetine 20 mg/day"
+   ],
+   "effects": {
+    "serotonergic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ef3b5cbe-f9e1-c1ac-79da-cfe14e3a7e7e",
+     "verified": true,
+     "note": "Paxil label 5.2: an SSRI, can precipitate serotonin syndrome, risk increased with other serotonergic drugs. QT is not tagged: the label frames QT only as a PK interaction with QT-prolonging CYP2D6 substrates and says a mean QTc rise >20 ms is unlikely."
+    }
+   }
+  },
+  "fluoxetine": {
+   "names": [
+    "Fluoxetine 20 mg/day"
+   ],
+   "effects": {
+    "serotonergic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c88f33ed-6dfb-4c5e-bc01-d8e36dd97299",
+     "verified": true,
+     "note": "Prozac label 5.2/7.3: an SSRI, serotonin syndrome risk with other serotonergic drugs."
+    },
+    "qt_prolonging": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c88f33ed-6dfb-4c5e-bc01-d8e36dd97299",
+     "verified": true,
+     "note": "Prozac label 5.11/7.8: torsades reported; 'Avoid the concomitant use of drugs known to prolong the QT interval' and use caution with other QT-prolonging drugs. (The older 2009 label the repo cites for PK has no QT warning.)"
+    }
+   }
+  },
+  "bupropion": {
+   "names": [
+    "Bupropion"
+   ],
+   "effects": {
+    "sympathomimetic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=cbc8c074-f080-4489-a5ae-207b5fadeba3",
+     "verified": true,
+     "note": "Wellbutrin SR label 5.4/7.6: can raise blood pressure; risk increased with MAOIs or other drugs that increase dopaminergic or noradrenergic activity. Not serotonergic (12.1: does not inhibit serotonin reuptake)."
+    }
+   }
+  },
+  "terbinafine": {
+   "names": [
+    "Terbinafine"
+   ],
+   "effects": {}
+  },
+  "fluvoxamine": {
+   "names": [
+    "Fluvoxamine 100-150 mg/day",
+    "Fluvoxamine",
+    "Fluvoxamine 50 mg/day"
+   ],
+   "effects": {
+    "serotonergic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=7ecd83ec-88f5-4f85-9cc2-9068375d8820",
+     "verified": true,
+     "note": "Fluvoxamine maleate label 5.2/7.2: an SSRI, serotonin syndrome risk with other serotonergic drugs. QT appears only via thioridazine (PK) and under overdosage, so it is not tagged."
+    }
+   }
+  },
+  "fluconazole": {
+   "names": [
+    "Fluconazole"
+   ],
+   "effects": {
+    "qt_prolonging": {
+     "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/019949s072lbl.pdf",
+     "verified": true,
+     "note": "Diflucan label (General): 'Some azoles, including fluconazole, have been associated with prolongation of the QT interval... Fluconazole causes QT prolongation via the inhibition of... IKr'; caution with amiodarone and other QT-prolonging drugs."
+    }
+   }
+  },
+  "ciprofloxacin": {
+   "names": [
+    "Ciprofloxacin"
+   ],
+   "effects": {
+    "qt_prolonging": {
+     "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2011/019537s074,020780s032lbl.pdf",
+     "verified": true,
+     "note": "Cipro label (QT warning): fluoroquinolones including ciprofloxacin have been associated with QT prolongation; 'may have an additive effect on the QT interval' with class IA/III antiarrhythmics."
+    }
+   }
+  },
+  "ketoconazole": {
+   "names": [
+    "Ketoconazole 200 mg b.i.d."
+   ],
+   "effects": {
+    "qt_prolonging": {
+     "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2013/018533s040lbl.pdf",
+     "verified": true,
+     "note": "Nizoral tablets label (QT Prolongation): 'Ketoconazole can prolong the QT interval'; co-administration with dofetilide, quinidine, pimozide and cisapride is contraindicated. The enhanced-sedation warning is PK (raised benzodiazepine levels), not tagged."
+    }
+   }
+  },
+  "clarithromycin": {
+   "names": [
+    "Clarithromycin"
+   ],
+   "effects": {
+    "qt_prolonging": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b98b02bb-2609-49a0-b29f-e5911aa0cbc1",
+     "verified": true,
+     "note": "Clarithromycin label 5.2: QT prolongation and torsades reported; avoid in patients receiving drugs known to prolong the QT interval. Benzodiazepine sedation is CYP3A4-mediated (PK), not tagged."
+    }
+   }
+  },
+  "diltiazem": {
+   "names": [
+    "Diltiazem"
+   ],
+   "effects": {}
+  },
+  "carbamazepine": {
+   "names": [
+    "Carbamazepine",
+    "Carbamazepine 400 mg b.i.d."
+   ],
+   "effects": {
+    "cns_depressant": {
+     "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/018927Orig1s061;016608Orig1s122;020234Orig1s055lbl.pdf",
+     "verified": true,
+     "note": "Tegretol label: 'possible additive sedative effect' with alcohol, and taken with alcohol or drugs that cause sleepiness may worsen sleepiness/dizziness. Lithium neurotoxicity is not serotonin syndrome."
+    }
+   }
+  },
+  "rifampicin": {
+   "names": [
+    "Rifampicin"
+   ],
+   "effects": {}
+  },
+  "hydrochlorothiazide": {
+   "names": [
+    "Hydrochlorothiazide"
+   ],
+   "effects": {}
+  },
+  "ace_inhibitor": {
+   "names": [
+    "ACE inhibitor (lisinopril, enalapril)"
+   ],
+   "effects": {}
+  },
+  "phenytoin": {
+   "names": [
+    "Phenytoin 200 mg/day"
+   ],
+   "effects": {}
+  },
+  "cimetidine": {
+   "names": [
+    "Cimetidine 800 mg b.i.d.",
+    "Cimetidine"
+   ],
+   "effects": {}
+  },
+  "omeprazole": {
+   "names": [
+    "Omeprazole"
+   ],
+   "effects": {}
+  },
+  "probenecid": {
+   "names": [
+    "Probenecid"
+   ],
    "effects": {}
   }
  }

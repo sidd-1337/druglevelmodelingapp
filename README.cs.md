@@ -6,7 +6,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Testy](https://img.shields.io/badge/Pytest-611%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Testy](https://img.shields.io/badge/Pytest-623%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![Licence: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Otevřená platforma pro farmakokinetické simulace a lékový přehled postavená pro zdravotnické inženýry, farmakology, lékaře i edukaci pacientů. Systém implementuje exaktní jednokompartmentové farmakokinetické modely s perorální absorpcí (Batemanova funkce), nitrožilním bolusem (IV), intranazálním (šňupání) a inhalačním (kouření) podáním, analýzu kumulace v ustáleném stavu (*steady-state*), simulaci vynechané dávky (*missed dose*) a terapeutické monitorování hladin léčiv (TDM).
