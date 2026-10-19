@@ -14,10 +14,16 @@ const API_BASE =
     ? process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
     : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const REQUEST_TIMEOUT_MS = 2500;
+// The coupled multi-drug ODE takes about a second for a full regimen on a fast machine.
+const MULTI_DRUG_TIMEOUT_MS = 10000;
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<Response> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       ...options,
@@ -182,13 +188,13 @@ export interface PkHarmReduction {
   }>;
 }
 
-async function postJson<T>(path: string, body: unknown): Promise<T | null> {
+async function postJson<T>(path: string, body: unknown, timeoutMs?: number): Promise<T | null> {
   try {
-    const res = await fetchWithTimeout(`${API_BASE}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const res = await fetchWithTimeout(
+      `${API_BASE}${path}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+      timeoutMs
+    );
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
     return null; // backend unavailable: the caller falls back to the local engine
@@ -249,5 +255,152 @@ export async function harmReductionApi(req: {
       tmaxH: t.tmax_h, durationHours: t.duration_hours_range, cmax: t.cmax,
       bioavailabilityPct: t.bioavailability_pct, descriptionCs: t.description_cs,
     })),
+  };
+}
+
+// ------------------------------------------------------------ co-medication
+// The coupled enzyme model and the interaction time course run only in the Python
+// core, so the co-medication page has no local fallback: it says so when the
+// simulation service cannot be reached.
+
+export interface PresetSummary {
+  id: string;
+  name: string;
+  unit: string;
+  mec: number;
+  mtc: number;
+  defaultDoseMg: number;
+  defaultIntervalH: number;
+}
+
+export interface Perpetrator {
+  name: string;
+  nameCs: string;
+  timed: boolean;
+  enzyme: string | null;
+  induces: boolean;
+  victims: string[];
+}
+
+export interface RegimenDrugIn {
+  drugId: string;
+  doseMg: number;
+  intervalH: number;
+}
+
+export interface SubstanceIn {
+  name: string;
+  /** Hour first taken; null when it is already being taken at steady state. */
+  startH: number | null;
+  stopH: number | null;
+}
+
+export interface AppliedInteraction {
+  perpetrator: string;
+  site: string;
+  factor: number | null;
+  timed: boolean;
+  viaEnzyme: boolean;
+  skipped: string;
+}
+
+export interface RegimenSeries {
+  drugId: string;
+  name: string;
+  unit: string;
+  mec: number;
+  mtc: number;
+  doseMg: number;
+  intervalH: number;
+  concentrations: number[];
+  alone: number[];
+  exposureFactor: number;
+  tdmStatus: string;
+  applied: AppliedInteraction[];
+  drivers: string[];
+}
+
+export interface Clash {
+  effect: string;
+  participants: string[];
+  names: string[];
+  overlapH: number;
+  firstH: number | null;
+}
+
+export interface RegimenResult {
+  timeGrid: number[];
+  series: RegimenSeries[];
+  enzymeActivity: Record<string, number[]>;
+  enzymeDrivers: Record<string, string[]>;
+  clashes: Clash[];
+  pdUnassessed: string[];
+  unmatched: string[];
+}
+
+async function getJson<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}${path}`);
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function presetsApi(): Promise<PresetSummary[] | null> {
+  const d = await getJson<any[]>("/api/v1/pk/presets");
+  return d
+    ? d.map((p) => ({
+        id: p.id, name: p.name, unit: p.concentration_unit, mec: p.mec, mtc: p.mtc,
+        defaultDoseMg: p.default_dose_mg, defaultIntervalH: p.default_interval_h,
+      }))
+    : null;
+}
+
+export async function perpetratorsApi(): Promise<Perpetrator[] | null> {
+  const d = await getJson<any[]>("/api/v1/pk/perpetrators");
+  return d
+    ? d.map((p) => ({
+        name: p.name, nameCs: p.name_cs, timed: p.timed, enzyme: p.enzyme, induces: p.induces,
+        victims: p.victims,
+      }))
+    : null;
+}
+
+export async function multiDrugApi(req: {
+  drugs: RegimenDrugIn[];
+  substances: SubstanceIn[];
+  durationH: number;
+  bodyWeightKg: number;
+}): Promise<RegimenResult | null> {
+  const d = await postJson<any>("/api/v1/pk/multi-drug", {
+    drugs: [
+      ...req.drugs.map((x) => ({ drug_id: x.drugId, dose_mg: x.doseMg, interval_h: x.intervalH })),
+      ...req.substances.map((s) => ({ perpetrator: s.name, start_h: s.startH, stop_h: s.stopH })),
+    ],
+    duration_h: req.durationH,
+    body_weight_kg: req.bodyWeightKg,
+    output_points: 800,
+  }, MULTI_DRUG_TIMEOUT_MS);
+  if (!d) return null;
+  return {
+    timeGrid: d.time_grid,
+    series: d.series.map((s: any) => ({
+      drugId: s.drug_id, name: s.drug_name, unit: s.unit, mec: s.mec, mtc: s.mtc, doseMg: s.dose_mg,
+      intervalH: s.interval_h, concentrations: s.concentrations, alone: s.concentrations_alone,
+      exposureFactor: s.exposure_factor, tdmStatus: s.tdm.status,
+      applied: s.applied.map((a: any) => ({
+        perpetrator: a.perpetrator, site: a.site, factor: a.factor, timed: a.timed,
+        viaEnzyme: a.via_enzyme, skipped: a.skipped,
+      })),
+      drivers: s.drivers,
+    })),
+    enzymeActivity: d.enzyme_activity,
+    enzymeDrivers: d.enzyme_drivers,
+    clashes: d.clashes.map((c: any) => ({
+      effect: c.effect, participants: c.participants, names: c.names, overlapH: c.overlap_h, firstH: c.first_h,
+    })),
+    pdUnassessed: d.pd_unassessed,
+    unmatched: d.unmatched_perpetrators,
   };
 }

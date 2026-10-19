@@ -291,6 +291,15 @@ class CoMedicationIn(BaseModel):
     stop_h: float | None = Field(default=None, gt=0, description="Perpetrator entries: hour it is stopped")
 
 
+class PerpetratorResponse(BaseModel):
+    name: str = Field(description="Exact perpetrator name to send as CoMedicationIn.perpetrator")
+    name_cs: str
+    timed: bool = Field(description="Has its own PK, so start_h / stop_h shape its effect")
+    enzyme: str | None = None
+    induces: bool = False
+    victims: list[str] = Field(description="Preset ids it has a documented interaction with")
+
+
 class AppliedInteractionResponse(BaseModel):
     perpetrator: str
     site: str
@@ -348,6 +357,9 @@ class MultiDrugRequest(BaseModel):
     duration_h: float = Field(gt=0, default=168.0)
     body_weight_kg: float = Field(gt=0, default=70.0)
     patient: PatientIn | None = None
+    output_points: int | None = Field(default=None, ge=50, le=5000, description=(
+        "Return curves resampled to this many points (simulation still runs on the fine grid); "
+        "omit for the full grid"))
 
 
 class MultiDrugResponse(BaseModel):

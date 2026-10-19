@@ -27,6 +27,7 @@ from backend.app.schemas.pk import (
     MultiDrugRequest,
     MultiDrugResponse,
     MultiDrugSeriesResponse,
+    PerpetratorResponse,
     TDMAssessmentResponse,
     ValidationGroupResponse,
     ValidationResponse,
@@ -43,7 +44,8 @@ from core.harm_reduction import (
     get_route_timeline,
 )
 from core.individualize import Observation, fit_individual, individual_band
-from core.interactions import interactions_for
+from core.enzymes import load_perpetrators, perpetrator_pk
+from core.interactions import interactions_for, load_interactions
 from core.regimen import AddedSubstance, RegimenDrug, simulate_regimen as run_regimen
 from core.metrics import (
     TDMAssessment,
@@ -481,6 +483,31 @@ def drug_interactions(drug_id: str) -> list[InteractionResponse]:
     return [_interaction_response(i) for i in interactions_for(drug_id)]
 
 
+@router.get("/perpetrators", response_model=list[PerpetratorResponse])
+def list_perpetrators() -> list[PerpetratorResponse]:
+    """Substances that can be added to a /multi-drug regimen without being simulated themselves.
+
+    Every perpetrator named in data/interactions.json plus the mechanistic ones in
+    data/enzymes.json, minus the preset drugs (those are added by drug_id).
+    """
+    presets = {d.name for d in load_drugs()}
+    names: dict[str, tuple[str, set[str]]] = {}
+    for i in load_interactions():
+        cs, victims = names.get(i.perpetrator, (i.perpetrator_cs, set()))
+        names[i.perpetrator] = (cs or i.perpetrator_cs, victims | {i.victim_id})
+    for p in load_perpetrators():
+        names.setdefault(p.name, (p.name_cs, set()))
+    out = []
+    for name, (cs, victims) in sorted(names.items()):
+        if name in presets:
+            continue
+        p = perpetrator_pk(name)
+        out.append(PerpetratorResponse(
+            name=name, name_cs=cs or name, timed=bool(p and p.t_half_h), enzyme=p.enzyme if p else None,
+            induces=bool(p and p.induces), victims=sorted(victims)))
+    return out
+
+
 @router.post("/multi-drug", response_model=MultiDrugResponse)
 def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
     """Simulate several drugs on one time grid, with their interactions over time and PD clashes.
@@ -517,6 +544,10 @@ def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
         events = tuple(regular_schedule(drug.amount_from_dose_mg(dose_mg), interval_h, req.duration_h))
         entries.append(RegimenDrug(drug, model, events, interval_h, drug.enzyme_shares(req.body_weight_kg, crcl)))
     res = run_regimen(t, entries, added)
+    out_t = t if req.output_points is None else np.linspace(0.0, float(t[-1]), req.output_points)
+
+    def resample(a) -> list[float]:
+        return _round_list(a if req.output_points is None else np.interp(out_t, t, a))
 
     series = []
     for (item, drug), r in zip(picked, res.drugs):
@@ -529,8 +560,8 @@ def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
         assess_from = min(ss.time_to_ss_h, max(0.0, req.duration_h - r.entry.interval_h))
         series.append(MultiDrugSeriesResponse(
             drug_id=drug.id, drug_name=drug.name, unit=drug.concentration_unit, dose_mg=dose_mg,
-            interval_h=r.entry.interval_h, concentrations=_round_list(r.concentrations),
-            concentrations_alone=_round_list(r.alone), mec=drug.mec, mtc=drug.mtc,
+            interval_h=r.entry.interval_h, concentrations=resample(r.concentrations),
+            concentrations_alone=resample(r.alone), mec=drug.mec, mtc=drug.mtc,
             exposure_factor=round(f, 4), t_half_h=round(r.entry.model.terminal_half_life_h, 3),
             steady_state=_steady_state_response(ss),
             tdm=_tdm_response(assess_tdm(t, r.concentrations, window, assess_from)),
@@ -542,9 +573,9 @@ def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
             drivers=r.drivers,
         ))
     return MultiDrugResponse(
-        time_grid=_round_list(t, 4), crcl_ml_min=round(crcl, 1) if crcl is not None else None, series=series,
+        time_grid=_round_list(out_t, 4), crcl_ml_min=round(crcl, 1) if crcl is not None else None, series=series,
         unmatched_perpetrators=sorted(res.unmatched),
-        enzyme_activity={e: _round_list(a) for e, a in res.enzyme_activity.items()},
+        enzyme_activity={e: resample(a) for e, a in res.enzyme_activity.items()},
         enzyme_drivers=res.enzyme_drivers,
         clashes=[ClashResponse(effect=c.effect, participants=list(c.drug_ids),
                                names=[res.labels[k][0] for k in c.drug_ids], overlap_h=round(c.overlap_h, 2),

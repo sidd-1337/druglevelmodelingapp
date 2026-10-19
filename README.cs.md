@@ -6,7 +6,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Testy](https://img.shields.io/badge/Pytest-623%20passed-success?logo=pytest&logoColor=white)](tests/)
+[![Testy](https://img.shields.io/badge/Pytest-625%20passed-success?logo=pytest&logoColor=white)](tests/)
 [![Licence: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Otevřená platforma pro farmakokinetické simulace a lékový přehled postavená pro zdravotnické inženýry, farmakology, lékaře i edukaci pacientů. Systém implementuje exaktní jednokompartmentové farmakokinetické modely s perorální absorpcí (Batemanova funkce), nitrožilním bolusem (IV), intranazálním (šňupání) a inhalačním (kouření) podáním, analýzu kumulace v ustáleném stavu (*steady-state*), simulaci vynechané dávky (*missed dose*) a terapeutické monitorování hladin léčiv (TDM).
@@ -194,6 +194,7 @@ druglevelmodelingapp/
 | **Terapeutické monitorování (TDM)** | Okamžitá klasifikace koncentrace:**Toxická zóna** ($> \text{MTC}$), **Terapeutické okno** ($\text{MEC}\text{--}\text{MTC}$) a **Subterapeutická hladina** ($< \text{MEC}$). |
 | **Souběžná medikace (více léčiv)** | Několik léčiv v jednom grafu, každé jako poloha ve vlastním terapeutickém okně; enzym, který některé léčivo ničí (MDMA→CYP2D6), se simuluje jako jeden sdílený pool. |
 | **Časový průběh interakce**        | Každá interakce si drží změřený či odvozený faktor, ale nastupuje a odeznívá podle farmakokinetiky vyvolávajícího léčiva; inhibitory podle svého poločasu, induktory během týdne; s dnem zahájení a ukončení. |
+| **Stránka kombinací (portál)**      | `/kombinace` ve webovém portálu: několik léčiv a přidaných látek, jeden graf v terapeutických oknech, aktivita enzymů, časový průběh interakcí a střety účinků z `POST /api/v1/pk/multi-drug`; režim zůstává v odkazu. |
 | **Kontrola střetů účinků (PD)**     | Hlásí serotonergní, tlumivé, QT-prodlužující a sympatomimetické účinky sdílené dvěma současně působícími léčivy, dle primárních SPC. |
 | **Harm Reduction kalkulačka**         | Odpočet bezpečného odstupu do další dávky, prevence toxického vrstvení a odhad časových fází účinku.                                                                |
 | **Simulace vynechané dávky**         | Vyhodnocení dopadu opožděného či vynechaného užití dávky a doba návratu do cílového profilu.                                                                          |

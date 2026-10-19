@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "Hledání" },
+  { href: "/kombinace", label: "Kombinace" },
   { href: "/slovnik", label: "Slovník" },
 ];
 
@@ -23,7 +24,7 @@ export default function SiteNav() {
             key={link.href}
             href={link.href}
             aria-current={current ? "page" : undefined}
-            className={`rounded-ctl px-3 py-1.5 text-ui transition-colors ${
+            className={`rounded-ctl px-2 py-1.5 text-ui transition-colors sm:px-3 ${
               current ? "font-medium text-ink" : "text-ink-2 hover:text-ink"
             }`}
           >

@@ -20,6 +20,15 @@
   --warn-fill: 255 159 10;
   --bad-fill: 255 59 48;
   --thumb: 255 255 255;
+  /* One colour per drug in the co-medication overlay, in fixed order. Green and red are
+     left out: they mark the therapeutic and toxic zones. Validated for colour-vision
+     separation; three light steps are under 3:1, so the chart always shows a value list. */
+  --series-1: 42 120 214;
+  --series-2: 235 104 52;
+  --series-3: 27 175 122;
+  --series-4: 237 161 0;
+  --series-5: 232 123 164;
+  --series-6: 98 80 214;
   color-scheme: light;
 }
 
@@ -39,6 +48,12 @@ html.dark {
   --warn-fill: 255 159 10;
   --bad-fill: 255 69 58;
   --thumb: 99 99 102;
+  --series-1: 57 135 229;
+  --series-2: 217 89 38;
+  --series-3: 25 158 112;
+  --series-4: 201 133 0;
+  --series-5: 213 81 129;
+  --series-6: 144 133 233;
   color-scheme: dark;
 }
 

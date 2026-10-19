@@ -581,7 +581,7 @@ All of it sits in one function, `core.regimen.simulate_regimen`. The Streamlit t
 
 ### 11.5 Known gaps
 
-- **Not built:** per-indication target windows, and the Next.js portal view.
+- **Not built:** per-indication target windows.
 - **Fluoxetine's build-up** uses the parent's 120 h, though norfluoxetine accumulates
   more slowly still.
 - **Terbinafine's fade** comes from its tissue half-life. The label gives persistence
@@ -592,3 +592,20 @@ All of it sits in one function, `core.regimen.simulate_regimen`. The Streamlit t
   cimetidine, omeprazole, probenecid, hydrochlorothiazide, ACE inhibitors) still act
   from the first hour. All of them are PD-assessed, and none carries one of the four
   effect classes, so this affects only their level effect, not the clash check.
+
+### 11.6 Portal page
+
+`/kombinace` in the Next.js portal calls the same `simulate_regimen` through
+`POST /api/v1/pk/multi-drug`. Two things were added to the API for it:
+`GET /api/v1/pk/perpetrators`, which lists the substances that can be added, and
+`output_points`. The simulation still runs on the fine grid, but the curves come back
+resampled: a full regimen is about 100 kB instead of about 600 kB.
+
+The page has no offline fallback, because the portal's TypeScript engine cannot run the
+coupled enzyme model or the interaction time course. When the service does not answer, the
+page says so. The regimen is stored in the link (`?lek=…&latka=…`), with substance names as
+repeated parameters because one of them contains a comma. Each drug page links there with
+that drug preselected.
+
+The six series colours were validated against the portal's own surfaces. Three light-mode
+steps fall below 3:1, so the chart always has a value list in each drug's own unit.

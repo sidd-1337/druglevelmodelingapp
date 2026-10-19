@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useMemo, useState } from "react";
 import {
   assessDoseStacking,
@@ -258,6 +259,13 @@ export default function KineticsHarmReductionTab({
             />
           </div>
         </div>
+        {drug && (
+          <p className="mt-8 text-ui">
+            <Link href={`/kombinace?lek=${encodeURIComponent(drug.id)}`} className="link">
+              Užíváte i jiné léky? Zobrazit kombinaci a interakce
+            </Link>
+          </p>
+        )}
       </section>
 
       {/* ---------------------------------------------------- safe interval */}

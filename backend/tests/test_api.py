@@ -453,3 +453,24 @@ def test_multi_drug_bioavailability_interaction_skips_iv():
     s = client.post("/api/v1/pk/multi-drug", json=payload).json()["series"][0]
     assert s["exposure_factor"] == pytest.approx(1.0)
     assert s["applied"][0]["skipped"] == "iv"
+
+
+def test_perpetrators_endpoint_lists_addable_substances():
+    items = {p["name"]: p for p in client.get("/api/v1/pk/perpetrators").json()}
+    assert "Ibuprofen" not in items  # a preset: added by drug_id, not as a perpetrator
+    assert items["Paroxetine 20 mg/day"]["timed"] and items["Paroxetine 20 mg/day"]["enzyme"] == "CYP2D6"
+    assert "risperidone" in items["Paroxetine 20 mg/day"]["victims"]
+    assert items["Rifampicin"]["induces"]
+    assert not items["Probenecid"]["timed"]
+    assert items["Fluvoxamine 100-150 mg/day"]["timed"]  # alias of the PK entry
+
+
+def test_multi_drug_output_points_resamples():
+    payload = {"drugs": [{"drug_id": "risperidone"}, {"drug_id": "mdma"}], "duration_h": 168, "output_points": 400}
+    data = client.post("/api/v1/pk/multi-drug", json=payload).json()
+    assert len(data["time_grid"]) == 400 and data["time_grid"][-1] == pytest.approx(168.0)
+    assert all(len(s["concentrations"]) == 400 for s in data["series"])
+    assert len(data["enzyme_activity"]["CYP2D6"]) == 400
+    full = client.post("/api/v1/pk/multi-drug", json={**payload, "output_points": None}).json()
+    # The factor is computed on the fine grid either way.
+    assert data["series"][0]["exposure_factor"] == full["series"][0]["exposure_factor"]

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { KeyboardEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import React, { KeyboardEvent, PointerEvent, useMemo, useRef, useState } from "react";
 import { PKCalculationPoint } from "@/lib/types";
 import { num, sig } from "@/lib/format";
 import Status from "@/components/ui/Status";
+import { HALO, decimalsOf, hourStep, nearestTime, niceStep, useWidth } from "@/components/chart-utils";
 
 interface PkChartProps {
   data: PKCalculationPoint[];
@@ -17,54 +18,10 @@ interface PkChartProps {
   primaryLabel?: string;
 }
 
-// Keeps a label legible where the curve passes behind it.
-const HALO = { stroke: "rgb(var(--bg))", strokeWidth: 4, paintOrder: "stroke" } as const;
-
 const MARGIN = { top: 22, right: 46, bottom: 28, left: 2 };
 
-/** Width of the element, tracked so the SVG is drawn at real pixel size and text stays legible. */
-function useWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setWidth(Math.round(el.getBoundingClientRect().width));
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width] as const;
-}
-
-function niceStep(max: number, count: number): number {
-  const raw = max / count;
-  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const n = raw / mag;
-  const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
-  return m * mag;
-}
-
-function decimalsOf(step: number): number {
-  let d = 0;
-  while (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) > 1e-9 && d < 6) d++;
-  return d;
-}
-
-function hourStep(durationH: number, maxTicks: number): number {
-  const candidates = [1, 2, 3, 4, 6, 8, 12, 24, 48, 96];
-  return candidates.find((s) => durationH / s <= maxTicks) ?? 96;
-}
-
 function nearestIndex(data: PKCalculationPoint[], t: number): number {
-  let lo = 0;
-  let hi = data.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (data[mid].timeH < t) lo = mid;
-    else hi = mid;
-  }
-  return Math.abs(data[lo].timeH - t) <= Math.abs(data[hi].timeH - t) ? lo : hi;
+  return nearestTime(data.length, (i) => data[i].timeH, t);
 }
 
 export default function PkChart({
