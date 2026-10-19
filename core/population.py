@@ -71,6 +71,24 @@ def pathway_clearance_factor(
     return total + (1.0 - assigned) * size
 
 
+def pathway_shares(
+    weight_kg: float,
+    pathways: Mapping[str, float] | None = None,
+    crcl_ml_min: float | None = None,
+    enzyme_activity: Mapping[str, float] | None = None,
+) -> dict[str, float]:
+    """Each pathway's fraction of THIS patient's clearance.
+
+    The reference fractions in ``pathways`` shift with the patient: a poor
+    metaboliser clears less through the enzyme, so it carries less of what is left.
+    """
+    total = pathway_clearance_factor(weight_kg, pathways, crcl_ml_min, enzyme_activity)
+    size = (weight_kg / REFERENCE_WEIGHT_KG) ** ALLOMETRIC_EXPONENT
+    renal_rel = size if crcl_ml_min is None else crcl_ml_min / REFERENCE_CRCL_ML_MIN
+    return {name: fraction * (renal_rel if name == RENAL else size * (enzyme_activity or {}).get(name, 1.0)) / total
+            for name, fraction in (pathways or {}).items()}
+
+
 def clearance_factor(weight_kg: float, crcl_ml_min: float | None = None, fe_renal: float = 0.0) -> float:
     """Renal-only special case of :func:`pathway_clearance_factor`."""
     if not 0.0 <= fe_renal <= 1.0:

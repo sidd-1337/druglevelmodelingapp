@@ -478,3 +478,52 @@ def test_sum_exceeds_parent_and_tracks_potency():
 def test_metabolite_validation(kwargs):
     with pytest.raises(ValueError):
         replace(NORDAZEPAM, **kwargs)
+
+
+# ------------------------------------------------- coupled (shared-enzyme) profiles
+from core.pk_engine import CoDrug, CoupledProfiles, concentration_profile as _cp, coupled_profiles
+
+_VICTIM = PKModel(t_half_h=20.0, vd_l=90.0, bioavailability=1.0, ka_per_h=1.0)  # CYP2D6 substrate
+
+
+def test_coupled_leaves_uncoupled_drugs_identical():
+    # Two drugs that share no inactivated enzyme get exactly their standalone curves.
+    t = time_grid(48.0)
+    a = CoDrug(PARENT_ONLY, tuple(regular_schedule(100.0, 12.0, 48.0)))
+    b = CoDrug(_VICTIM, tuple(regular_schedule(50.0, 24.0, 48.0)), {"CYP2D6": 0.6})
+    res = coupled_profiles(t, [a, b])
+    assert np.allclose(res.concentrations[0], _cp(t, a.events, PARENT_ONLY))
+    assert np.allclose(res.concentrations[1], _cp(t, b.events, _VICTIM))
+    assert res.enzyme_activity == {}
+
+
+def test_coupled_inactivator_matches_the_single_drug_engine():
+    from core.pk_engine import enzyme_activity
+    t = time_grid(72.0)
+    ev = tuple(regular_schedule(100.0, 24.0, 72.0))
+    res = coupled_profiles(t, [CoDrug(MBI, ev, inactivates="CYP2D6")])
+    assert np.allclose(res.concentrations[0], _cp(t, ev, MBI), rtol=1e-5, atol=1e-9)
+    assert np.allclose(res.enzyme_activity["CYP2D6"], enzyme_activity(t, ev, MBI), rtol=1e-5, atol=1e-6)
+
+
+def test_coupled_victim_follows_the_inactivator():
+    # A CYP2D6 substrate taken with an inactivator is cleared more slowly -> higher exposure.
+    t = time_grid(72.0)
+    ev_v = tuple(regular_schedule(50.0, 24.0, 72.0))
+    victim = CoDrug(_VICTIM, ev_v, {"CYP2D6": 0.6})
+    perp = CoDrug(MBI, tuple(regular_schedule(100.0, 24.0, 72.0)), inactivates="CYP2D6")
+    alone = _cp(t, ev_v, _VICTIM)
+    with_perp = coupled_profiles(t, [victim, perp]).concentrations[0]
+    assert auc_trapezoid(t, with_perp) > 1.1 * auc_trapezoid(t, alone)
+    # A drug with no CYP2D6 share is untouched by the same perpetrator.
+    inert = CoDrug(_VICTIM, ev_v, {})
+    assert np.allclose(coupled_profiles(t, [inert, perp]).concentrations[0], alone)
+
+
+def test_coupled_validates_inactivates_and_shares():
+    with pytest.raises(ValueError):
+        CoDrug(_VICTIM, (), inactivates="CYP2D6")  # names an enzyme but the model inactivates none
+    with pytest.raises(ValueError):
+        CoDrug(MBI, (), inactivates="")  # inactivates one but no enzyme named
+    with pytest.raises(ValueError):
+        CoDrug(_VICTIM, (), {"CYP2D6": 0.7, "CYP3A4": 0.5})  # shares sum > 1

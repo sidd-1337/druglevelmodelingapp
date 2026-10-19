@@ -29,7 +29,7 @@ def _flagged(node, path=""):
 
 
 ENTRIES = [(f"{name}:{path}", entry)
-           for name in ("reference_pk.json", "drugs.json", "enzymes.json", "interactions.json")
+           for name in ("reference_pk.json", "drugs.json", "enzymes.json", "interactions.json", "pd_effects.json")
            for path, entry in _flagged(json.loads((DATA / name).read_text(encoding="utf-8")))]
 
 

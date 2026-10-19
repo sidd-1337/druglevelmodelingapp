@@ -14,6 +14,12 @@ GREY = "100,116,139"
 BLUE = "37,99,235"
 
 
+# One colour per drug in the overlay, in fixed order. Steps chosen to clear 3:1 on both
+# the light (#FFFFFF) and dark (#0F172A) app themes and to stay apart under colour-vision
+# deficiency; green and red are left out because they mark the therapeutic and toxic zones.
+SERIES = ("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9")
+
+
 def _rgba(rgb: str, a: float) -> str:
     return f"rgba({rgb},{a})"
 
@@ -126,5 +132,74 @@ def build_figure(
         yaxis=dict(title=f"{T('axis_conc')} [{unit}]",
                    type="log" if log_scale else "linear",
                    range=[np.log10(y_bot), np.log10(y_top)] if log_scale else [0, y_top]),
+    )
+    return fig
+
+
+def build_overlay_figure(
+    t: np.ndarray,
+    series: Sequence[tuple[str, np.ndarray, TherapeuticWindow, str]],
+    T: Callable[..., str],
+    *,
+    show_zones: bool = True,
+    height: int = 460,
+) -> go.Figure:
+    """Several drugs on one axis, each as its position in its own therapeutic window.
+
+    ``series`` holds (name, concentration, window, unit). 0 is each drug's MEC and 1 its
+    MTC, so the zones are shared; the tooltip gives the concentration in its own unit.
+    """
+    if len(series) > len(SERIES):
+        raise ValueError(f"at most {len(SERIES)} drugs fit the overlay")
+    t = np.asarray(t, dtype=float)
+    x0, x1 = float(t[0]), float(t[-1])
+    positions = [window.position(c) for _, c, window, _ in series]
+    y_top = max(1.3, max(float(np.max(p)) for p in positions) * 1.1)
+    y_bot = min(-0.1, min(float(np.min(p)) for p in positions) * 1.1)
+
+    fig = go.Figure()
+    if show_zones:
+        fig.add_trace(go.Scatter(
+            x=[x0, x1, x1, x0], y=[y_bot, y_bot, 0, 0], fill="toself", mode="lines", line=dict(width=0),
+            fillcolor=_rgba(GREY, 0.22), name=T("zone_sub"), hoverinfo="skip"))
+        fig.add_trace(go.Scatter(
+            x=[x0, x1, x1, x0], y=[0, 0, 1, 1], fill="toself", mode="lines", line=dict(width=0),
+            fillcolor=_rgba(GREEN, 0.16), name=T("zone_ther"), hoverinfo="skip"))
+        fig.add_trace(go.Scatter(
+            x=[x0, x1, x1, x0], y=[1, 1, y_top, y_top], fill="toself", mode="lines", line=dict(width=0),
+            name=T("zone_tox"), hoverinfo="skip",
+            fillpattern=dict(shape="/", fgcolor=_rgba(RED, 0.55), bgcolor=_rgba(RED, 0.07), size=8)))
+        fig.add_hline(y=0, line=dict(color=_rgba(GREEN, 0.9), width=1, dash="dash"),
+                      annotation_text="MEC", annotation_position="bottom right")
+        fig.add_hline(y=1, line=dict(color=_rgba(RED, 0.9), width=1, dash="dash"),
+                      annotation_text="MTC", annotation_position="top right")
+    for (name, c, _, unit), pos, colour in zip(series, positions, SERIES):
+        fig.add_trace(go.Scatter(
+            x=t, y=pos, customdata=np.asarray(c, dtype=float), mode="lines", name=name,
+            line=dict(color=colour, width=2.5),
+            hovertemplate="C = %{customdata:.4g} " + unit + " (%{y:.2f})<extra>" + name + "</extra>"))
+    fig.update_layout(
+        template="plotly_white", height=height, hovermode="x unified", dragmode="zoom",
+        margin=dict(l=10, r=10, t=30, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        xaxis=dict(title=T("axis_time"), range=[x0, x1], showspikes=True, spikemode="across"),
+        yaxis=dict(title=T("axis_window"), range=[y_bot, y_top], zeroline=False),
+    )
+    return fig
+
+
+def build_enzyme_figure(t: np.ndarray, activity: dict[str, np.ndarray], T: Callable[..., str],
+                        height: int = 260) -> go.Figure:
+    """Active fraction of each shared enzyme over time, in percent of baseline."""
+    fig = go.Figure()
+    for (enzyme, a), colour in zip(activity.items(), SERIES[::-1]):
+        fig.add_trace(go.Scatter(x=t, y=100.0 * np.asarray(a), mode="lines", name=enzyme,
+                                 line=dict(color=colour, width=2.5),
+                                 hovertemplate="%{y:.0f} %<extra>" + enzyme + "</extra>"))
+    fig.update_layout(
+        template="plotly_white", height=height, hovermode="x unified", margin=dict(l=10, r=10, t=30, b=10),
+        showlegend=len(activity) > 1,
+        xaxis=dict(title=T("axis_time"), range=[float(t[0]), float(t[-1])]),
+        yaxis=dict(title=T("axis_enzyme"), range=[0, 105]),
     )
     return fig

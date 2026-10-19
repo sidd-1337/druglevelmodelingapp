@@ -1,0 +1,161 @@
+{
+ "_comment": "Pharmacodynamic effect classes per preset, for the co-medication clash check (core/pd_effects.py). A drug is tagged with a class only where its PRIMARY document - a regulatory label (DailyMed/FDA/EMA/SUKL SPC) or, for MDMA which has none, the original clinical studies - states the effect in a way that bears on COMBINING drugs: a warning, a stated drug interaction, or a described mechanism/pharmacodynamic effect. A symptom appearing only as an adverse-event frequency row is not enough (so pregabalin's 'rare: QT prolongation' table entry and levetiracetam's infant diastolic-BP finding are not tagged, and ibuprofen's NSAID hypertension is not a sympathomimetic action). A drug present here with an empty 'effects' is assessed and carries none of the four; a drug missing from the file has not been assessed, which the UI shows as 'not assessed'. verified/source/note follow the same rule as every other data file and are checked by tests/test_data_provenance.py: verified=true cites a primary document and the note says what it says. The clash is flagged while two tagged drugs are both above their MEC, a concentration proxy for 'both pharmacologically active'; the real risk of serotonin syndrome, additive sedation, QT prolongation or a pressor interaction is not a blood-level quantity and is not computed. The four classes are deliberately coarse.",
+ "drugs": {
+  "lithium": {
+   "effects": {
+    "serotonergic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=b839ff4b-f62d-41ab-a823-550a756d58ec",
+     "verified": true,
+     "note": "US label 5.6 Serotonin Syndrome: 'Lithium can precipitate serotonin syndrome... The risk is increased with concomitant use of other serotonergic drugs'. The Czech SUKL SPC (preset code 0207946) carries the same warning in 4.4."
+    },
+    "qt_prolonging": {
+     "source": "https://prehledy.sukl.cz/prehledy/v1/dokumenty/81690",
+     "verified": true,
+     "note": "SUKL SPC (Lithium carbonicum, preset code 0207946) 4.4 'Prodlouzeni intervalu QT': avoid in congenital long-QT syndrome and use caution with drugs known to prolong the QT interval (4.5 lists class IA/III antiarrhythmics, cisapride, erythromycin, thioridazine, amisulpride). The US label states QT prolongation only as a sign of lithium toxicity (5.1), not as a combination warning."
+    }
+   }
+  },
+  "mirtazapine": {
+   "effects": {
+    "serotonergic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=98ad1917-a094-44f5-a28f-a64a8cfcd887",
+     "verified": true,
+     "note": "US label 5.3: 'Serotonergic antidepressants, including REMERON... can precipitate serotonin syndrome... risk increased with concomitant use of other serotonergic drugs'."
+    },
+    "cns_depressant": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=98ad1917-a094-44f5-a28f-a64a8cfcd887",
+     "verified": true,
+     "note": "US label 7 Drug Interactions: 'The concomitant use of benzodiazepines or alcohol... increases the impairment of cognitive and motor skills produced by REMERON alone'; 5.8 advises avoiding them."
+    },
+    "qt_prolonging": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=98ad1917-a094-44f5-a28f-a64a8cfcd887",
+     "verified": true,
+     "note": "US label 5.5 QT Prolongation and Torsades de Pointes: 'Exercise caution... in concomitant use with other drugs thought to prolong the QTc interval'. (The older 2012 label the repo cites has no QT warning.)"
+    }
+   }
+  },
+  "risperidone": {
+   "effects": {
+    "cns_depressant": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=7e117c7e-02fc-4343-92a1-230061dfc5e0",
+     "verified": true,
+     "note": "US label 7.2 Pharmacodynamic-related Interactions: 'Given the primary CNS effects of risperidone, caution should be used when RISPERDAL is taken in combination with other centrally acting drugs and alcohol'."
+    },
+    "qt_prolonging": {
+     "source": "https://prehledy.sukl.cz/prehledy/v1/dokumenty/94819",
+     "verified": true,
+     "note": "SUKL SPC MEDORISPER (preset code 0102979) 4.4/4.5: caution with QT-prolonging drugs, 'risperidon muze pri soucasnem uzivani pripravku, ktere prodluzuji QT interval, zvysit riziko arytmogenniho ucinku'. The US label notes QT only under Overdosage, so it would read unclear on its own."
+    }
+   }
+  },
+  "propranolol": {
+   "effects": {}
+  },
+  "diazepam": {
+   "effects": {
+    "cns_depressant": {
+     "source": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/013263Orig1s098lbl.pdf",
+     "verified": true,
+     "note": "Valium label WARNINGS: 'Since Valium has a central nervous system depressant effect, patients should be advised against the simultaneous ingestion of alcohol and other CNS-depressant drugs'. Boxed Warning: benzodiazepine + opioid may cause profound sedation, respiratory depression, coma and death."
+    }
+   }
+  },
+  "rivotril": {
+   "effects": {
+    "cns_depressant": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=cfa0d79a-843c-4b88-95a1-e9511d649ca1",
+     "verified": true,
+     "note": "Klonopin label PRECAUTIONS, Drug Interactions: 'The CNS-depressant action of the benzodiazepine class... may be potentiated by alcohol, narcotics, barbiturates... and the tricyclic antidepressants'. Boxed Warning adds the benzodiazepine + opioid respiratory-depression risk. The Czech Rivotril SPC agrees (4.4)."
+    }
+   }
+  },
+  "pregabalin": {
+   "effects": {
+    "cns_depressant": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d4734e7d-5079-455e-8ff5-8f4539c998a9",
+     "verified": true,
+     "note": "Lyrica label 5.5 Respiratory Depression: 'serious, life-threatening, or fatal respiratory depression when co-administered with central nervous system (CNS) depressants, including opioids'. 7 Drug Interactions reports additive cognitive/motor effects with oxycodone, lorazepam and ethanol. (QT appears only as a rare adverse-reaction table row in the EU SmPC, not as a combination warning, so QT is not tagged.)"
+    }
+   }
+  },
+  "levetiracetam": {
+   "effects": {
+    "qt_prolonging": {
+     "source": "https://www.ema.europa.eu/en/documents/product-information/keppra-epar-product-information_en.pdf",
+     "verified": true,
+     "note": "Keppra EU SmPC 4.4 'Electrocardiogram QT interval prolongation': 'Levetiracetam should be used with caution in patients... concomitantly treated with drugs affecting the QTc-interval'. The Czech SPC (Levelanz) carries the same. CONFLICT: the US label's thorough QT study found 'no evidence of significant QTc prolongation', so on the US label alone this would be not_stated; the EU/Czech warning is the basis for the tag."
+    }
+   }
+  },
+  "ketamine": {
+   "effects": {
+    "cns_depressant": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=14e8f864-8b8a-4e7e-8439-e510d3107063",
+     "verified": true,
+     "note": "Ketalar label 7.3: 'Concomitant use of ketamine with opioid analgesics, benzodiazepines, or other central nervous system (CNS) depressants, including alcohol, may result in profound sedation, respiratory depression, coma, and death'."
+    },
+    "sympathomimetic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=14e8f864-8b8a-4e7e-8439-e510d3107063",
+     "verified": true,
+     "note": "Ketalar label 7.2: 'Sympathomimetics and vasopressin may enhance the sympathomimetic effects of ketamine... Closely monitor vital signs'. 12.2: 'Ketamine increases blood pressure, heart rate, and cardiac output'. Magnitudes in the label are from IV/IM anesthetic dosing; the app models oral/nasal/smoked, so the class carries over but the size does not."
+    }
+   }
+  },
+  "mdma": {
+   "effects": {
+    "serotonergic": {
+     "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3344887/",
+     "verified": true,
+     "note": "Hysek 2012 (PLoS One, controlled human + in vitro): MDMA is a transporter-mediated serotonin/noradrenaline releaser, 'confirm[ing] the important role of MDMA-induced 5-HT and NE release'. CAVEAT: no MDMA source warns of serotonin syndrome, and in controlled studies SERT inhibitors given before MDMA attenuated its effects; a serotonin-syndrome warning for a specific pair comes from the partner drug's label (e.g. an MAOI). The tag marks the shared serotonergic mechanism, the clinical basis for caution combining MDMA with other serotonergic drugs."
+    },
+    "sympathomimetic": {
+     "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC2587205/",
+     "verified": true,
+     "note": "Kolbrich 2008 (J Clin Psychopharmacol, randomized double-blind, 1.0 and 1.6 mg/kg oral): 'MDMA had a significant dose-dependent stimulatory effect on heart rate and blood pressure'. Corroborated by Hysek 2012 and the Mitchell 2023 phase 3 trial ('mild, transient... consistent with MDMA's sympathomimetic effects')."
+    }
+   }
+  },
+  "livizux": {
+   "effects": {
+    "serotonergic": {
+     "source": "https://prehledy.sukl.cz/prehledy/v1/dokumenty/97736",
+     "verified": true,
+     "note": "Livizux SUKL SPC (preset code 0265888) 4.5: serotonin syndrome has occurred rarely with amphetamines given with serotonergic drugs (SSRIs, SNRIs). The US Vyvanse label agrees (5.7)."
+    },
+    "qt_prolonging": {
+     "source": "https://prehledy.sukl.cz/prehledy/v1/dokumenty/97736",
+     "verified": true,
+     "note": "Livizux SUKL SPC 4.4: 'lisdexamfetamin... prodluzuje interval QTc'; use caution in patients treated with QTc-affecting drugs. CONFLICT: the US Vyvanse label has no QT text, so the tag rests on the EU/Czech SPC."
+    },
+    "sympathomimetic": {
+     "source": "https://prehledy.sukl.cz/prehledy/v1/dokumenty/97736",
+     "verified": true,
+     "note": "Livizux SUKL SPC 4.4: stimulants raise mean blood pressure ~2-4 mmHg and heart rate ~3-6 bpm; 'pouzivat opatrne u pacientu, kteri uzivaji dalsi sympatomimetické lecive pripravky'. Same as US Vyvanse 5.3."
+    }
+   }
+  },
+  "ritalin": {
+   "effects": {
+    "serotonergic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d6fb2750-cdab-4749-ba0d-7534840a5892",
+     "verified": true,
+     "note": "US Ritalin label 6 Adverse Reactions: 'serotonin syndrome in combination with serotonergic drugs'. Stated as an adverse reaction naming the exact combination, not in Warnings or the interaction table; also in 10 Overdosage. Tagged on that basis."
+    },
+    "sympathomimetic": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d6fb2750-cdab-4749-ba0d-7534840a5892",
+     "verified": true,
+     "note": "US Ritalin label 5.3 Increased Blood Pressure and Heart Rate: 'CNS stimulants cause an increase in blood pressure (mean increase approximately 2 to 4 mmHg) and heart rate (mean increase approximately 3 to 6 beats per minute)'. The Czech SPC 4.5 adds caution with other blood-pressure-raising drugs."
+    }
+   }
+  },
+  "ibuprofen": {
+   "effects": {}
+  },
+  "paracetamol": {
+   "effects": {}
+  },
+  "amoxicillin": {
+   "effects": {}
+  }
+ }
+}

@@ -24,10 +24,14 @@ from core.metrics import (
     compute_metrics,
     recovery_time,
 )
+from core.pd_effects import find_clashes, load_pd_effects
 from core.pk_engine import (
+    CoDrug,
     DoseEvent,
     Route,
     apply_missed_dose,
+    auc_trapezoid,
+    coupled_profiles,
     metabolite_profile,
     concentration_profile,
     regular_schedule,
@@ -46,7 +50,7 @@ from core.sukl_client import (
     fetch_sukl_detail,
     query_sukl_api,
 )
-from ui.charts import build_figure
+from ui.charts import SERIES as OVERLAY_SERIES, build_enzyme_figure, build_figure, build_overlay_figure
 from ui.i18n import LANGUAGES, make_translator
 from ui.reporting import build_dataframe, build_protocol
 
@@ -452,7 +456,8 @@ with tab_multi:
     st.markdown(T("multi_intro"))
     lang_code = LANGUAGES[lang]
     other_ids = [d.id for d in presets if d.id not in (drug_id, CUSTOM_ID)]
-    co_ids = st.multiselect(T("multi_select"), other_ids, format_func=lambda i: by_id[i].name, key=f"multi_{k}")
+    co_ids = st.multiselect(T("multi_select"), other_ids, format_func=lambda i: by_id[i].name,
+                            max_selections=len(OVERLAY_SERIES) - 1, key=f"multi_{k}")
     perp_names = sorted({i.perpetrator for i in load_interactions()} - {by_id[i].name for i in co_ids})
     co_perps = st.multiselect(T("multi_perp"), perp_names,
                               format_func=lambda n: next(i.name(lang_code) for i in load_interactions()
@@ -460,7 +465,7 @@ with tab_multi:
     if not co_ids and not co_perps:
         st.info(T("multi_none"))
     else:
-        regimen = [(drug, amount, tau, model, route)]
+        regimen = [(drug, amount, tau, model, drug_id)]
         for cid in co_ids:
             co = by_id[cid]
             mc = st.columns(2)
@@ -469,32 +474,88 @@ with tab_multi:
             co_tau = mc[1].number_input(T("multi_interval", name=co.name), 0.5, 168.0, float(co.default_interval_h),
                                         0.5, key=f"mi_{cid}_{k}")
             regimen.append((co, co.amount_from_dose_mg(co_dose), co_tau,
-                            co.to_pk_model(weight, Route.ORAL, crcl_ml_min=crcl), Route.ORAL))
+                            co.to_pk_model(weight, Route.ORAL, crcl_ml_min=crcl, genotypes=genotypes or None), cid))
         all_names = {d.name for d, *_ in regimen} | set(co_perps)
-        rows = []
-        for d, amt, tau_i, base_model, route_i in regimen:
+        # Static factors for documented and derived interactions; enzymes destroyed by a drug
+        # of the regimen are simulated over time instead (coupled_profiles).
+        acting_by_drug, co_drugs, alone = [], [], []
+        for d, amt, tau_i, base_model, _ in regimen:
             acting = [i for i in interactions_for(d.id) if i.perpetrator in all_names - {d.name}]
             acting += [i for i in find(d.id, co_perps, drug=d) if i not in acting]
             acting += [i for i in derived_interactions(d, all_names - {d.name})
                        if i.perpetrator not in {a.perpetrator for a in acting}]
-            affected = apply_interactions(base_model, acting)
-            events_i = regular_schedule(amt, tau_i, duration_h)
-            c_alone = concentration_profile(t, events_i, base_model)
-            c_with = concentration_profile(t, events_i, affected)
+            acting_by_drug.append(acting)
+            events_i = tuple(regular_schedule(amt, tau_i, duration_h))
+            co_drugs.append(CoDrug(apply_interactions(base_model, acting), events_i,
+                                   d.enzyme_shares(weight, crcl, genotypes or None), d.inactivated_enzyme))
+            alone.append(concentration_profile(t, events_i, base_model))
+        coupled = coupled_profiles(t, co_drugs)
+        destroyers = {d.inactivated_enzyme: d.name for d, *_ in regimen if d.inactivated_enzyme}
+
+        st.markdown(f"#### {T('multi_overlay_title')}")
+        st.plotly_chart(build_overlay_figure(
+            t, [(d.name, c_with, TherapeuticWindow(d.mec, d.mtc), d.concentration_unit)
+                for (d, *_), c_with in zip(regimen, coupled.concentrations)],
+            T, show_zones=show_zones), width="stretch")
+        st.caption(T("multi_overlay_caption"))
+        if coupled.enzyme_activity:
+            st.markdown(f"#### {T('multi_enzyme_title')}")
+            st.plotly_chart(build_enzyme_figure(t, coupled.enzyme_activity, T), width="stretch")
+            st.caption(T("multi_enzyme_caption", pairs=", ".join(
+                T("multi_destroyed_by", enzyme=e, drug=destroyers[e]) for e in coupled.enzyme_activity)))
+
+        st.markdown(f"#### {T('pd_title')}")
+        pd_tags = load_pd_effects()
+        clashes = find_clashes(t, {rid: (c_with, d.mec) for (d, *_, rid), c_with
+                                   in zip(regimen, coupled.concentrations)}, pd_tags)
+        names = {rid: d.name for d, *_, rid in regimen}
+        for clash in clashes:
+            who = ", ".join(names[i] for i in clash.drug_ids)
+            if clash.overlap_h > 0:
+                st.warning(T("pd_clash", effect=T("pd_effect_" + clash.effect), drugs=who,
+                             hours=clash.overlap_h, first=clash.first_h))
+            else:
+                st.info(T("pd_clash_apart", effect=T("pd_effect_" + clash.effect), drugs=who))
+        if not clashes and sum(rid in pd_tags for *_, rid in regimen) >= 2:
+            st.caption(T("pd_none"))
+        unassessed = [names[rid] for *_, rid in regimen if rid not in pd_tags]
+        if unassessed:
+            st.caption(T("pd_unassessed", drugs=", ".join(unassessed)))
+        pd_rows = [{T("drug"): names[rid], T("pd_effect"): T("pd_effect_" + tag.effect),
+                    T("validation_source"): tag.source, T("validation_note"): tag.note}
+                   for *_, rid in regimen for tag in pd_tags.get(rid, ())]
+        if pd_rows:
+            with st.expander(T("pd_sources")):
+                st.dataframe(pd_rows, hide_index=True, width="stretch",
+                             column_config={T("validation_source"): st.column_config.LinkColumn(
+                                 display_text="source")})
+
+        rows = []
+        for (d, amt, tau_i, base_model, _), acting, cd, c_alone, c_with in zip(
+                regimen, acting_by_drug, co_drugs, alone, coupled.concentrations):
             win_i = TherapeuticWindow(d.mec, d.mtc)
-            factor = (steady_state_summary(amt, tau_i, affected).cavg_ss
-                      / steady_state_summary(amt, tau_i, base_model).cavg_ss)
+            follows = [e for e in coupled.enzyme_activity
+                       if cd.shares.get(e, 0) > 0 and destroyers[e] != d.name]
             st.markdown(f"**{d.name}**")
-            if acting:
+            if follows:
+                factor = auc_trapezoid(t, c_with) / auc_trapezoid(t, c_alone)
+                st.metric(T("multi_factor_sim"), f"{factor:.2f}x", f"{100 * (factor - 1):+.0f} %",
+                          delta_color="off")
+                st.caption(T("multi_follows", enzymes=", ".join(follows),
+                             drugs=", ".join(destroyers[e] for e in follows)))
+            elif acting:
+                factor = (steady_state_summary(amt, tau_i, cd.model).cavg_ss
+                          / steady_state_summary(amt, tau_i, base_model).cavg_ss)
                 st.metric(T("multi_factor"), f"{factor:.2f}x", f"{100 * (factor - 1):+.0f} %", delta_color="off")
             else:
                 st.caption(T("multi_no_interaction"))
             show_alert(*assessment_message(T, assess_tdm(t, c_with, win_i, assess_from), win_i, d.concentration_unit))
-            st.plotly_chart(build_figure(
-                t, c_with, win_i, d.concentration_unit, T, log_scale=log_scale,
-                reference=c_alone if acting else None, dose_times=[e.time_h for e in events_i],
-                show_zones=show_zones, height=320, conc_label=T("multi_with", name=d.name),
-                reference_label=T("multi_alone", name=d.name)), width="stretch")
+            with st.expander(T("multi_curve", name=d.name)):
+                st.plotly_chart(build_figure(
+                    t, c_with, win_i, d.concentration_unit, T, log_scale=log_scale,
+                    reference=c_alone if acting or follows else None, dose_times=[e.time_h for e in cd.events],
+                    show_zones=show_zones, height=320, conc_label=T("multi_with", name=d.name),
+                    reference_label=T("multi_alone", name=d.name)), width="stretch")
             for i in acting:
                 effect = (T("multi_qualitative") if i.exposure_factor is None
                           else f"x{i.exposure_factor:.2f} ({100 * (i.exposure_factor - 1):+.0f} %)")

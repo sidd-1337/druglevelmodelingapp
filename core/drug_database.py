@@ -15,6 +15,7 @@ from core.population import (
     clearance_factor,
     exposure_band_models,
     pathway_clearance_factor,
+    pathway_shares,
     phenotype_log_sd,
 )
 
@@ -171,16 +172,8 @@ class Drug:
             ka = 1.0
 
         # V scales with weight, CL (and Q) with clearance_factor: t1/2 = ln2 * V / CL.
-        if genotypes:
-            from core.enzymes import resolve_enzyme_activity  # local: avoids a cycle via data loading
-
-            activity = dict(resolve_enzyme_activity(genotypes))
-        else:
-            activity = {}
-        activity.update(enzyme_activity or {})
-        cl_rel = pathway_clearance_factor(
-            body_weight_kg, self.pathways or ({RENAL: self.fe_renal} if self.fe_renal else None),
-            crcl_ml_min, activity)
+        cl_rel = pathway_clearance_factor(body_weight_kg, self._clearance_pathways, crcl_ml_min,
+                                          self._activity(genotypes, enzyme_activity))
         t_half = self.t_half_h * (body_weight_kg / REFERENCE_WEIGHT_KG) / cl_rel
         # The engine's t1/2 is the fresh-enzyme value: CL_fresh = CL_inactivated / (1 - fm).
         t_half *= 1.0 - self.inactivation_fraction
@@ -210,6 +203,37 @@ class Drug:
             ki=self.ki,
             kdeg_per_h=self.kdeg_per_h,
         )
+
+    @property
+    def _clearance_pathways(self) -> dict[str, float] | None:
+        return self.pathways or ({RENAL: self.fe_renal} if self.fe_renal else None)
+
+    @staticmethod
+    def _activity(genotypes: Mapping[str, str] | None,
+                  enzyme_activity: Mapping[str, float] | None) -> dict[str, float]:
+        if genotypes:
+            from core.enzymes import resolve_enzyme_activity  # local: avoids a cycle via data loading
+
+            activity = dict(resolve_enzyme_activity(genotypes))
+        else:
+            activity = {}
+        activity.update(enzyme_activity or {})
+        return activity
+
+    def enzyme_shares(
+        self,
+        body_weight_kg: float,
+        crcl_ml_min: float | None = None,
+        genotypes: Mapping[str, str] | None = None,
+    ) -> dict[str, float]:
+        """Fraction of this patient's clearance carried by each enzyme (renal excluded).
+
+        The enzyme this drug inactivates is not listed; :class:`~core.pk_engine.CoDrug`
+        takes that share from the model.
+        """
+        shares = pathway_shares(body_weight_kg, self._clearance_pathways, crcl_ml_min,
+                                self._activity(genotypes, None))
+        return {name: s for name, s in shares.items() if name != RENAL}
 
     def unknown_phenotype_log_sd(self, genotypes: Mapping[str, str] | None = None) -> float:
         """Extra clearance spread from metaboliser phenotypes the patient has not given.

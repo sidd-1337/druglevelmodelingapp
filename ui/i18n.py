@@ -93,9 +93,34 @@ _TEXT: dict[str, dict[str, str]] = {
         "formulation": "Formulation",
         "formulation_auto": "Selected from the SÚKL dosage form: {form}.",
         "tab_multi": "Co-medication",
-        "multi_intro": "Add other drugs taken alongside. Each drug is simulated with its own units and therapeutic "
-                       "window; where a quantified interaction is documented, the affected drug's clearance or "
-                       "bioavailability is scaled accordingly.",
+        "multi_intro": "Add other drugs taken alongside. All of them are drawn on one chart, each relative to its "
+                       "own therapeutic window. Where a quantified interaction is documented, the affected drug's "
+                       "clearance or bioavailability is scaled; an enzyme that a drug of the regimen destroys is "
+                       "simulated over time, so its effect follows that drug's levels.",
+        "multi_overlay_title": "All drugs on one scale",
+        "multi_overlay_caption": "Each curve is the drug's position in its own therapeutic window: 0 = MEC, 1 = MTC. "
+                                 "Units and windows differ between drugs, so this is the only scale they share; "
+                                 "hover for the concentration in the drug's own unit.",
+        "multi_enzyme_title": "Shared enzyme activity",
+        "multi_destroyed_by": "{enzyme} destroyed by {drug}",
+        "multi_enzyme_caption": "Active enzyme as % of this patient's baseline ({pairs}). A destroyed enzyme comes "
+                                "back only as new enzyme is made, so it recovers over days, not hours, and every "
+                                "drug cleared by it is slowed accordingly at each moment.",
+        "axis_window": "Position in therapeutic window (0 = MEC, 1 = MTC)",
+        "axis_enzyme": "Active enzyme [% of baseline]",
+        "multi_factor_sim": "Exposure vs. alone (AUC over the simulated period)",
+        "multi_follows": "Time-varying: {enzymes} activity follows the levels of {drugs}.",
+        "multi_curve": "{name}: curve alone and with co-medication",
+        "pd_title": "Effect clashes (pharmacodynamic)",
+        "pd_effect": "Effect", "pd_effect_serotonergic": "serotonergic", "pd_effect_cns_depressant": "CNS depressant",
+        "pd_effect_qt_prolonging": "QT-prolonging", "pd_effect_sympathomimetic": "sympathomimetic",
+        "pd_clash": "{effect}: {drugs} are above their MEC together for {hours:.1f} h (first at {first:.1f} h). "
+                    "Their effects add up even though neither level changes.",
+        "pd_clash_apart": "{effect}: {drugs} share this effect, but in this simulation they are not above their MEC "
+                          "at the same time. Another schedule could bring them together.",
+        "pd_none": "No effect class is shared by two assessed drugs of this regimen.",
+        "pd_unassessed": "Not assessed for effect clashes: {drugs}.",
+        "pd_sources": "Where each effect is stated",
         "multi_select": "Other preset drugs taken", "multi_perp": "Other substances (interaction sources)",
         "multi_none": "Add at least one more drug or substance to see interactions.",
         "multi_dose": "{name}: dose [mg]", "multi_interval": "{name}: interval [h]",
@@ -113,8 +138,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "multi_onset": "Full effect after", "multi_site_clearance": "clearance", "multi_site_bioavailability":
         "bioavailability", "multi_qualitative": "direction only, no number",
         "multi_caption": "Interaction factors are the full effect of the stated perpetrator regimen and are applied "
-                         "immediately; in reality induction builds over days to weeks. Combined sedation or "
-                         "serotonergic risk is not a blood-level effect and is not modelled here.",
+                         "immediately; in reality induction builds over days to weeks. Only enzyme inactivation by a "
+                         "drug of the regimen is simulated over time. Effect clashes are flagged from the labels "
+                         "while both drugs are above their MEC, a proxy for both being active.",
         "validation_title": "Validation against published data",
         "validation_intro": "Each preset (70 kg adult, oral, normal renal function) is compared with published Cmax, "
                             "Tmax, AUC and steady-state levels from labels and clinical studies. Ratio = predicted / "
@@ -306,9 +332,34 @@ _TEXT: dict[str, dict[str, str]] = {
         "formulation": "Léková forma",
         "formulation_auto": "Vybráno podle lékové formy v SÚKL: {form}.",
         "tab_multi": "Souběžná medikace",
-        "multi_intro": "Přidejte další souběžně užívaná léčiva. Každé se simuluje ve vlastních jednotkách a s vlastním "
-                       "terapeutickým oknem; je-li doložena kvantifikovaná interakce, upraví se clearance nebo "
-                       "biologická dostupnost ovlivněného léčiva.",
+        "multi_intro": "Přidejte další souběžně užívaná léčiva. Všechna se vykreslí do jednoho grafu, každé vůči "
+                       "vlastnímu terapeutickému oknu. Je-li doložena kvantifikovaná interakce, upraví se clearance "
+                       "nebo biologická dostupnost ovlivněného léčiva; enzym, který některé léčivo režimu ničí, se "
+                       "simuluje v čase, takže jeho účinek sleduje hladiny tohoto léčiva.",
+        "multi_overlay_title": "Všechna léčiva na jedné škále",
+        "multi_overlay_caption": "Každá křivka ukazuje polohu léčiva v jeho vlastním terapeutickém okně: 0 = MEC, "
+                                 "1 = MTC. Jednotky i okna se mezi léčivy liší, proto je to jediná společná škála; "
+                                 "po najetí myší se zobrazí koncentrace ve vlastní jednotce léčiva.",
+        "multi_enzyme_title": "Aktivita sdíleného enzymu",
+        "multi_destroyed_by": "{enzyme} ničí {drug}",
+        "multi_enzyme_caption": "Aktivní enzym v % výchozí hodnoty tohoto pacienta ({pairs}). Zničený enzym se "
+                                "obnovuje jen tvorbou nového, tedy během dnů, ne hodin, a každé léčivo, které ho "
+                                "odbourává, se v každém okamžiku odpovídajícím způsobem zpomalí.",
+        "axis_window": "Poloha v terapeutickém okně (0 = MEC, 1 = MTC)",
+        "axis_enzyme": "Aktivní enzym [% výchozí hodnoty]",
+        "multi_factor_sim": "Expozice oproti samostatnému užití (AUC za simulované období)",
+        "multi_follows": "Časově proměnné: aktivita {enzymes} sleduje hladiny {drugs}.",
+        "multi_curve": "{name}: křivka samostatně a se souběžnou medikací",
+        "pd_title": "Střety účinků (farmakodynamické)",
+        "pd_effect": "Účinek", "pd_effect_serotonergic": "serotonergní", "pd_effect_cns_depressant": "tlumivý na CNS",
+        "pd_effect_qt_prolonging": "prodlužující QT", "pd_effect_sympathomimetic": "sympatomimetický",
+        "pd_clash": "{effect}: {drugs} jsou společně nad MEC po dobu {hours:.1f} h (poprvé v {first:.1f} h). "
+                    "Jejich účinky se sčítají, i když se žádná hladina nezmění.",
+        "pd_clash_apart": "{effect}: {drugs} sdílejí tento účinek, ale v této simulaci nejsou nad MEC současně. "
+                          "Jiné rozvržení dávek je může svést dohromady.",
+        "pd_none": "Žádná dvě posouzená léčiva tohoto režimu nesdílejí stejnou třídu účinku.",
+        "pd_unassessed": "Neposouzeno na střety účinků: {drugs}.",
+        "pd_sources": "Kde je který účinek uveden",
         "multi_select": "Další užívaná léčiva z presetů", "multi_perp": "Další látky (zdroje interakcí)",
         "multi_none": "Přidejte alespoň jedno další léčivo nebo látku, aby se zobrazily interakce.",
         "multi_dose": "{name}: dávka [mg]", "multi_interval": "{name}: interval [h]",
@@ -326,8 +377,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "multi_onset": "Plný účinek za", "multi_site_clearance": "clearance", "multi_site_bioavailability":
         "biologickou dostupnost", "multi_qualitative": "pouze směr, bez čísla",
         "multi_caption": "Faktory interakcí odpovídají plnému účinku uvedeného režimu vyvolávajícího léčiva a aplikují "
-                         "se okamžitě; ve skutečnosti se indukce rozvíjí dny až týdny. Sčítání tlumivých nebo "
-                         "serotonergních účinků není otázkou hladiny v krvi a zde se nemodeluje.",
+                         "se okamžitě; ve skutečnosti se indukce rozvíjí dny až týdny. V čase se simuluje jen "
+                         "inaktivace enzymu léčivem z režimu. Střety účinků se hlásí podle SPC, dokud jsou obě "
+                         "léčiva nad MEC, což zastupuje stav, kdy obě působí.",
         "validation_title": "Validace proti publikovaným datům",
         "validation_intro": "Každý preset (dospělý 70 kg, perorálně, normální funkce ledvin) je porovnán s publikovanými "
                             "hodnotami Cmax, Tmax, AUC a ustálených hladin z SPC a klinických studií. Poměr = model / "

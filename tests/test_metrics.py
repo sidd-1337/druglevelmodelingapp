@@ -115,3 +115,13 @@ def test_recovery_time_after_skipped_dose():
     ref_s = concentration_profile(short, events, MODEL)
     alt_s = concentration_profile(short, apply_missed_dose(events, 20), MODEL)
     assert recovery_time(short, ref_s, alt_s, after_h=events[20].time_h) is None
+
+
+def test_window_position_is_zero_at_mec_and_one_at_mtc():
+    import numpy as np
+    from core.metrics import TherapeuticWindow
+    w = TherapeuticWindow(0.6, 1.5)
+    assert w.position(0.6) == pytest.approx(0.0)
+    assert w.position(1.5) == pytest.approx(1.0)
+    assert w.position(0.3) < 0.0  # sub-therapeutic is negative
+    assert np.allclose(w.position(np.array([0.6, 1.05, 1.5])), [0.0, 0.5, 1.0])

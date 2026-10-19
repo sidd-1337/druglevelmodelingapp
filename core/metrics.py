@@ -81,6 +81,13 @@ class TherapeuticWindow:
         c = np.asarray(c, dtype=float)
         return np.where(c > self.mtc, 2, np.where(c >= self.mec, 1, 0))
 
+    def position(self, c: np.ndarray | float) -> np.ndarray:
+        """Where ``c`` sits in the window: 0 at MEC, 1 at MTC, linear, negative below MEC.
+
+        Puts drugs with different units and windows on one scale.
+        """
+        return (np.asarray(c, dtype=float) - self.mec) / (self.mtc - self.mec)
+
 
 ZONE_LABELS = {0: "subtherapeutic", 1: "therapeutic", 2: "toxic"}
 

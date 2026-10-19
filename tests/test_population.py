@@ -203,3 +203,28 @@ def test_band_moves_the_metabolite_when_it_is_part_of_the_reported_quantity():
     dz = get_drug("diazepam")  # reported="parent": the metabolite is a display curve only
     dlo, dhi = dz.exposure_band(dz.to_pk_model(70))
     assert dhi.metabolite.t_half_h == dlo.metabolite.t_half_h
+
+
+# ------------------------------------------------------- pathway_shares / enzyme_shares
+from core.population import pathway_shares
+
+
+def test_pathway_shares_sum_to_one_with_the_remainder():
+    shares = pathway_shares(70.0, {"CYP2D6": 0.8})
+    remainder = 1.0 - sum(shares.values())
+    assert shares["CYP2D6"] == pytest.approx(0.8)  # reference patient: fractions unchanged
+    assert remainder == pytest.approx(0.2)
+
+
+def test_poor_metaboliser_carries_less_through_the_enzyme():
+    base = pathway_shares(70.0, {"CYP2D6": 0.8})["CYP2D6"]
+    pm = pathway_shares(70.0, {"CYP2D6": 0.8}, enzyme_activity={"CYP2D6": 0.12})["CYP2D6"]
+    assert pm < base  # the enzyme carries less of what little the patient still clears
+
+
+def test_drug_enzyme_shares_excludes_renal_and_follows_genotype():
+    risp = get_drug("risperidone")
+    assert risp.enzyme_shares(70.0) == pytest.approx({"CYP2D6": 0.8})
+    assert risp.enzyme_shares(70.0, genotypes={"CYP2D6": "poor"})["CYP2D6"] < 0.8
+    lithium = get_drug("lithium")  # wholly renal
+    assert lithium.enzyme_shares(70.0) == {}

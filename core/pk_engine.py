@@ -10,10 +10,10 @@ Conventions
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import lru_cache
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -532,27 +532,40 @@ def steady_state_summary(amount: float, tau_h: float, model: PKModel) -> SteadyS
 # The metabolite amount is carried in the metabolite's own mass, the molar
 # conversion being applied as it forms, so a reported sum adds mass concentrations
 # the way labs and the AGNP ranges do (e.g. risperidone + 9-OH-risperidone in ng/mL).
-def _nonlinear_rhs(model: PKModel):
+def _block_rhs(model: PKModel):
+    """Derivatives of one drug's state block, enzyme slot excluded.
+
+    The returned function takes the block and ``enzyme_factor``, the current clearance
+    relative to the model's (1 = fresh enzyme), and gives ((d_depot, d_central,
+    d_peripheral, d_metabolite), central concentration).
+    """
     v1 = model.v1_l
     cl = model.clearance_l_per_h
     _, k12, k21 = model.micro_constants
     ka = 0.0 if model.route is Route.IV_BOLUS else model.ka_per_h
     f_sat, km = model.saturable_fraction, model.km
-    fm, kinact, ki, kdeg = model.inactivation_fraction, model.kinact_per_h, model.ki, model.kdeg_per_h
     met = model.metabolite
     f_form = met.formation_fraction / met.molar_ratio if met else 0.0
     ke_met = met.ke if met else 0.0
 
-    def rhs(_t, y):
+    def block(y, enzyme_factor: float):
         c = max(y[1], 0.0) / v1
-        if km is not None:
-            elim = ((1.0 - f_sat) + f_sat * km / (km + c)) * cl * c
-        else:
-            elim = ((1.0 - fm) + fm * y[3]) * cl * c
-        d_enzyme = kdeg * (1.0 - y[3]) - kinact * c / (ki + c) * y[3] if fm else 0.0
+        saturation = (1.0 - f_sat) + f_sat * km / (km + c) if km is not None else 1.0
+        elim = saturation * enzyme_factor * cl * c
         d_met = f_form * elim - ke_met * y[4] if met else 0.0
-        return [-ka * y[0], ka * y[0] - elim - k12 * y[1] + k21 * y[2], k12 * y[1] - k21 * y[2],
-                d_enzyme, d_met]
+        return (-ka * y[0], ka * y[0] - elim - k12 * y[1] + k21 * y[2], k12 * y[1] - k21 * y[2], d_met), c
+
+    return block
+
+
+def _nonlinear_rhs(model: PKModel):
+    block = _block_rhs(model)
+    fm, kinact, ki, kdeg = model.inactivation_fraction, model.kinact_per_h, model.ki, model.kdeg_per_h
+
+    def rhs(_t, y):
+        (d_depot, d_central, d_periph, d_met), c = block(y, (1.0 - fm) + fm * y[3])
+        d_enzyme = kdeg * (1.0 - y[3]) - kinact * c / (ki + c) * y[3] if fm else 0.0
+        return [d_depot, d_central, d_periph, d_enzyme, d_met]
 
     return rhs
 
@@ -732,3 +745,132 @@ def _nonlinear_steady_state(amount: float, tau_h: float, model: PKModel) -> _Non
         time_to_ss_range_h=(reached(1.0 - 2.0 ** -4), reached(1.0 - 2.0 ** -5)),
     )
     return _NonlinearSS(grid, c, summary)
+
+
+# ------------------------------------------ coupled profiles (shared enzymes)
+@dataclass(frozen=True)
+class CoDrug:
+    """One drug of a regimen that is simulated together with the others.
+
+    ``enzyme_shares`` maps an enzyme to the fraction of this patient's clearance it
+    carries. ``inactivates`` names the enzyme the drug destroys and is required
+    exactly when ``model.inactivation_fraction`` > 0; that fraction is then the
+    drug's share of the enzyme.
+    """
+
+    model: PKModel
+    events: tuple[DoseEvent, ...]
+    enzyme_shares: Mapping[str, float] = field(default_factory=dict)
+    inactivates: str = ""
+
+    def __post_init__(self) -> None:
+        if bool(self.inactivates) != bool(self.model.inactivation_fraction):
+            raise ValueError("inactivates must name the enzyme exactly when the model inactivates one")
+        if any(not 0 <= s <= 1 for s in self.enzyme_shares.values()) or sum(self.enzyme_shares.values()) > 1 + 1e-9:
+            raise ValueError("enzyme shares must be in [0, 1] and sum to <= 1")
+
+    @property
+    def shares(self) -> dict[str, float]:
+        out = dict(self.enzyme_shares)
+        if self.inactivates:
+            out[self.inactivates] = self.model.inactivation_fraction
+        return out
+
+
+@dataclass(frozen=True)
+class CoupledProfiles:
+    concentrations: tuple[np.ndarray, ...]  # reported quantity of each drug, in regimen order
+    enzyme_activity: dict[str, np.ndarray]  # active fraction of each enzyme a drug of the regimen destroys
+
+
+def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
+    """Concentrations of drugs taken together, coupled through the enzymes they share.
+
+    An enzyme that a drug of the regimen inactivates is one pool for all of them. Its
+    active fraction E (1 = this patient's baseline) follows::
+
+        dE/dt = kdeg * (1 - E) - sum_i kinact_i * C_i / (KI_i + C_i) * E
+
+    and a drug carrying a share s of its clearance on that enzyme is eliminated at
+    CL * (1 - s + s * E) at each moment. The effect on a co-medicated drug thus
+    follows the inactivator's own levels and recovers at the enzyme's turnover rate,
+    instead of being a fixed factor. Drugs that share no such enzyme are computed
+    alone, so their curves are exactly those of :func:`concentration_profile`.
+    """
+    t_arr = np.asarray(t, dtype=float)
+    turnover: dict[str, float] = {}
+    for d in drugs:
+        if d.inactivates:
+            kdeg = turnover.setdefault(d.inactivates, d.model.kdeg_per_h)
+            if not math.isclose(kdeg, d.model.kdeg_per_h):
+                raise ValueError(f"{d.inactivates}: two inactivators disagree on the enzyme's turnover")
+    shares = [{e: s for e, s in d.shares.items() if e in turnover and s > 0} for d in drugs]
+    coupled = [i for i, s in enumerate(shares) if s]
+
+    out: list[np.ndarray | None] = [None] * len(drugs)
+    for i, d in enumerate(drugs):
+        if i not in coupled:
+            out[i] = concentration_profile(t_arr, d.events, d.model)
+    activity: dict[str, np.ndarray] = {}
+    if coupled:
+        flat = t_arr.reshape(-1)
+        order = np.argsort(flat)
+        conc, act = _coupled_states(flat[order], [drugs[i] for i in coupled], [shares[i] for i in coupled],
+                                    turnover)
+        for i, c in zip(coupled, conc):
+            out[i] = np.empty_like(flat)
+            out[i][order] = c
+            out[i] = out[i].reshape(t_arr.shape)
+        for enzyme, a in act.items():
+            activity[enzyme] = np.empty_like(flat)
+            activity[enzyme][order] = a
+            activity[enzyme] = activity[enzyme].reshape(t_arr.shape)
+    return CoupledProfiles(tuple(out), activity)
+
+
+def _coupled_states(ts: np.ndarray, drugs: Sequence[CoDrug], shares: Sequence[Mapping[str, float]],
+                    turnover: Mapping[str, float]) -> tuple[list[np.ndarray], dict[str, np.ndarray]]:
+    """Integrate one ODE for all ``drugs`` over sorted ``ts``: (reported concentrations, enzyme activities).
+
+    State: a 5-slot block per drug laid out as in :func:`_nonlinear_states` (its own
+    enzyme slot unused), then one active fraction per shared enzyme.
+    """
+    n, enzymes = len(drugs), list(turnover)
+    e0 = 5 * n
+    blocks = [_block_rhs(d.model) for d in drugs]
+    on_enzymes = [[(e0 + enzymes.index(e), s) for e, s in sh.items()] for sh in shares]
+    destroyers = [(k, e0 + enzymes.index(d.inactivates), d.model.kinact_per_h, d.model.ki)
+                  for k, d in enumerate(drugs) if d.inactivates]
+    kdeg = np.array([turnover[e] for e in enzymes])
+
+    def rhs(_t, y):
+        dy = np.zeros_like(y)
+        conc = np.empty(n)
+        for k, block in enumerate(blocks):
+            o = 5 * k
+            factor = 1.0 + sum(s * (y[j] - 1.0) for j, s in on_enzymes[k])
+            (dy[o], dy[o + 1], dy[o + 2], dy[o + 4]), conc[k] = block(y[o:o + 5], factor)
+        dy[e0:] = kdeg * (1.0 - y[e0:])
+        for k, j, kinact, ki in destroyers:
+            dy[j] -= kinact * conc[k] / (ki + conc[k]) * y[j]
+        return dy
+
+    y = np.concatenate([np.tile(_initial_state(), n), np.ones(len(enzymes))])
+    states = np.tile(y[:, None], (1, ts.size))
+    doses = sorted((e.time_h + d.model.lag_h, k, e.amount)
+                   for k, d in enumerate(drugs) for e in d.events if e.amount > 0)
+    if doses and ts.size:
+        atol = np.concatenate([_atol(max([a for _, kk, a in doses if kk == k] or [1.0])) for k in range(n)]
+                              + [np.full(len(enzymes), 1e-10)])
+        times = sorted({t0 for t0, _, _ in doses})
+        for i, t0 in enumerate(times):
+            for td, k, amount in doses:
+                if td == t0:
+                    y[5 * k:5 * k + 5] = _dose_into(y[5 * k:5 * k + 5], amount, drugs[k].model)
+            last = i + 1 == len(times)
+            t1 = max(ts[-1], t0) if last else times[i + 1]
+            mask = (ts >= t0) & ((ts <= t1) if last else (ts < t1))
+            y, ys = _integrate(rhs, y, t0, t1, ts[mask], atol)
+            states[:, mask] = ys
+    conc = [_reported(states[5 * k:5 * k + 5], d.model) for k, d in enumerate(drugs)]
+    return conc, {e: states[e0 + j] for j, e in enumerate(enzymes)}
