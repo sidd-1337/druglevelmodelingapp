@@ -19,6 +19,7 @@ enzyme, which is what :func:`derived_exposure_factor` does.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -43,8 +44,15 @@ class Enzyme:
     source: str
     verified: bool = False
     note: str = ""
+    turnover_h: float | None = None  # enzyme degradation half-life, for the onset of induction
+
+    @property
+    def turnover_per_h(self) -> float | None:
+        return math.log(2.0) / self.turnover_h if self.turnover_h else None
 
     def __post_init__(self) -> None:
+        if self.turnover_h is not None and self.turnover_h <= 0:
+            raise ValueError(f"{self.name}: turnover_h must be > 0")
         if self.genotype_activity.get(NORMAL_PHENOTYPE) != 1.0:
             raise ValueError(f"{self.name}: the normal phenotype must have activity 1.0")
         if any(v < 0 for v in self.genotype_activity.values()):
@@ -71,6 +79,11 @@ class Perpetrator:
     source: str
     verified: bool = False
     note: str = ""
+    # Own pharmacokinetics, for the onset/offset of its effect (core.perpetrator_timecourse).
+    # t_half_h None: no time course available, so the effect is treated as static.
+    t_half_h: float | None = None
+    interval_h: float = 24.0
+    pk_source: str = ""
 
     def __post_init__(self) -> None:
         if self.drug_class not in CLASS_BANDS:
@@ -79,6 +92,8 @@ class Perpetrator:
             raise ValueError(f"{self.name}: index_auc_ratio must be > 0")
         if not 0 < self.index_fm <= 1:
             raise ValueError(f"{self.name}: index_fm must be in (0, 1]")
+        if self.t_half_h is not None and (self.t_half_h <= 0 or self.interval_h <= 0):
+            raise ValueError(f"{self.name}: t_half_h and interval_h must be > 0")
         lo, hi = CLASS_BANDS[self.drug_class]
         if not lo - 1e-9 <= self.residual_activity <= hi + 1e-9:
             raise ValueError(
@@ -90,6 +105,19 @@ class Perpetrator:
     def residual_activity(self) -> float:
         """Enzyme activity left under this perpetrator (1.0 = unaffected, > 1 = induced)."""
         return max(0.0, (1.0 / self.index_auc_ratio - (1.0 - self.index_fm)) / self.index_fm)
+
+    @property
+    def induces(self) -> bool:
+        return self.drug_class == "inducer"
+
+    def course(self, start_h: float = 0.0, stop_h: float | None = None):
+        """A :class:`~core.perpetrator_timecourse.PerpetratorCourse`, or None without known PK."""
+        if self.t_half_h is None:
+            return None
+        from core.perpetrator_timecourse import PerpetratorCourse  # avoids an import cycle
+
+        return PerpetratorCourse(self.enzyme, self.residual_activity, self.t_half_h, self.induces,
+                                 interval_h=self.interval_h, start_h=start_h, stop_h=stop_h)
 
     def display_name(self, lang: str = "en") -> str:
         return self.name_cs if lang == "cs" and self.name_cs else self.name

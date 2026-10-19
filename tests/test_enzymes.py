@@ -130,3 +130,20 @@ def test_no_derived_entry_without_a_shared_pathway():
 def test_find_without_a_drug_is_unchanged():
     assert find("diazepam", ["Cimetidine"]) == [i for i in interactions_for("diazepam")
                                                 if i.perpetrator == "Cimetidine"]
+
+
+def test_all_perpetrators_have_sourced_pk_and_build_a_course():
+    from core.perpetrator_timecourse import PerpetratorCourse
+    for p in load_perpetrators():
+        assert p.t_half_h and p.t_half_h > 0, p.name
+        assert p.interval_h > 0 and p.pk_source.startswith("http"), p.name
+        course = p.course(start_h=0.0, stop_h=None)
+        assert isinstance(course, PerpetratorCourse)
+        assert course.induces == (p.drug_class == "inducer")
+
+
+def test_inducers_name_an_enzyme_with_a_turnover():
+    enzymes = load_enzymes()
+    for p in load_perpetrators():
+        if p.induces:
+            assert enzymes[p.enzyme].turnover_per_h, f"{p.name}: {p.enzyme} needs a turnover for induction onset"

@@ -7,14 +7,19 @@ import numpy as np
 import streamlit as st
 
 from core.drug_database import CUSTOM_ID, custom_drug, formulation_from_dosage_form, load_drugs
-from core.enzymes import load_enzymes, polymorphic_enzymes
+from core.enzymes import load_enzymes, load_perpetrators, polymorphic_enzymes
 from core.individualize import Observation, fit_individual, individual_band
 from core.interactions import (
-    apply_interactions,
     derived_interactions,
     find,
     interactions_for,
     load_interactions,
+)
+from core.perpetrator_timecourse import (
+    ActingFactor,
+    apply_factor_course,
+    effect_fraction,
+    enzyme_activity_curve,
 )
 from core.validation import regimen_label, summarize, validate
 from core.population import clearance_factor, cockcroft_gault
@@ -462,6 +467,20 @@ with tab_multi:
     co_perps = st.multiselect(T("multi_perp"), perp_names,
                               format_func=lambda n: next(i.name(lang_code) for i in load_interactions()
                                                          if i.perpetrator == n), key=f"multiperp_{k}")
+    # A perpetrator with known PK can be started and stopped; its effect then follows that timing.
+    perp_by_name = {p.name: p for p in load_perpetrators()}
+    windows: dict[str, tuple[float, float | None]] = {}
+    timed = [n for n in co_perps if perp_by_name.get(n) and perp_by_name[n].t_half_h]
+    if timed:
+        with st.expander(T("multi_timing")):
+            st.caption(T("multi_timing_help"))
+            for n in timed:
+                wc = st.columns(2)
+                start_d = wc[0].number_input(T("multi_start", name=perp_by_name[n].display_name(lang_code)),
+                                             0, int(days), 0, key=f"ps_{n}_{k}")
+                stop_d = wc[1].number_input(T("multi_stop", name=perp_by_name[n].display_name(lang_code)),
+                                            0, int(days), 0, key=f"pe_{n}_{k}")
+                windows[n] = (start_d * 24.0, (stop_d * 24.0) if stop_d > start_d else None)
     if not co_ids and not co_perps:
         st.info(T("multi_none"))
     else:
@@ -476,8 +495,9 @@ with tab_multi:
             regimen.append((co, co.amount_from_dose_mg(co_dose), co_tau,
                             co.to_pk_model(weight, Route.ORAL, crcl_ml_min=crcl, genotypes=genotypes or None), cid))
         all_names = {d.name for d, *_ in regimen} | set(co_perps)
-        # Static factors for documented and derived interactions; enzymes destroyed by a drug
-        # of the regimen are simulated over time instead (coupled_profiles).
+        # Base curves keep the mechanistic coupling of an enzyme a regimen drug destroys
+        # (coupled_profiles); each documented or derived interaction is then applied as a
+        # factor over time - ramped by the perpetrator's PK where known, else constant.
         acting_by_drug, co_drugs, alone = [], [], []
         for d, amt, tau_i, base_model, _ in regimen:
             acting = [i for i in interactions_for(d.id) if i.perpetrator in all_names - {d.name}]
@@ -486,28 +506,52 @@ with tab_multi:
                        if i.perpetrator not in {a.perpetrator for a in acting}]
             acting_by_drug.append(acting)
             events_i = tuple(regular_schedule(amt, tau_i, duration_h))
-            co_drugs.append(CoDrug(apply_interactions(base_model, acting), events_i,
+            co_drugs.append(CoDrug(base_model, events_i,
                                    d.enzyme_shares(weight, crcl, genotypes or None), d.inactivated_enzyme))
             alone.append(concentration_profile(t, events_i, base_model))
         coupled = coupled_profiles(t, co_drugs)
         destroyers = {d.inactivated_enzyme: d.name for d, *_ in regimen if d.inactivated_enzyme}
 
+        def factors_for(acting):
+            """(ActingFactor list, {enzyme: activity curve}) for one victim's interactions."""
+            fs, curves = [], {}
+            for i in acting:
+                if i.exposure_factor is None:
+                    continue
+                perp = perp_by_name.get(i.perpetrator)
+                course = perp.course(*windows.get(i.perpetrator, (0.0, None))) if perp else None
+                if course is not None:
+                    g = effect_fraction(course, t, load_enzymes()[perp.enzyme].turnover_per_h)
+                    curves[perp.enzyme] = enzyme_activity_curve(course, t,
+                                                                load_enzymes()[perp.enzyme].turnover_per_h)
+                else:
+                    g = np.ones_like(t)
+                fs.append(ActingFactor(i.exposure_factor, g))
+            return fs, curves
+
+        drug_factors = [factors_for(a) for a in acting_by_drug]
+        with_curves = [apply_factor_course(c, [f for f in fs])
+                       for (fs, _), c in zip(drug_factors, coupled.concentrations)]
+        perp_curves = {e: c for _, cu in drug_factors for e, c in cu.items()}
+
         st.markdown(f"#### {T('multi_overlay_title')}")
         st.plotly_chart(build_overlay_figure(
             t, [(d.name, c_with, TherapeuticWindow(d.mec, d.mtc), d.concentration_unit)
-                for (d, *_), c_with in zip(regimen, coupled.concentrations)],
+                for (d, *_), c_with in zip(regimen, with_curves)],
             T, show_zones=show_zones), width="stretch")
         st.caption(T("multi_overlay_caption"))
-        if coupled.enzyme_activity:
+        enzyme_curves = {**perp_curves, **coupled.enzyme_activity}  # a destroyed enzyme's pool wins the label
+        if enzyme_curves:
             st.markdown(f"#### {T('multi_enzyme_title')}")
-            st.plotly_chart(build_enzyme_figure(t, coupled.enzyme_activity, T), width="stretch")
-            st.caption(T("multi_enzyme_caption", pairs=", ".join(
-                T("multi_destroyed_by", enzyme=e, drug=destroyers[e]) for e in coupled.enzyme_activity)))
+            st.plotly_chart(build_enzyme_figure(t, enzyme_curves, T), width="stretch")
+            labels = [T("multi_destroyed_by", enzyme=e, drug=destroyers[e]) if e in destroyers else e
+                      for e in enzyme_curves]
+            st.caption(T("multi_enzyme_caption", pairs=", ".join(labels)))
 
         st.markdown(f"#### {T('pd_title')}")
         pd_tags = load_pd_effects()
         clashes = find_clashes(t, {rid: (c_with, d.mec) for (d, *_, rid), c_with
-                                   in zip(regimen, coupled.concentrations)}, pd_tags)
+                                   in zip(regimen, with_curves)}, pd_tags)
         names = {rid: d.name for d, *_, rid in regimen}
         for clash in clashes:
             who = ", ".join(names[i] for i in clash.drug_ids)
@@ -531,22 +575,22 @@ with tab_multi:
                                  display_text="source")})
 
         rows = []
-        for (d, amt, tau_i, base_model, _), acting, cd, c_alone, c_with in zip(
-                regimen, acting_by_drug, co_drugs, alone, coupled.concentrations):
+        for (d, amt, tau_i, base_model, _), acting, (fs, _), cd, c_alone, c_with in zip(
+                regimen, acting_by_drug, drug_factors, co_drugs, alone, with_curves):
             win_i = TherapeuticWindow(d.mec, d.mtc)
             follows = [e for e in coupled.enzyme_activity
                        if cd.shares.get(e, 0) > 0 and destroyers[e] != d.name]
+            timed_here = [i for i in acting if (p := perp_by_name.get(i.perpetrator)) and p.t_half_h]
             st.markdown(f"**{d.name}**")
-            if follows:
-                factor = auc_trapezoid(t, c_with) / auc_trapezoid(t, c_alone)
-                st.metric(T("multi_factor_sim"), f"{factor:.2f}x", f"{100 * (factor - 1):+.0f} %",
-                          delta_color="off")
-                st.caption(T("multi_follows", enzymes=", ".join(follows),
-                             drugs=", ".join(destroyers[e] for e in follows)))
-            elif acting:
-                factor = (steady_state_summary(amt, tau_i, cd.model).cavg_ss
-                          / steady_state_summary(amt, tau_i, base_model).cavg_ss)
-                st.metric(T("multi_factor"), f"{factor:.2f}x", f"{100 * (factor - 1):+.0f} %", delta_color="off")
+            if acting or follows:
+                lo_i = max(0.0, duration_h - tau_i)
+                factor = auc_trapezoid(t, c_with, lo_i, duration_h) / auc_trapezoid(t, c_alone, lo_i, duration_h)
+                label = T("multi_factor_sim") if (follows or timed_here) else T("multi_factor")
+                st.metric(label, f"{factor:.2f}x", f"{100 * (factor - 1):+.0f} %", delta_color="off")
+                drivers = [destroyers[e] for e in follows] + [perp_by_name[i.perpetrator].display_name(lang_code)
+                                                              for i in timed_here]
+                if drivers:
+                    st.caption(T("multi_follows", drugs=", ".join(dict.fromkeys(drivers))))
             else:
                 st.caption(T("multi_no_interaction"))
             show_alert(*assessment_message(T, assess_tdm(t, c_with, win_i, assess_from), win_i, d.concentration_unit))

@@ -172,3 +172,15 @@ def test_app_poor_metaboliser_lengthens_the_half_life():
     next(s for s in at.selectbox if "CYP2C19" in str(s.label)).set_value("poor").run()
     assert not at.exception
     assert t_half() > 1.4 * before
+
+
+def test_app_perpetrator_applies_measured_factor_and_timing():
+    at = _run()
+    at.selectbox[0].set_value("risperidone").run()
+    at.multiselect[1].set_value(["Paroxetine 20 mg/day"]).run()  # measured active-moiety AUC ratio 1.6
+    assert not at.exception
+    # Time-varying: paroxetine builds toward (never past) its measured factor over the simulation.
+    factor = next(float(m.value.rstrip("x")) for m in at.metric if "Exposure vs. alone" in m.label)
+    assert 1.3 < factor <= 1.6
+    # A timing control is offered for a perpetrator with known PK.
+    assert any("start day" in str(n.label).lower() for n in at.number_input)

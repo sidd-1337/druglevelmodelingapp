@@ -108,8 +108,13 @@ _TEXT: dict[str, dict[str, str]] = {
                                 "drug cleared by it is slowed accordingly at each moment.",
         "axis_window": "Position in therapeutic window (0 = MEC, 1 = MTC)",
         "axis_enzyme": "Active enzyme [% of baseline]",
-        "multi_factor_sim": "Exposure vs. alone (AUC over the simulated period)",
-        "multi_follows": "Time-varying: {enzymes} activity follows the levels of {drugs}.",
+        "multi_factor_sim": "Exposure vs. alone (steady state, simulated)",
+        "multi_follows": "Time-varying: builds and fades with {drugs}.",
+        "multi_timing": "When each added substance is taken",
+        "multi_timing_help": "For a substance with known pharmacokinetics, set the day it starts and the day it "
+                             "stops (stop 0 = taken throughout). Its effect then builds and fades with its own "
+                             "levels: fast for a short-lived inhibitor, slowly over a week or two for an inducer.",
+        "multi_start": "{name}: start day", "multi_stop": "{name}: stop day (0 = throughout)",
         "multi_curve": "{name}: curve alone and with co-medication",
         "pd_title": "Effect clashes (pharmacodynamic)",
         "pd_effect": "Effect", "pd_effect_serotonergic": "serotonergic", "pd_effect_cns_depressant": "CNS depressant",
@@ -347,8 +352,13 @@ _TEXT: dict[str, dict[str, str]] = {
                                 "odbourává, se v každém okamžiku odpovídajícím způsobem zpomalí.",
         "axis_window": "Poloha v terapeutickém okně (0 = MEC, 1 = MTC)",
         "axis_enzyme": "Aktivní enzym [% výchozí hodnoty]",
-        "multi_factor_sim": "Expozice oproti samostatnému užití (AUC za simulované období)",
-        "multi_follows": "Časově proměnné: aktivita {enzymes} sleduje hladiny {drugs}.",
+        "multi_factor_sim": "Expozice oproti samostatnému užití (ustálený stav, simulace)",
+        "multi_follows": "Časově proměnné: nastupuje a odeznívá s {drugs}.",
+        "multi_timing": "Kdy se každá přidaná látka užívá",
+        "multi_timing_help": "U látky se známou farmakokinetikou nastavte den zahájení a den ukončení (ukončení 0 = "
+                             "užívá se po celou dobu). Účinek pak nastupuje a odeznívá podle jejích hladin: rychle "
+                             "u krátce působícího inhibitoru, pomalu v řádu týdnů u induktoru.",
+        "multi_start": "{name}: den zahájení", "multi_stop": "{name}: den ukončení (0 = po celou dobu)",
         "multi_curve": "{name}: křivka samostatně a se souběžnou medikací",
         "pd_title": "Střety účinků (farmakodynamické)",
         "pd_effect": "Účinek", "pd_effect_serotonergic": "serotonergní", "pd_effect_cns_depressant": "tlumivý na CNS",
