@@ -748,6 +748,68 @@ def _nonlinear_steady_state(amount: float, tau_h: float, model: PKModel) -> _Non
 
 
 # ------------------------------------------ coupled profiles (shared enzymes)
+REVERSIBLE = "reversible"
+INDUCTION = "induction"
+
+
+@dataclass(frozen=True)
+class EnzymeEffect:
+    """A perpetrator drug's effect on one enzyme pool, driven by its own concentration.
+
+    Reversible inhibition is instantaneous: the pool's available activity is divided by
+    (1 + C / ki), so it follows the perpetrator's peaks and troughs with no lag.
+    Induction raises the pool's synthesis rate by d * emax * C / (ec50 + C), so the
+    effect builds and later wanes over the enzyme's turnover (days), not the
+    perpetrator's half-life. Mechanism-based inactivation keeps its existing home on the
+    drug model (``inactivation_fraction`` with :attr:`CoDrug.inactivates`), since there
+    the inactivator is cleared by the enzyme it destroys.
+
+    ``ki`` and ``ec50`` are in the perpetrator's own concentration units; the unbound
+    correction (fu) arrives with real perpetrator PK in a later phase. The pool's
+    turnover, which induction needs, is supplied per-enzyme to :func:`coupled_profiles`,
+    not carried here.
+    """
+
+    enzyme: str
+    mechanism: str
+    ki: float = 0.0
+    emax: float = 0.0
+    ec50: float = 0.0
+    d: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.mechanism == REVERSIBLE:
+            if self.ki <= 0:
+                raise ValueError("reversible inhibition needs ki > 0")
+        elif self.mechanism == INDUCTION:
+            if self.emax <= 0 or self.ec50 <= 0:
+                raise ValueError("induction needs emax > 0 and ec50 > 0")
+            if not 0.0 <= self.d <= 1.0:
+                raise ValueError("induction scalar d must be in [0, 1]")
+        else:
+            raise ValueError(f"unknown mechanism {self.mechanism!r}")
+
+
+@dataclass(frozen=True)
+class ClampedPerpetrator:
+    """A perpetrator held at a constant concentration ``level``, carrying effects.
+
+    It adds no state because its level never changes. Two uses: the static cross-check
+    (a constant inhibitor or inducer level must reproduce the steady-state static model,
+    :func:`core.enzymes.derived_exposure_factor`), and a perpetrator with no PK of its
+    own, represented at a chosen level instead of a fixed whole-exposure factor.
+    """
+
+    level: float
+    effects: tuple[EnzymeEffect, ...]
+
+    def __post_init__(self) -> None:
+        if self.level < 0:
+            raise ValueError("clamp level must be >= 0")
+        if not self.effects:
+            raise ValueError("a clamped perpetrator needs at least one effect")
+
+
 @dataclass(frozen=True)
 class CoDrug:
     """One drug of a regimen that is simulated together with the others.
@@ -755,13 +817,16 @@ class CoDrug:
     ``enzyme_shares`` maps an enzyme to the fraction of this patient's clearance it
     carries. ``inactivates`` names the enzyme the drug destroys and is required
     exactly when ``model.inactivation_fraction`` > 0; that fraction is then the
-    drug's share of the enzyme.
+    drug's share of the enzyme. ``effects`` are this drug's reversible-inhibition and
+    induction effects on enzyme pools, driven by its own concentration - a drug may be
+    both a victim (a share) and a perpetrator (an effect) of the same enzyme.
     """
 
     model: PKModel
     events: tuple[DoseEvent, ...]
     enzyme_shares: Mapping[str, float] = field(default_factory=dict)
     inactivates: str = ""
+    effects: tuple[EnzymeEffect, ...] = ()
 
     def __post_init__(self) -> None:
         if bool(self.inactivates) != bool(self.model.inactivation_fraction):
@@ -776,6 +841,10 @@ class CoDrug:
             out[self.inactivates] = self.model.inactivation_fraction
         return out
 
+    @property
+    def is_perpetrator(self) -> bool:
+        return bool(self.inactivates) or bool(self.effects)
+
 
 @dataclass(frozen=True)
 class CoupledProfiles:
@@ -783,29 +852,33 @@ class CoupledProfiles:
     enzyme_activity: dict[str, np.ndarray]  # active fraction of each enzyme a drug of the regimen destroys
 
 
-def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
+def coupled_profiles(t, drugs: Sequence[CoDrug], clamped: Sequence[ClampedPerpetrator] = (),
+                     enzyme_turnover: Mapping[str, float] | None = None) -> CoupledProfiles:
     """Concentrations of drugs taken together, coupled through the enzymes they share.
 
-    An enzyme that a drug of the regimen inactivates is one pool for all of them. Its
-    active fraction E (1 = this patient's baseline) follows::
+    Each enzyme a drug of the regimen perturbs - by inactivating it, reversibly
+    inhibiting it, or inducing it - is one pool shared by all of them. The pool's
+    amount E (1 = this patient's baseline) follows::
 
-        dE/dt = kdeg * (1 - E) - sum_i kinact_i * C_i / (KI_i + C_i) * E
+        dE/dt = kdeg * (1 + induction) * 1 - kdeg * E - sum_i kinact_i * C_i/(KI_i+C_i) * E
 
-    and a drug carrying a share s of its clearance on that enzyme is eliminated at
-    CL * (1 - s + s * E) at each moment. The effect on a co-medicated drug thus
-    follows the inactivator's own levels and recovers at the enzyme's turnover rate,
-    instead of being a fixed factor. Drugs that share no such enzyme are computed
-    alone, so their curves are exactly those of :func:`concentration_profile`.
+    where ``induction = sum_j d_j * emax_j * C_j/(ec50_j + C_j)``. Reversible inhibition
+    does not consume enzyme, so it is an instantaneous availability ``A = 1/(1 + sum
+    C_j/ki_j)`` multiplied onto the pool, not a term in the ODE. A drug carrying a share
+    s of its clearance on the pool is eliminated at ``CL * (1 - s + s * E * A)`` at each
+    moment, so the effect follows the perpetrator's own levels and builds or recovers at
+    the enzyme's turnover. ``clamped`` perpetrators hold a constant level (static
+    cross-check, or a perpetrator with no PK). ``enzyme_turnover`` supplies each pool's
+    kdeg (from the enzyme registry); an inactivator's own model supplies it otherwise.
+
+    Drugs that neither perturb a pool nor carry a share on one are computed alone, so
+    their curves are exactly those of :func:`concentration_profile` - a single-drug or
+    non-interacting regimen reproduces the base engine.
     """
     t_arr = np.asarray(t, dtype=float)
-    turnover: dict[str, float] = {}
-    for d in drugs:
-        if d.inactivates:
-            kdeg = turnover.setdefault(d.inactivates, d.model.kdeg_per_h)
-            if not math.isclose(kdeg, d.model.kdeg_per_h):
-                raise ValueError(f"{d.inactivates}: two inactivators disagree on the enzyme's turnover")
+    turnover = _pool_turnover(drugs, clamped, enzyme_turnover)
     shares = [{e: s for e, s in d.shares.items() if e in turnover and s > 0} for d in drugs]
-    coupled = [i for i, s in enumerate(shares) if s]
+    coupled = [i for i, d in enumerate(drugs) if shares[i] or d.is_perpetrator]
 
     out: list[np.ndarray | None] = [None] * len(drugs)
     for i, d in enumerate(drugs):
@@ -815,8 +888,8 @@ def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
     if coupled:
         flat = t_arr.reshape(-1)
         order = np.argsort(flat)
-        conc, act = _coupled_states(flat[order], [drugs[i] for i in coupled], [shares[i] for i in coupled],
-                                    turnover)
+        conc, act = _coupled_states(flat[order], [drugs[i] for i in coupled],
+                                    [shares[i] for i in coupled], turnover, clamped)
         for i, c in zip(coupled, conc):
             out[i] = np.empty_like(flat)
             out[i][order] = c
@@ -828,31 +901,101 @@ def coupled_profiles(t, drugs: Sequence[CoDrug]) -> CoupledProfiles:
     return CoupledProfiles(tuple(out), activity)
 
 
+def _pool_turnover(drugs: Sequence[CoDrug], clamped: Sequence[ClampedPerpetrator],
+                   enzyme_turnover: Mapping[str, float] | None) -> dict[str, float]:
+    """kdeg for every enzyme pool a perpetrator of the regimen touches.
+
+    A pool's kdeg is taken from ``enzyme_turnover`` first, else from an inactivator's own
+    model. A reversible-only pool needs no turnover (its amount never leaves baseline);
+    an induced pool must have a positive one, or the synthesis term is meaningless.
+    """
+    perp_enzymes: set[str] = set()
+    inact_kdeg: dict[str, float] = {}
+    for d in drugs:
+        if d.inactivates:
+            perp_enzymes.add(d.inactivates)
+            prev = inact_kdeg.setdefault(d.inactivates, d.model.kdeg_per_h)
+            if not math.isclose(prev, d.model.kdeg_per_h):
+                raise ValueError(f"{d.inactivates}: two inactivators disagree on the enzyme's turnover")
+        perp_enzymes.update(e.enzyme for e in d.effects)
+    perp_enzymes.update(e.enzyme for c in clamped for e in c.effects)
+
+    induced = {e.enzyme for d in drugs for e in d.effects if e.mechanism == INDUCTION}
+    induced |= {e.enzyme for c in clamped for e in c.effects if e.mechanism == INDUCTION}
+
+    turnover: dict[str, float] = {}
+    for enzyme in perp_enzymes:
+        if enzyme_turnover and enzyme in enzyme_turnover:
+            kdeg = enzyme_turnover[enzyme]
+        else:
+            kdeg = inact_kdeg.get(enzyme, 0.0)
+        if enzyme in induced and kdeg <= 0:
+            raise ValueError(f"induction on {enzyme} needs its turnover; pass enzyme_turnover[{enzyme!r}]")
+        turnover[enzyme] = kdeg
+    return turnover
+
+
 def _coupled_states(ts: np.ndarray, drugs: Sequence[CoDrug], shares: Sequence[Mapping[str, float]],
-                    turnover: Mapping[str, float]) -> tuple[list[np.ndarray], dict[str, np.ndarray]]:
-    """Integrate one ODE for all ``drugs`` over sorted ``ts``: (reported concentrations, enzyme activities).
+                    turnover: Mapping[str, float],
+                    clamped: Sequence[ClampedPerpetrator] = ()) -> tuple[list[np.ndarray], dict[str, np.ndarray]]:
+    """Integrate one ODE for all ``drugs`` over sorted ``ts``: (reported concentrations, enzyme amounts).
 
     State: a 5-slot block per drug laid out as in :func:`_nonlinear_states` (its own
-    enzyme slot unused), then one active fraction per shared enzyme.
+    enzyme slot unused), then one amount per enzyme pool, in ``turnover`` order.
     """
     n, enzymes = len(drugs), list(turnover)
-    e0 = 5 * n
+    m, e0 = len(enzymes), 5 * n
+    pool = {e: p for p, e in enumerate(enzymes)}
     blocks = [_block_rhs(d.model) for d in drugs]
-    on_enzymes = [[(e0 + enzymes.index(e), s) for e, s in sh.items()] for sh in shares]
-    destroyers = [(k, e0 + enzymes.index(d.inactivates), d.model.kinact_per_h, d.model.ki)
-                  for k, d in enumerate(drugs) if d.inactivates]
+    central_idx = np.array([5 * k + 1 for k in range(n)], dtype=int)
+    v1_arr = np.array([d.model.v1_l for d in drugs])
     kdeg = np.array([turnover[e] for e in enzymes])
+    on_enzymes = [[(pool[e], s) for e, s in sh.items()] for sh in shares]
+
+    # Perpetrator effects driven by a co-dosed drug's own concentration.
+    rev_dyn: list[list[tuple[int, float]]] = [[] for _ in range(m)]            # (drug k, ki)
+    ind_dyn: list[list[tuple[int, float, float, float]]] = [[] for _ in range(m)]  # (drug k, emax, ec50, d)
+    for k, d in enumerate(drugs):
+        for ef in d.effects:
+            p = pool[ef.enzyme]
+            if ef.mechanism == REVERSIBLE:
+                rev_dyn[p].append((k, ef.ki))
+            else:
+                ind_dyn[p].append((k, ef.emax, ef.ec50, ef.d))
+    # Clamped perpetrators contribute constants, precomputed per pool.
+    rev_clamp_add = np.zeros(m)   # added to the reversible denominator
+    ind_clamp_add = np.zeros(m)   # added to the induction term
+    for c in clamped:
+        for ef in c.effects:
+            p = pool[ef.enzyme]
+            if ef.mechanism == REVERSIBLE:
+                rev_clamp_add[p] += c.level / ef.ki
+            else:
+                ind_clamp_add[p] += ef.d * ef.emax * c.level / (ef.ec50 + c.level)
+    destroyers = [(k, pool[d.inactivates], d.model.kinact_per_h, d.model.ki)
+                  for k, d in enumerate(drugs) if d.inactivates]
 
     def rhs(_t, y):
         dy = np.zeros_like(y)
-        conc = np.empty(n)
+        conc = np.maximum(y[central_idx], 0.0) / v1_arr
+        e = y[e0:]
+        availability = np.empty(m)
+        for p in range(m):
+            inv = 1.0 + rev_clamp_add[p]
+            for k, ki in rev_dyn[p]:
+                inv += conc[k] / ki
+            availability[p] = 1.0 / inv
+        for p in range(m):
+            induction = ind_clamp_add[p]
+            for k, emax, ec50, dd in ind_dyn[p]:
+                induction += dd * emax * conc[k] / (ec50 + conc[k])
+            dy[e0 + p] = kdeg[p] * (1.0 + induction) - kdeg[p] * e[p]
+        for k, p, kinact, ki in destroyers:
+            dy[e0 + p] -= kinact * conc[k] / (ki + conc[k]) * e[p]
         for k, block in enumerate(blocks):
             o = 5 * k
-            factor = 1.0 + sum(s * (y[j] - 1.0) for j, s in on_enzymes[k])
-            (dy[o], dy[o + 1], dy[o + 2], dy[o + 4]), conc[k] = block(y[o:o + 5], factor)
-        dy[e0:] = kdeg * (1.0 - y[e0:])
-        for k, j, kinact, ki in destroyers:
-            dy[j] -= kinact * conc[k] / (ki + conc[k]) * y[j]
+            factor = 1.0 - sum(s * (1.0 - e[p] * availability[p]) for p, s in on_enzymes[k])
+            (dy[o], dy[o + 1], dy[o + 2], dy[o + 4]), _c = block(y[o:o + 5], factor)
         return dy
 
     y = np.concatenate([np.tile(_initial_state(), n), np.ones(len(enzymes))])

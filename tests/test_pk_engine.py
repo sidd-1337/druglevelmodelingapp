@@ -481,7 +481,17 @@ def test_metabolite_validation(kwargs):
 
 
 # ------------------------------------------------- coupled (shared-enzyme) profiles
-from core.pk_engine import CoDrug, CoupledProfiles, concentration_profile as _cp, coupled_profiles
+from core.pk_engine import (
+    INDUCTION,
+    REVERSIBLE,
+    ClampedPerpetrator,
+    CoDrug,
+    CoupledProfiles,
+    EnzymeEffect,
+    concentration_profile as _cp,
+    coupled_profiles,
+)
+from core.enzymes import derived_exposure_factor
 
 _VICTIM = PKModel(t_half_h=20.0, vd_l=90.0, bioavailability=1.0, ka_per_h=1.0)  # CYP2D6 substrate
 
@@ -527,3 +537,76 @@ def test_coupled_validates_inactivates_and_shares():
         CoDrug(MBI, (), inactivates="")  # inactivates one but no enzyme named
     with pytest.raises(ValueError):
         CoDrug(_VICTIM, (), {"CYP2D6": 0.7, "CYP3A4": 0.5})  # shares sum > 1
+
+
+def _last_interval_exposure(c, t, tau_h):
+    """AUC over the final dosing interval - a steady-state exposure proxy."""
+    mask = t >= t[-1] - tau_h
+    return auc_trapezoid(t[mask], c[mask])
+
+
+def test_clamped_reversible_inhibitor_matches_the_static_model():
+    # A constant reversible inhibitor level must reproduce the steady-state static model
+    # 1 / (fm*residual + 1-fm), with residual = 1/(1 + I/ki). This ties the dynamic
+    # reversible term to core.enzymes.derived_exposure_factor.
+    fm, ki, level = 0.6, 5.0, 5.0            # I = ki, so residual availability = 0.5
+    tau, dur = 24.0, 24.0 * 25
+    t = time_grid(dur)
+    ev = tuple(regular_schedule(50.0, tau, dur))
+    victim = CoDrug(_VICTIM, ev, {"CYP2D6": fm})
+    perp = ClampedPerpetrator(level, (EnzymeEffect("CYP2D6", REVERSIBLE, ki=ki),))
+    base = coupled_profiles(t, [victim]).concentrations[0]
+    hit = coupled_profiles(t, [victim], clamped=[perp]).concentrations[0]
+    ratio = _last_interval_exposure(hit, t, tau) / _last_interval_exposure(base, t, tau)
+    residual = 1.0 / (1.0 + level / ki)
+    assert ratio == pytest.approx(derived_exposure_factor(fm, residual), rel=5e-3)
+
+
+def test_clamped_inducer_matches_the_static_model():
+    # A constant inducer level must reproduce the same static relation with residual > 1.
+    fm, emax, ec50, level = 0.6, 4.0, 5.0, 5.0   # induction term d*emax*I/(ec50+I) = 2 -> residual 3
+    tau, dur = 24.0, 24.0 * 25
+    t = time_grid(dur)
+    ev = tuple(regular_schedule(50.0, tau, dur))
+    victim = CoDrug(_VICTIM, ev, {"CYP3A4": fm})
+    perp = ClampedPerpetrator(level, (EnzymeEffect("CYP3A4", INDUCTION, emax=emax, ec50=ec50),))
+    turnover = {"CYP3A4": 0.0193}
+    base = coupled_profiles(t, [victim], enzyme_turnover=turnover).concentrations[0]
+    hit = coupled_profiles(t, [victim], clamped=[perp], enzyme_turnover=turnover).concentrations[0]
+    ratio = _last_interval_exposure(hit, t, tau) / _last_interval_exposure(base, t, tau)
+    residual = 1.0 + emax * level / (ec50 + level)
+    assert ratio == pytest.approx(derived_exposure_factor(fm, residual), rel=5e-3)
+
+
+def test_dynamic_reversible_perpetrator_raises_a_victim_and_spares_a_non_substrate():
+    # A co-dosed drug that reversibly inhibits CYP2D6 raises a CYP2D6 victim's exposure,
+    # and leaves a drug with no CYP2D6 share untouched.
+    t = time_grid(72.0)
+    ev_v = tuple(regular_schedule(50.0, 24.0, 72.0))
+    perp = CoDrug(PARENT_ONLY, tuple(regular_schedule(100.0, 24.0, 72.0)),
+                  effects=(EnzymeEffect("CYP2D6", REVERSIBLE, ki=2.0),))
+    victim = CoDrug(_VICTIM, ev_v, {"CYP2D6": 0.6})
+    alone = _cp(t, ev_v, _VICTIM)
+    with_perp = coupled_profiles(t, [victim, perp]).concentrations[0]
+    assert auc_trapezoid(t, with_perp) > 1.1 * auc_trapezoid(t, alone)
+    inert = CoDrug(_VICTIM, ev_v, {})
+    assert np.allclose(coupled_profiles(t, [inert, perp]).concentrations[0], alone)
+
+
+def test_induction_without_a_turnover_is_rejected():
+    t = time_grid(48.0)
+    victim = CoDrug(_VICTIM, tuple(regular_schedule(50.0, 24.0, 48.0)), {"CYP3A4": 0.6})
+    perp = ClampedPerpetrator(5.0, (EnzymeEffect("CYP3A4", INDUCTION, emax=4.0, ec50=5.0),))
+    with pytest.raises(ValueError):
+        coupled_profiles(t, [victim], clamped=[perp])  # no enzyme_turnover supplied
+
+
+def test_enzyme_effect_and_clamp_validation():
+    with pytest.raises(ValueError):
+        EnzymeEffect("CYP2D6", REVERSIBLE, ki=0.0)
+    with pytest.raises(ValueError):
+        EnzymeEffect("CYP2D6", INDUCTION, emax=4.0, ec50=0.0)
+    with pytest.raises(ValueError):
+        EnzymeEffect("CYP2D6", "nonsense")
+    with pytest.raises(ValueError):
+        ClampedPerpetrator(5.0, ())

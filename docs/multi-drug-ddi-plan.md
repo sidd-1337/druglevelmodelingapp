@@ -319,11 +319,16 @@ in `core/validation.py` (which already runs the reference-curve and interaction 
 
 Each phase is independently shippable and leaves the app working.
 
-- **Phase 0 — turnover + provenance.** Add the enzyme `kdeg` table with sources and the
-  `anchored` provenance status. No behaviour change. Unblocks everything.
-- **Phase 1 — generalise the enzyme ODE.** N enzyme pools, reversible + induction terms on
-  top of the existing MBI. Victim-side only (perpetrators still static factors). Gated by
-  equivalence + static cross-check.
+- **Phase 0 — turnover + provenance. [done, `751d306`]** Enzyme `kdeg` table added to the
+  registry with Yang 2008 sources (`verified=false`, spread noted); `anchored` documented as
+  the reserved tier for Phase 2's in-vivo-fitted constants. No behaviour change.
+- **Phase 1 — generalise the enzyme ODE. [done]** N enzyme pools, each with reversible
+  (instantaneous availability) and induction (synthesis term) on top of the existing MBI;
+  `EnzymeEffect` and `ClampedPerpetrator` added to `core.pk_engine`. Victim-side only
+  (presets still carry static factors; nothing wired into `app.py` yet, so behaviour is
+  unchanged until Phase 2). Gated by the equivalence tests (single-drug and non-interacting
+  regimens reproduce the base engine) and the static cross-check (a clamped reversible or
+  inducing level reproduces `derived_exposure_factor` to ~5e-3).
 - **Phase 2 — promote perpetrators to PK.** fluoxetine/norfluoxetine first, then paroxetine,
   carbamazepine, rifampicin. Now the clinical DDI gate can run; anchor + validate.
 - **Phase 3 — gut-wall first pass (FG factor).** Closes oral-3A4 and the risperidone gap.
