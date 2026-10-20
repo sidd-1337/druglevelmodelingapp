@@ -87,3 +87,9 @@ def test_back_test_only_covers_pairs_the_mechanism_can_address():
     assert ("lithium", "Ibuprofen") not in covered  # renal clearance, not an enzyme
     assert ("amoxicillin", "Probenecid") not in covered  # tubular secretion
     assert ("ketamine", "Rifampicin") not in covered  # first-pass bioavailability
+
+
+def test_back_test_covers_pairs_recorded_under_a_perpetrator_alias():
+    # "Fluvoxamine 100-150 mg/day" is an alias of the registry's fluvoxamine entry;
+    # looking perpetrators up by name alone silently dropped this pair from the gate.
+    assert ("diazepam", "Fluvoxamine 100-150 mg/day") in {(r.victim_id, r.perpetrator) for r in DDI}

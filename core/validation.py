@@ -155,16 +155,15 @@ def validate_interactions(
     actually cleared by. Renal handling, transporter and first-pass interactions are
     out of scope by construction, not by omission.
     """
-    from core.enzymes import load_perpetrators
+    from core.enzymes import perpetrator_pk
     from core.interactions import CLEARANCE, load_interactions, mechanistic_exposure_factor
 
-    by_name = {p.name: p for p in load_perpetrators()}
     kwargs = {"path": interactions_path} if interactions_path else {}
     rows = []
     for measured in load_interactions(**kwargs):
         if measured.qualitative or measured.site != CLEARANCE or measured.estimated:
             continue
-        perpetrator = by_name.get(measured.perpetrator)
+        perpetrator = perpetrator_pk(measured.perpetrator)  # by name or alias
         if perpetrator is None:
             continue
         drug = get_drug(measured.victim_id, db_path)
