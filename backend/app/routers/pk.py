@@ -22,6 +22,7 @@ from backend.app.schemas.pk import (
     SimulateResponse,
     SteadyStateResponse,
     AppliedInteractionResponse,
+    PooledEnzymeResponse,
     ClashResponse,
     InteractionResponse,
     MultiDrugRequest,
@@ -569,8 +570,10 @@ def simulate_multi_drug(req: MultiDrugRequest) -> MultiDrugResponse:
             applied=[AppliedInteractionResponse(
                 perpetrator=a.interaction.perpetrator, site=a.interaction.site,
                 factor=round(a.factor, 4) if a.factor is not None else None, timed=a.timed,
-                via_enzyme=a.via_enzyme, skipped=a.skipped) for a in r.applied],
+                via_enzyme=a.via_enzyme, skipped=a.skipped, pooled=a.pooled) for a in r.applied],
             drivers=r.drivers,
+            pooled=[PooledEnzymeResponse(enzyme=e, multiplied=round(m, 4), combined=round(c, 4))
+                    for e, (m, c) in r.pooled.items()],
         ))
     return MultiDrugResponse(
         time_grid=_round_list(out_t, 4), crcl_ml_min=round(crcl, 1) if crcl is not None else None, series=series,

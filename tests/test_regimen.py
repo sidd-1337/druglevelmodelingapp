@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from core.drug_database import get_drug
+from core.enzymes import load_perpetrators
 from core.pk_engine import Route, regular_schedule, time_grid
 from core.regimen import SUBSTANCE, AddedSubstance, RegimenDrug, simulate_regimen
 
@@ -75,6 +76,39 @@ def test_alias_gives_a_measured_pair_its_time_course():
     res = simulate_regimen(T, [_entry("diazepam")], [AddedSubstance("Fluvoxamine 100-150 mg/day", start_h=0.0)])
     (a,) = _drug(res, "diazepam").applied
     assert a.timed and a.factor == pytest.approx(2.86)
+
+
+def test_three_inhibitors_of_one_enzyme_stay_below_losing_the_whole_enzyme():
+    added = [AddedSubstance(n) for n in ("Paroxetine 20 mg/day", "Fluoxetine 20 mg/day", "Terbinafine")]
+    r = _drug(simulate_regimen(T, [_entry("mirtazapine")], added), "mirtazapine")
+    ceiling = 1.0 / (1.0 - 0.36)  # mirtazapine's CYP2D6 share
+    assert 1.5 < r.exposure_factor < ceiling  # multiplying the three factors gave about x3.4
+    assert [a.pooled for a in r.applied] == ["CYP2D6"] * 3
+    multiplied, combined = r.pooled["CYP2D6"]
+    assert multiplied > 3.0 and combined == pytest.approx(r.exposure_factor, rel=0.02)
+
+
+def test_two_measured_inhibitors_give_more_than_either_and_less_than_their_product():
+    added = [AddedSubstance("Paroxetine 20 mg/day"), AddedSubstance("Fluoxetine 20 mg/day")]
+    r = _drug(simulate_regimen(T, [_entry("risperidone")], added), "risperidone")
+    assert 1.6 <= r.exposure_factor < 1.6 * 1.4
+
+
+def test_inhibitor_and_inducer_follow_the_net_effect_model():
+    keto, carba = "Ketoconazole 200 mg b.i.d.", "Carbamazepine 400 mg b.i.d."
+    r = _drug(simulate_regimen(T, [_entry("diazepam")], [AddedSubstance(keto), AddedSubstance(carba)]), "diazepam")
+    residuals = {p.name: p.residual_activity for p in load_perpetrators()}
+    fm = get_drug("diazepam").pathways["CYP3A4"]
+    # Activities multiply, so the strong inhibitor wins on the induced enzyme. The two
+    # factors multiplied would have given x0.80.
+    assert r.exposure_factor == pytest.approx(1.0 / (fm * residuals[keto] * residuals[carba] + 1.0 - fm), rel=0.01)
+
+
+def test_one_substance_per_enzyme_is_not_pooled():
+    added = [AddedSubstance("Fluconazole"), AddedSubstance("Ketoconazole 200 mg b.i.d.")]  # CYP2C19, CYP3A4
+    r = _drug(simulate_regimen(T, [_entry("diazepam")], added), "diazepam")
+    assert r.pooled == {} and all(not a.pooled for a in r.applied)
+    assert r.exposure_factor == pytest.approx(np.prod([a.factor for a in r.applied]), rel=1e-3)
 
 
 def test_two_substances_on_one_enzyme_combine_on_the_chart():

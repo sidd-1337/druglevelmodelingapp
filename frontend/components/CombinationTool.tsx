@@ -384,9 +384,15 @@ export default function CombinationTool() {
                                   : a.viaEnzyme
                                   ? "přes sdílený enzym (simulováno)"
                                   : `×${num(a.factor ?? 1, 2)} ${a.site === "clearance" ? "přes clearance" : "přes vstřebání"}`}
+                                {a.pooled && ` · sloučeno v${NBSP}${a.pooled}`}
                               </li>
                             ))}
                           </ul>
+                          {s.pooled.map((p) => (
+                            <p key={p.enzyme} className="mt-1.5 max-w-prose text-small text-ink-2">
+                              {cz(`${p.enzyme}: ${acting.filter((a) => a.pooled === p.enzyme).map((a) => shown(a.perpetrator)).join(", ")} působí na stejný enzym, proto se skládají v něm: ×${num(p.combined, 2)}, ne ×${num(p.multiplied, 2)} vynásobením faktorů.`)}
+                            </p>
+                          ))}
                         </>
                       )}
                     </dd>

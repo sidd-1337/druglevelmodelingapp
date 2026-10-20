@@ -302,6 +302,13 @@ export interface AppliedInteraction {
   timed: boolean;
   viaEnzyme: boolean;
   skipped: string;
+  pooled: string;
+}
+
+export interface PooledEnzyme {
+  enzyme: string;
+  multiplied: number;
+  combined: number;
 }
 
 export interface RegimenSeries {
@@ -318,6 +325,7 @@ export interface RegimenSeries {
   tdmStatus: string;
   applied: AppliedInteraction[];
   drivers: string[];
+  pooled: PooledEnzyme[];
 }
 
 export interface Clash {
@@ -391,9 +399,10 @@ export async function multiDrugApi(req: {
       exposureFactor: s.exposure_factor, tdmStatus: s.tdm.status,
       applied: s.applied.map((a: any) => ({
         perpetrator: a.perpetrator, site: a.site, factor: a.factor, timed: a.timed,
-        viaEnzyme: a.via_enzyme, skipped: a.skipped,
+        viaEnzyme: a.via_enzyme, skipped: a.skipped, pooled: a.pooled ?? "",
       })),
       drivers: s.drivers,
+      pooled: s.pooled ?? [],
     })),
     enzymeActivity: d.enzyme_activity,
     enzymeDrivers: d.enzyme_drivers,

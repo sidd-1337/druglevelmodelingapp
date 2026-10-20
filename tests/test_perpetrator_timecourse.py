@@ -8,6 +8,7 @@ from core.perpetrator_timecourse import (
     ActingFactor,
     PerpetratorCourse,
     apply_factor_course,
+    combined_activity,
     combined_factor_at,
     effect_fraction,
     enzyme_activity_curve,
@@ -113,3 +114,45 @@ def test_offset_half_life_slows_only_the_fade():
     gs, gl = effect_fraction(short, T), effect_fraction(long, T)
     assert _at(gs, 1) == _at(gl, 1) == pytest.approx(1.0)  # identical while still taken
     assert _at(gs, 9) < 0.01 and _at(gl, 9) > 0.55  # norfluoxetine-like tail: still largely active a week later
+
+
+@pytest.mark.parametrize("course", [
+    PerpetratorCourse("CYP2D6", 0.07, t_half_h=21.0, induces=False, start_h=2 * DAY, stop_h=9 * DAY,
+                      offset_t_half_h=70.0),
+    PerpetratorCourse("CYP3A4", 3.65, t_half_h=14.0, induces=True, start_h=DAY, stop_h=12 * DAY),
+])
+def test_combined_activity_of_one_perpetrator_is_its_own_curve(course):
+    kdeg = math.log(2) / 36.0
+    assert np.allclose(combined_activity([course], T, kdeg), enzyme_activity_curve(course, T, kdeg), atol=1e-12)
+
+
+def test_competing_inhibitors_add_occupancy_instead_of_multiplying_activity():
+    a = PerpetratorCourse("CYP2D6", 0.07, t_half_h=21.0, induces=False, start_h=None)
+    b = PerpetratorCourse("CYP2D6", 0.2, t_half_h=120.0, induces=False, start_h=None)
+    beta = (1 - 0.07) / 0.07 + (1 - 0.2) / 0.2
+    both = combined_activity([a, b], T)
+    assert both[-1] == pytest.approx(1.0 / (1.0 + beta))
+    assert both[-1] > 0.07 * 0.2  # less than the product: they compete for the same enzyme
+
+
+def test_inhibition_acts_on_the_induced_pool():
+    inducer = PerpetratorCourse("CYP3A4", 3.65, t_half_h=14.0, induces=True, start_h=None)
+    inhibitor = PerpetratorCourse("CYP3A4", 0.024, t_half_h=8.0, induces=False, start_h=None)
+    assert combined_activity([inducer, inhibitor], T, math.log(2) / 36.0)[-1] == pytest.approx(3.65 * 0.024)
+
+
+def test_two_inducers_share_one_synthesis_pool():
+    a = PerpetratorCourse("CYP3A4", 3.0, t_half_h=14.0, induces=True, start_h=0.0)
+    b = PerpetratorCourse("CYP3A4", 2.0, t_half_h=3.0, induces=True, start_h=0.0)
+    pool = combined_activity([a, b], T, math.log(2) / 36.0)
+    assert _at(pool, 20) == pytest.approx(1.0 + 2.0 + 1.0, rel=1e-3)  # synthesis terms add
+    assert _at(pool, 1) < 2.0  # and still lag at the enzyme's turnover
+
+
+def test_combined_activity_rejects_mixed_enzymes_and_missing_turnover():
+    inhibitor = PerpetratorCourse("CYP2D6", 0.07, t_half_h=21.0, induces=False)
+    inducer = PerpetratorCourse("CYP3A4", 3.65, t_half_h=14.0, induces=True)
+    with pytest.raises(ValueError, match="one enzyme"):
+        combined_activity([inhibitor, inducer], T, 0.02)
+    with pytest.raises(ValueError, match="turnover"):
+        combined_activity([inducer], T)

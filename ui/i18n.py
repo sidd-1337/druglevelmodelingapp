@@ -111,6 +111,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "axis_enzyme": "Active enzyme [% of baseline]",
         "multi_factor_sim": "Exposure vs. alone (steady state, simulated)",
         "multi_follows": "Time-varying: builds and fades with {drugs}.",
+        "multi_pooled": "{enzyme}: {drugs} act on the same enzyme, so they are combined in it: x{combined:.2f}, "
+                        "not x{multiplied:.2f} from multiplying the factors.",
+        "multi_pooled_row": "combined in {enzyme}",
         "multi_timing": "When each added substance is taken",
         "multi_timing_help": "By default a substance is already being taken, at its full effect. Untick that to "
                              "start it on a given day, and set a stop day (0 = taken throughout). Its effect then "
@@ -362,6 +365,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "axis_enzyme": "Aktivní enzym [% výchozí hodnoty]",
         "multi_factor_sim": "Expozice oproti samostatnému užití (ustálený stav, simulace)",
         "multi_follows": "Časově proměnné: nastupuje a odeznívá s {drugs}.",
+        "multi_pooled": "{enzyme}: {drugs} působí na stejný enzym, proto se skládají v něm: x{combined:.2f}, "
+                        "ne x{multiplied:.2f} vynásobením faktorů.",
+        "multi_pooled_row": "sloučeno v {enzyme}",
         "multi_timing": "Kdy se každá přidaná látka užívá",
         "multi_timing_help": "Výchozí stav: látka se už užívá a působí plně. Po odškrtnutí ji lze zahájit "
                              "v daný den a nastavit den ukončení (0 = užívá se po celou dobu). Účinek pak nastupuje "

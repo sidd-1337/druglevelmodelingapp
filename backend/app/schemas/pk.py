@@ -307,6 +307,13 @@ class AppliedInteractionResponse(BaseModel):
     timed: bool = Field(description="Builds and fades with the perpetrator's own pharmacokinetics")
     via_enzyme: bool = Field(description="Applied through a shared enzyme pool instead of as a factor")
     skipped: str = Field(default="", description="'qualitative' or 'iv' when it changes nothing")
+    pooled: str = Field(default="", description="Enzyme it acts on together with other added substances")
+
+
+class PooledEnzymeResponse(BaseModel):
+    enzyme: str
+    multiplied: float = Field(description="The separate factors multiplied, at the end of the simulation")
+    combined: float = Field(description="Combined in the enzyme instead (what the curve uses)")
 
 
 class ClashResponse(BaseModel):
@@ -350,6 +357,8 @@ class MultiDrugSeriesResponse(BaseModel):
     interactions: list[InteractionResponse]
     applied: list[AppliedInteractionResponse] = Field(default_factory=list)
     drivers: list[str] = Field(default_factory=list, description="What makes its interaction effect time-varying")
+    pooled: list[PooledEnzymeResponse] = Field(
+        default_factory=list, description="Enzymes several added substances act on together for this drug")
 
 
 class MultiDrugRequest(BaseModel):

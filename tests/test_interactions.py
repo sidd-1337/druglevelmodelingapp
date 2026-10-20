@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 import pytest
 
 from core.drug_database import get_drug, load_drugs
@@ -12,6 +13,8 @@ from core.interactions import (
     find,
     interactions_for,
     load_interactions,
+    mechanistic_exposure_factor,
+    mechanistic_exposure_response,
 )
 from core.pk_engine import Route, steady_state_summary
 
@@ -99,3 +102,19 @@ def test_every_entry_states_whether_it_was_verified():
     raw = json.loads((__import__("pathlib").Path("data/interactions.json")).read_text(encoding="utf-8"))
     assert all(isinstance(i["verified"], bool) for i in raw["interactions"])
     assert Route.ORAL.value == "oral"
+
+
+@pytest.mark.parametrize("drug_id, enzyme, tolerance", [
+    ("diazepam", "CYP3A4", 1e-12),  # parent only: closed form
+    ("risperidone", "CYP2D6", 0.01),  # parent + 9-OH sum: tabulated simulation
+])
+def test_exposure_response_matches_the_pointwise_factor(drug_id, enzyme, tolerance):
+    drug = get_drug(drug_id)
+    activities = np.array([0.004, 0.069, 0.3, 1.0, 3.65, 25.0])
+    response = mechanistic_exposure_response(drug, enzyme, activities)
+    expected = [mechanistic_exposure_factor(drug, enzyme, float(a))[0] for a in activities]
+    assert response == pytest.approx(expected, rel=tolerance)
+
+
+def test_exposure_response_is_flat_off_the_drugs_pathways():
+    assert np.all(mechanistic_exposure_response(get_drug("lithium"), "CYP3A4", [0.01, 1.0, 10.0]) == 1.0)

@@ -163,6 +163,35 @@ def enzyme_activity_curve(course: PerpetratorCourse, t: np.ndarray,
     return activity_from_fraction(course, effect_fraction(course, t, turnover_per_h))
 
 
+def combined_activity(courses: list[PerpetratorCourse], t: np.ndarray,
+                      turnover_per_h: float | None = None) -> np.ndarray:
+    """One enzyme's activity over ``t`` with several perpetrators acting on it at once.
+
+    Reversible inhibitors compete for the same enzyme, so their occupancies add rather
+    than their activities multiplying: A = E / (1 + sum_j beta_j g_j), beta_j as in
+    :func:`activity_from_fraction`. Inducers raise the same enzyme's synthesis, so they
+    share one pool, dE/dt = kdeg (1 + sum_j (r_j - 1) h_j(t) - E). Inhibition then acts
+    on the induced pool, the product of the two terms in the net-effect model (Fahmi
+    2008). With one perpetrator this is exactly :func:`enzyme_activity_curve`.
+    """
+    t = np.asarray(t, dtype=float)
+    if len({c.enzyme for c in courses}) > 1:
+        raise ValueError("combined_activity takes perpetrators of one enzyme")
+    occupancy = np.zeros_like(t)
+    synthesis = np.zeros_like(t)
+    for c in courses:
+        if c.induces:
+            synthesis = synthesis + (c.residual - 1.0) * _exposure_envelope(c, t)
+        else:
+            occupancy = occupancy + (1.0 - c.residual) / max(c.residual, 1e-9) * _exposure_envelope(c, t)
+    pool = np.ones_like(t)
+    if any(c.induces for c in courses):
+        if turnover_per_h is None:
+            raise ValueError(f"{courses[0].enzyme}: an inducer needs the enzyme turnover rate")
+        pool = _induction_pool(t, synthesis, 2.0, turnover_per_h)
+    return pool / (1.0 + occupancy)
+
+
 @dataclass(frozen=True)
 class ActingFactor:
     """A perpetrator's time-varying exposure factor on one victim.

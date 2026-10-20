@@ -540,6 +540,10 @@ with tab_multi:
                           f"{100 * (r.exposure_factor - 1):+.0f} %", delta_color="off")
                 if r.drivers:
                     st.caption(T("multi_follows", drugs=", ".join(shown(n) for n in r.drivers)))
+                for enz, (multiplied, combined) in r.pooled.items():
+                    st.caption(T("multi_pooled", enzyme=enz, multiplied=multiplied, combined=combined,
+                                 drugs=", ".join(shown(a.interaction.perpetrator) for a in r.applied
+                                                 if a.pooled == enz)))
             else:
                 st.caption(T("multi_no_interaction"))
             show_alert(*assessment_message(T, assess_tdm(t, r.concentrations, win_i, assess_from), win_i,
@@ -560,6 +564,8 @@ with tab_multi:
                     effect = T("multi_qualitative")
                 else:
                     effect = f"x{a.factor:.2f} ({100 * (a.factor - 1):+.0f} %)"
+                    if a.pooled:
+                        effect += f", {T('multi_pooled_row', enzyme=a.pooled)}"
                 onset = f"{i.onset_h / 24:.0f} d" if i.onset_h >= 24 else f"{i.onset_h:.0f} h"
                 rows.append({T("drug"): d.name, T("multi_perpetrator"): i.name(lang_code),
                              T("multi_effect"): effect,

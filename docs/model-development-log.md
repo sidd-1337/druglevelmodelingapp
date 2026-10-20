@@ -609,3 +609,78 @@ that drug preselected.
 
 The six series colours were validated against the portal's own surfaces. Three light-mode
 steps fall below 3:1, so the chart always has a value list in each drug's own unit.
+
+## 12. Several substances on one enzyme
+
+Built on `develop` from `599b045`, on `claude/ddi-model-on-develop`. It carries over the
+part of the dynamic interaction plan (`docs/multi-drug-ddi-plan.md`) that develop did not
+already have. The plan was written on a branch cut before §11; that branch is retired.
+
+### 12.1 The defect
+
+The regimen multiplied every added substance's factor. Two inhibitors of one enzyme
+could then push a drug past what losing the whole enzyme can do, which is 1 / (1 − fm):
+
+| regimen (all already taken) | multiplied | whole-enzyme ceiling | now |
+|---|---|---|---|
+| mirtazapine + paroxetine + fluoxetine + terbinafine (CYP2D6, fm 0.36) | 3.42× | 1.56× | 1.54× |
+| diazepam + fluconazole + fluvoxamine 50 mg (CYP2C19, fm 0.5) | 3.83× | 2.0× | 1.98× |
+| diazepam + ketoconazole + clarithromycin (CYP3A4, fm 0.4) | 2.59× | 1.67× | 1.65× |
+| risperidone + paroxetine + fluoxetine (both measured) | 2.24× | — | 1.65× |
+| diazepam + ketoconazole + carbamazepine (inhibitor + inducer) | 0.80× | — | 1.58× |
+
+### 12.2 What the model now does
+
+- **One activity per enzyme** (`core.perpetrator_timecourse.combined_activity`).
+  - Competing inhibitors add their occupancy: A = E / (1 + Σ βⱼ gⱼ), βⱼ = (1 − rⱼ) / rⱼ.
+    The product of their activities would overstate the combination.
+  - Inducers add to one synthesis term in one pool, dE/dt = kdeg·(1 + Σ (rⱼ − 1)·hⱼ − E).
+  - Inhibition acts on the induced pool. That is the net-effect model, where the
+    inhibition and induction terms multiply on activity (Fahmi 2008, DMD 36:1698).
+  - With one substance this is exactly the existing curve, to machine precision.
+- **The drug's factor on that enzyme.** Each substance keeps its own factor and time
+  course, measured where a study exists. When two or more act on one enzyme of the drug,
+  their product is multiplied by the mechanism's ratio:
+  F_mech(A_combined) / Π F_mech(Aⱼ).
+  - F_mech is the existing `mechanistic_exposure_factor`, now also over an array
+    (`mechanistic_exposure_response`). For a parent-plus-metabolite sum it is tabulated at
+    11 activities from 0.001 to 100 and interpolated in log-log. Worst error is 0.9 %,
+    and the tabulation costs about 2 s once per drug and enzyme.
+  - The enzyme chart and an enzyme a regimen drug destroys (MDMA) use the same combined
+    activity.
+- **Shown, not hidden.** The lab, `POST /api/v1/pk/multi-drug` (`applied[].pooled`,
+  `series[].pooled`) and `/kombinace` state each pooled enzyme as "×combined, not
+  ×multiplied".
+
+### 12.3 Decisions where the answer could have gone the other way
+
+- **Correct the measured product, don't replace it.** Replacing combined pairs with the
+  mechanistic size would be simpler. But adding a weak second substance would then
+  silently swap risperidone's measured 1.6× for a different number. As built, a single
+  substance gives exactly what it gave before, so every §11.4 number holds, and the
+  mechanism only supplies what no study measured: how two substances interact.
+- **Inhibitor plus inducer: the inhibitor wins.** Ketoconazole leaves 2.4 % of CYP3A4. On
+  an enzyme induced to 365 %, that is still only 8.8 %, so diazepam rises (1.58×). The
+  multiplied factors said it falls (0.80×). Neither has a clinical study in this
+  repository; the net-effect model is the standard basis for such predictions, but it is
+  a prediction.
+- **Only substances with known PK pool.** All 13 registry perpetrators have it. A
+  measured perpetrator outside the registry (phenytoin, cimetidine, omeprazole) has no
+  enzyme assigned, so it stays a factor.
+
+### 12.4 The interaction gate lost a pair
+
+`validate_interactions` looked perpetrators up by name only. When "Fluvoxamine
+100-150 mg/day" became an alias (§11.3), diazepam + fluvoxamine silently left the gate.
+It now resolves aliases and a test pins the pair in. The gate is back to the
+5 pairs / geometric mean fold error 1.17 its own comment recorded (5/5 within 2×;
+diazepam + fluvoxamine predicted 1.94× against 2.86× measured).
+
+### 12.5 Known gaps
+
+- A substance listed twice under its name and an alias ("Carbamazepine" and
+  "Carbamazepine 400 mg b.i.d.") counts twice. It did before as well.
+- Risperidone + carbamazepine (0.51× measured) is outside the gate: the model gives
+  risperidone no CYP3A4 pathway, so the mechanism cannot address it.
+- Gut-wall first pass and per-enzyme turnover beyond CYP3A4 are not built (plan §7,
+  Phases 3 and 0).

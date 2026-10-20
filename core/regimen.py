@@ -14,12 +14,18 @@ How an interaction is applied:
 * An added substance acting on an enzyme that is already such a pool is fed into the
   pool as an activity multiplier instead of as a factor, so the two cannot add up to
   more than losing the whole enzyme would.
+* Several added substances on one enzyme act on it together
+  (:func:`core.perpetrator_timecourse.combined_activity`): competing inhibitors add
+  their occupancy and inducers share one pool. For a drug cleared by that enzyme,
+  each keeps its own factor and the product is corrected by the mechanism's ratio of
+  the combined effect to the separate ones, so a measured factor is still reproduced
+  on its own and the combination stays below the loss of the whole enzyme.
 * A bioavailability interaction does nothing to an IV dose, and never raises
   bioavailability above 1.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Iterable
 
 import numpy as np
@@ -34,6 +40,7 @@ from core.interactions import (
     find,
     interactions_for,
     load_interactions,
+    mechanistic_exposure_response,
 )
 from core.pd_effects import Clash, EffectTag, find_clashes, load_pd_effects, load_substance_effects
 from core.perpetrator_timecourse import (
@@ -41,6 +48,8 @@ from core.perpetrator_timecourse import (
     PerpetratorCourse,
     activity_from_fraction,
     apply_factor_course,
+    combined_activity,
+    combined_factor_at,
     effect_fraction,
     exposure_fraction,
 )
@@ -82,6 +91,7 @@ class AppliedInteraction:
     timed: bool  # follows the perpetrator's PK
     via_enzyme: bool = False  # applied through the shared enzyme pool instead
     skipped: str = ""  # "qualitative" or "iv" when it changes nothing
+    pooled: str = ""  # enzyme this substance shares with others acting on this drug
 
 
 @dataclass
@@ -92,6 +102,8 @@ class DrugResult:
     applied: list[AppliedInteraction]
     drivers: list[str]  # names whose time course shapes this drug's interaction effect
     exposure_factor: float  # over the last dosing interval, with co-medication / alone
+    # enzyme -> (factors multiplied, combined in the enzyme), at the end of the simulation
+    pooled: dict[str, tuple[float, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -142,17 +154,27 @@ def simulate_regimen(t: np.ndarray, entries: list[RegimenDrug], added: Iterable[
         if course is not None:
             courses[a.name] = (course, effect_fraction(course, t, enzymes[course.enzyme].turnover_per_h))
 
+    pools: dict[tuple[str, ...], np.ndarray] = {}
+
+    def pooled_activity(members: tuple[str, ...]) -> np.ndarray:
+        """Activity of one enzyme under the named substances together."""
+        if members not in pools:
+            enzyme = courses[members[0]][0].enzyme
+            pools[members] = combined_activity([courses[n][0] for n in members], t, enzymes[enzyme].turnover_per_h)
+        return pools[members]
+
     # Substances on an enzyme a regimen drug destroys go into that pool.
     multipliers: dict[str, np.ndarray] = {}
     enzyme_drivers: dict[str, list[str]] = {e: [d] for e, d in destroyers.items()}
     perp_activity: dict[str, np.ndarray] = {}
-    for name, (course, g) in courses.items():
-        if course.enzyme not in used_enzymes:
-            continue
-        activity = activity_from_fraction(course, g)
-        target = multipliers if course.enzyme in destroyers else perp_activity
-        target[course.enzyme] = target.get(course.enzyme, np.ones_like(t)) * activity
-        enzyme_drivers.setdefault(course.enzyme, []).append(name)
+    on_enzyme: dict[str, list[str]] = {}
+    for name, (course, _) in courses.items():
+        if course.enzyme in used_enzymes:
+            on_enzyme.setdefault(course.enzyme, []).append(name)
+    for enzyme, members in on_enzyme.items():
+        target = multipliers if enzyme in destroyers else perp_activity
+        target[enzyme] = pooled_activity(tuple(members))
+        enzyme_drivers.setdefault(enzyme, []).extend(members)
 
     coupled = coupled_profiles(t, co_drugs, multipliers)
 
@@ -162,6 +184,7 @@ def simulate_regimen(t: np.ndarray, entries: list[RegimenDrug], added: Iterable[
         acting = _acting(e.drug, names - {e.drug.name, e.drug.id}, added_names)
         acted |= {i.perpetrator for i in acting}
         applied, factors, drivers = [], [], []
+        by_enzyme: dict[str, list[tuple[int, int]]] = {}  # enzyme -> (index in applied, in factors)
         for i in acting:
             timed = i.perpetrator in courses
             if i.exposure_factor is None:
@@ -179,18 +202,38 @@ def simulate_regimen(t: np.ndarray, entries: list[RegimenDrug], added: Iterable[
                     applied.append(AppliedInteraction(i, None, timed, skipped="iv"))
                     continue
                 factor = min(factor, 1.0 / e.model.f_eff)
+            if course_g and i.site == CLEARANCE:
+                by_enzyme.setdefault(course_g[0].enzyme, []).append((len(applied), len(factors)))
             factors.append(ActingFactor(factor, course_g[1] if course_g else np.ones_like(t)))
             applied.append(AppliedInteraction(i, factor, timed))
             if timed:
                 drivers.append(i.perpetrator)
         drivers = [destroyers[enz] for enz in coupled.enzyme_activity
                    if co.shares.get(enz, 0) > 0 and destroyers[enz] != e.drug.name] + drivers
-        c_with = apply_factor_course(c_base, factors)
+        # Two or more substances on one enzyme of this drug would multiply past what
+        # losing the whole enzyme can do; the mechanism corrects their product.
+        correction = np.ones_like(t)
+        pooled: dict[str, tuple[float, float]] = {}
+        for enzyme, members in by_enzyme.items():
+            if len(members) < 2:
+                continue
+            names = tuple(applied[k].interaction.perpetrator for k, _ in members)
+            separate = np.ones_like(t)
+            for name in names:
+                separate = separate * mechanistic_exposure_response(
+                    e.drug, enzyme, activity_from_fraction(*courses[name]))
+            ratio = mechanistic_exposure_response(e.drug, enzyme, pooled_activity(names)) / separate
+            correction = correction * ratio
+            multiplied = combined_factor_at([factors[j] for _, j in members])
+            pooled[enzyme] = (multiplied, multiplied * float(ratio[-1]))
+            for k, _ in members:
+                applied[k] = replace(applied[k], pooled=enzyme)
+        c_with = apply_factor_course(c_base, factors) * correction
         alone = concentration_profile(t, e.events, e.model)
         lo = max(float(t[0]), float(t[-1]) - e.interval_h)
         base_auc = auc_trapezoid(t, alone, lo, float(t[-1]))
         exposure = auc_trapezoid(t, c_with, lo, float(t[-1])) / base_auc if base_auc > 0 else 1.0
-        results.append(DrugResult(e, c_with, alone, applied, list(dict.fromkeys(drivers)), exposure))
+        results.append(DrugResult(e, c_with, alone, applied, list(dict.fromkeys(drivers)), exposure, pooled))
 
     # Clashes over regimen drugs and added substances alike.
     drug_tags, sub_tags = load_pd_effects(), load_substance_effects()

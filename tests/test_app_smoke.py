@@ -187,3 +187,11 @@ def test_app_perpetrator_applies_measured_factor_and_timing():
     assert not at.exception
     assert any("start day" in str(n.label).lower() for n in at.number_input)
     assert 1.3 < factor() < 1.6
+
+
+def test_app_explains_substances_combined_in_one_enzyme():
+    at = _run()
+    at.selectbox[0].set_value("mirtazapine").run()
+    at.multiselect[1].set_value(["Paroxetine 20 mg/day", "Fluoxetine 20 mg/day"]).run()
+    assert not at.exception
+    assert any("CYP2D6:" in c.value and "not x" in c.value for c in at.caption)

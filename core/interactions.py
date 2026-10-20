@@ -2,7 +2,9 @@
 
 An interaction multiplies the victim drug's exposure (AUC, steady-state level) by
 ``exposure_factor``, applied either to clearance (half-life changes with it) or to
-bioavailability (half-life unchanged). Effects of several perpetrators multiply.
+bioavailability (half-life unchanged). Effects of several perpetrators multiply,
+except in a simulated regimen, where perpetrators of one enzyme are combined in that
+enzyme first (:mod:`core.regimen`).
 
 The factors describe the full effect of the stated perpetrator regimen; the onset
 (days to weeks for enzyme induction) is documented but not simulated.
@@ -20,6 +22,8 @@ from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Sequence
+
+import numpy as np
 
 from core.pk_engine import PKModel
 
@@ -121,6 +125,39 @@ def mechanistic_exposure_factor(drug, enzyme: str, residual: float,
     return (hit.cavg_ss / base.cavg_ss,
             f"simulated: inhibiting {enzyme} to {residual:.2f} of normal raises the parent but forms less "
             f"metabolite, so the reported sum moves far less than the parent alone")
+
+
+# Activities the simulated response is tabulated at: log-spaced from near-total
+# inhibition to strong induction, 1.0 included.
+_RESPONSE_GRID = np.geomspace(1e-3, 100.0, 11)
+_simulated_responses: dict[tuple[str, str, float], np.ndarray] = {}
+
+
+def _simulated_response(drug, enzyme: str, body_weight_kg: float) -> np.ndarray:
+    key = (drug.id, enzyme, body_weight_kg)
+    if key not in _simulated_responses:
+        _simulated_responses[key] = np.array([mechanistic_exposure_factor(drug, enzyme, float(a), body_weight_kg)[0]
+                                              for a in _RESPONSE_GRID])
+    return _simulated_responses[key]
+
+
+def mechanistic_exposure_response(drug, enzyme: str, activity, body_weight_kg: float = 70.0) -> np.ndarray:
+    """:func:`mechanistic_exposure_factor` over an array of ``enzyme`` activities.
+
+    Closed form for an ordinary drug. For a parent-plus-metabolite sum, where each
+    value is a simulation, the response is tabulated once per drug and enzyme and
+    interpolated in log-log, which stays within about 1 % because the curve is smooth
+    in log activity.
+    """
+    a = np.asarray(activity, dtype=float)
+    fm = (drug.pathways or {}).get(enzyme, 0.0)
+    if fm <= 0:
+        return np.ones_like(a)
+    if drug.metabolite is None or drug.to_pk_model(body_weight_kg).reported_quantity == "parent":
+        return 1.0 / (fm * a + 1.0 - fm)
+    values = _simulated_response(drug, enzyme, body_weight_kg)
+    log_a = np.log(np.clip(a, _RESPONSE_GRID[0], _RESPONSE_GRID[-1]))
+    return np.exp(np.interp(log_a, np.log(_RESPONSE_GRID), np.log(values)))
 
 
 def derived_interactions(drug, perpetrator_names: Iterable[str]) -> list[Interaction]:

@@ -448,6 +448,18 @@ def test_multi_drug_reports_shared_enzyme_and_clashes():
     assert set(sero["participants"]) == {"lithium", "mirtazapine"}
 
 
+def test_multi_drug_reports_substances_combined_in_one_enzyme():
+    payload = {"drugs": [{"drug_id": "mirtazapine"}, {"perpetrator": "Paroxetine 20 mg/day"},
+                         {"perpetrator": "Fluoxetine 20 mg/day"}], "duration_h": 240}
+    s = client.post("/api/v1/pk/multi-drug", json=payload).json()["series"][0]
+    assert [a["pooled"] for a in s["applied"]] == ["CYP2D6", "CYP2D6"]
+    (pooled,) = s["pooled"]
+    assert pooled["enzyme"] == "CYP2D6" and pooled["combined"] < pooled["multiplied"]
+    assert s["exposure_factor"] < 1.0 / (1.0 - 0.36)  # mirtazapine's CYP2D6 share
+    alone = client.post("/api/v1/pk/multi-drug", json={**payload, "drugs": payload["drugs"][:2]}).json()["series"][0]
+    assert alone["pooled"] == [] and alone["applied"][0]["pooled"] == ""
+
+
 def test_multi_drug_bioavailability_interaction_skips_iv():
     payload = {"drugs": [{"drug_id": "ketamine", "route": "iv_bolus"}, {"perpetrator": "Clarithromycin"}]}
     s = client.post("/api/v1/pk/multi-drug", json=payload).json()["series"][0]
