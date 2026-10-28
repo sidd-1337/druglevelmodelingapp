@@ -74,6 +74,42 @@
       "note": "Risperdal label: carbamazepine (573 mg/day) with risperidone 3 mg b.i.d., active moiety AUC ratio 0.51, Cmax 0.55 after 3 weeks. Only the Czech SPC is qualitative. Ono 2002: 0.55 after 1 week of 400 mg/day; Spina 2000: -71 % cross-sectionally; Schoretsanitis 2016 TDM (n=21) significantly lower."
     },
     {
+      "victim_id": "quetiapine",
+      "perpetrator": "Ketoconazole 200 mg/day",
+      "perpetrator_cs": "Ketokonazol 200 mg/den",
+      "exposure_factor": 6.22,
+      "site": "clearance",
+      "onset_h": 24.0,
+      "qualitative": false,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
+      "verified": true,
+      "note": "Grimm 2006 (Br J Clin Pharmacol 61:58) Table 4: ketoconazole 200 mg once daily for 4 days, single 25 mg quetiapine, 12 healthy men, AUC x6.22 (90 % CI 4.93-7.83), Cmax x3.35, CL/F 138 -> 22 L/h, t1/2 2.61 -> 6.76 h. US label Table 17: 6.2-fold; Czech SPC 4.5: 5-8-fold, and strong CYP3A4 inhibitors are contraindicated. Named for the dose actually given, not the registry's 200 mg b.i.d.: the CYP3A4 share of this preset is derived from this study, so it must not also count as an independent back-test pair. Much of the effect is presystemic (half-life rose only 2.6-fold), so applying it to clearance overstates the half-life change. onset_h is an estimate; no source states one."
+    },
+    {
+      "victim_id": "quetiapine",
+      "perpetrator": "Carbamazepine",
+      "perpetrator_cs": "Karbamazepin",
+      "exposure_factor": 0.13,
+      "site": "clearance",
+      "onset_h": 336.0,
+      "qualitative": false,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
+      "verified": true,
+      "note": "Grimm 2006 Table 5: quetiapine 300 mg b.i.d. with carbamazepine titrated to 200 mg t.i.d. (600 mg/day; the table header says b.i.d., the design section t.i.d. from day 13) for about 3 weeks, 14 patients, AUCtau-ss x0.13 (90 % CI 0.11-0.17), Cmax-ss x0.20, CL/F 65 -> 483 L/h. Czech SPC 4.5: AUC 'on average down to 13 %', more in some patients. The mechanism with this preset's CYP3A4 share predicts about 0.30 for the registry's carbamazepine 400 mg b.i.d., so it under-predicts this pair about 2.3-fold. onset_h is an estimate; no source states one."
+    },
+    {
+      "victim_id": "quetiapine",
+      "perpetrator": "Phenytoin 300 mg/day",
+      "perpetrator_cs": "Fenytoin 300 mg/den",
+      "exposure_factor": 0.2,
+      "site": "clearance",
+      "onset_h": 336.0,
+      "qualitative": false,
+      "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0584dda8-bc3c-48fe-1a90-79608f78e8a0",
+      "verified": true,
+      "note": "US Seroquel label 12.3 Table 17: phenytoin 100 mg t.i.d. with quetiapine 250 mg t.i.d., '5-fold increase in oral clearance' (exposure x0.2). Czech SPC 4.5: clearance up 'approximately 450 %' (x0.18). Named for the dose given; the registry's phenytoin row for mirtazapine is 200 mg/day. onset_h is an estimate; no source states one."
+    },
+    {
       "victim_id": "mirtazapine",
       "perpetrator": "Carbamazepine 400 mg b.i.d.",
       "perpetrator_cs": "Karbamazepin 400 mg 2x denně",

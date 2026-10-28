@@ -37,6 +37,8 @@ ATC_TO_PRESET_MAP: dict[str, str] = {
     "MIRTAZAPINE": "mirtazapine",
     "RISPERIDON": "risperidone",
     "RISPERIDONE": "risperidone",
+    "KVETIAPIN": "quetiapine",
+    "QUETIAPIN": "quetiapine",  # also matches QUETIAPINE
     "METHYLFENIDAT": "ritalin",
     "METHYLFENIDÁT": "ritalin",
     "METHYLPHENIDATE": "ritalin",
@@ -71,6 +73,7 @@ PRESET_DEFAULT_SUKL_CODES: dict[str, str] = {
     "mirtazapine": "0127760",    # MIRZATEN ORO TAB 15MG POR TBL DIS 30
     # was 0102963, MEDORISPER 0,5MG: marketing ended and no SPC on file
     "risperidone": "0102979",    # MEDORISPER 2MG TBL FLM 60
+    "quetiapine": "0249090",     # QUETIAPIN NEURAXPHARM 200MG TBL FLM 60
     "lithium": "0207946",        # LITHIUM CARBONICUM SLOVAKOFARMA 300MG TBL NOB 100
     "levetiracetam": "0267073",  # LEVELANZ 250MG TBL FLM 56 II
     "ibuprofen": "0254292",      # IBALGIN 200MG TBL FLM 10
@@ -94,6 +97,7 @@ PRESET_ATC_CODES: dict[str, str] = {
     "propranolol": "C07AA05",
     "mirtazapine": "N06AX11",
     "risperidone": "N05AX08",
+    "quetiapine": "N05AH04",
     "lithium": "N05AN01",
     "levetiracetam": "N03AX14",
     "ibuprofen": "M01AE01",

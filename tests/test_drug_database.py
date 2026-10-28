@@ -23,6 +23,7 @@ def test_all_presets_load_and_are_valid():
         "rivotril",
         "mirtazapine",
         "risperidone",
+        "quetiapine",
         "ritalin",
     } <= ids
 
@@ -44,6 +45,7 @@ def test_specified_reference_values():
     assert get_drug("mirtazapine").t_half_h == 26.0 and get_drug("mirtazapine").mtc == 0.15
     # risperidone's t1/2 is now the PARENT's 3 h; the 21 h metabolite governs the reported sum
     assert get_drug("risperidone").t_half_h == 3.0 and get_drug("risperidone").mtc == 0.08
+    assert get_drug("quetiapine").t_half_h == 7.0 and get_drug("quetiapine").mec == 0.1
     rit = get_drug("ritalin")
     assert (rit.t_half_h, rit.vd_l_per_kg, rit.bioavailability, rit.mec, rit.mtc) == (2.8, 3.1, 0.15, 0.005, 0.03)
     assert rit.default_dose_mg == 10 and rit.default_interval_h == 8
@@ -174,6 +176,57 @@ def test_risperidone_active_moiety_sits_on_its_solved_agnp_level():
     model = get_drug("risperidone").to_pk_model(70)
     # The AGNP 20-60 ng/mL range is for the active moiety, so the reported sum must match it.
     assert steady_state_summary(2.0, 12, model).cavg_ss == pytest.approx(0.028, rel=0.05)
+
+
+def test_quetiapine_reports_the_parent_and_simulates_norquetiapine():
+    """The label: 'quetiapine activity is primarily due to the parent drug', and the AGNP range
+    is for quetiapine. Norquetiapine is a second curve, calibrated to the label's steady-state
+    AUC ratio (46-56 %) and nothing else, so the ratio is pinned here."""
+    from core.pk_engine import auc_trapezoid, concentration_profile, metabolite_profile, regular_schedule
+    model = get_drug("quetiapine").to_pk_model(70)
+    assert model.reported_quantity == "parent"
+    assert model.terminal_half_life_h == pytest.approx(7.0)
+    t = np.linspace(0.0, 240.0, 24001)
+    doses = regular_schedule(200.0, 12.0, 240.0)
+    last = (t >= 216.0) & (t <= 228.0)
+    ratio = (auc_trapezoid(t[last], metabolite_profile(t, doses, model)[last])
+             / auc_trapezoid(t[last], concentration_profile(t, doses, model)[last]))
+    assert 0.46 <= ratio <= 0.56, ratio
+
+
+def test_quetiapine_prolonged_release_peaks_late_at_the_same_exposure():
+    """Seroquel XR label and Czech SPC: peak about 6 h after dosing, AUC once daily comparable
+    to the same daily dose of IR given twice daily (Figueroa 2009: AUC ratio 1.04)."""
+    from core.pk_engine import steady_state_summary, tmax_single_dose
+    que = get_drug("quetiapine")
+    assert que.formulation_ids == ["ir", "pr"]
+    pr = que.with_formulation("pr")
+    assert (pr.default_dose_mg, pr.default_interval_h) == (400, 24)
+    assert 5.0 <= tmax_single_dose(pr.to_pk_model(70), 400.0) <= 7.0
+    ir_ss = steady_state_summary(200.0, 12, que.to_pk_model(70))
+    pr_ss = steady_state_summary(400.0, 24, pr.to_pk_model(70))
+    assert pr_ss.cavg_ss == pytest.approx(ir_ss.cavg_ss, rel=1e-4)
+    assert pr_ss.tmax_ss_h > 3 * ir_ss.tmax_ss_h
+
+
+def test_quetiapine_cyp3a4_share_reproduces_the_study_it_was_derived_from():
+    """fm 0.86 was derived from ketoconazole (AUC x6.22, Grimm 2006) with the registry's
+    ketoconazole residual. This pins that derivation; it is not an independent check."""
+    from core.interactions import derived_interactions
+    est = derived_interactions(get_drug("quetiapine"), ["Ketoconazole 200 mg b.i.d."])
+    assert len(est) == 1 and est[0].exposure_factor == pytest.approx(6.22, rel=0.02)
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "One compartment: steady-state peaks come out at about half the measured ones (300 mg b.i.d. "
+    "0.58 vs 1.042 ug/mL, Grimm 2006; 150 mg b.i.d. 0.29 vs 0.568, Figueroa 2009) while averages "
+    "and troughs match. A two-compartment fit to these summaries alone would stretch the terminal "
+    "half-life to about 10 h against the label's 7 h, so none was made without a published curve."))
+def test_quetiapine_steady_state_peak_matches_the_measured_one():
+    from core.pk_engine import steady_state_summary
+    model = get_drug("quetiapine").to_pk_model(70)
+    cmax = steady_state_summary(300.0, 12, model).cmax_ss
+    assert 1.042 / 1.5 <= cmax <= 1.042 * 1.5
 
 
 def test_cyp2d6_barely_moves_the_risperidone_active_moiety():

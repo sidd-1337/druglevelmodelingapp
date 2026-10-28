@@ -281,6 +281,64 @@
       "notes": "Atypické antipsychotikum. Risperidon a jeho metabolit 9-hydroxyrisperidon jsou modelovány zvlášť; vykazovanou veličinou zůstává jejich součet (aktivní frakce), ke kterému se vztahuje terapeutické okno. AGNP terapeutické rozmezí 20–60 ng/mL (0.02–0.06 µg/mL), riziko EPS > 0.08 µg/mL. Variabilita mezi pacienty (cv_cl 1.08) je odvozena z publikovaného cca 20násobného rozpětí ustálených hladin aktivní frakce (1,8–36,8 nmol/l na mg/den): odpovídá log-SD 0,91, z čehož genotyp CYP2D6 vysvětluje jen 0,23, tedy asi 6 % rozptylu; zbytek je variabilita v rámci fenotypu."
     },
     {
+      "id": "quetiapine",
+      "name": "Kvetiapin",
+      "category": "Atypické antipsychotikum / atypical antipsychotic",
+      "t_half_h": 7.0,
+      "vd_l_per_kg": 9.4,
+      "bioavailability": 1.0,
+      "ka_per_h": 2.2,
+      "elimination": {
+        "pathways": {
+          "CYP3A4": 0.86
+        },
+        "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
+        "verified": false,
+        "note": "Derived, not stated by any source. Grimm 2006 (Br J Clin Pharmacol 61:58) Table 4: ketoconazole 200 mg once daily for 4 days, single 25 mg quetiapine, 12 healthy men, AUC x6.22 (US label Table 17: 6.2-fold, CL/F -84 %; Czech SPC 4.5: 5-8-fold). fm = (1 - 1/6.22) / (1 - r) = 0.86, with r = 0.024, the ketoconazole residual CYP3A4 activity derived in data/enzymes.json from oral midazolam. Both victim and index were oral, so fm includes gut-wall CYP3A4 and overstates the purely hepatic share. In vitro (same paper): CYP3A4 forms the sulfoxide and the N- and O-desalkyl metabolites; CYP2D6 only the minor 7-hydroxylation. Because fm comes from the ketoconazole study, the measured ketoconazole row in interactions.json is not an independent check of it. Carbamazepine (measured 0.13) is under-predicted by this fm: the mechanism gives about 0.30 with the registry's carbamazepine."
+      },
+      "metabolite": {
+        "id": "norquetiapine",
+        "name": "Norkvetiapin (N-desalkylkvetiapin)",
+        "formation_fraction": 0.39,
+        "t_half_h": 12.0,
+        "vd_l_per_kg": 9.4,
+        "molar_ratio": 1.2983,
+        "potency_ratio": 1.0,
+        "reported": "parent",
+        "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=473a3ac4-67f4-4782-baa9-7f9bdd8761f4",
+        "verified": false,
+        "note": "N-desalkylquetiapine (norquetiapine), the active metabolite that carries the NET inhibition and most of the muscarinic affinity. Half-life 12 h: Seroquel XR label 12.3 and Czech SPC 5.2. Calibrated, not observed: no study gives its formation fraction or volume, and the two are not separable from plasma data. Volume set equal to the parent's (an assumption); formation fraction solved so the steady-state AUC ratio norquetiapine/quetiapine is 0.51, the midpoint of the label's 46-56 % (XR label 12.3, divided IR doses up to 800 mg/day). molar_ratio = 383.51/295.40 (quetiapine base C21H25N3O2S / norquetiapine C17H17N3S). Check: the model's steady-state Cmax ratio is 0.35 (mass) against the label's 21-27 %, because the one-compartment parent peaks too low (see notes); against the observed parent peak it is about 0.20. Reported quantity stays the parent: 'quetiapine activity is primarily due to the parent drug' (US label 12.3) and the AGNP range refers to quetiapine. potency_ratio 1.0 is a placeholder, inert while reported='parent'. Norquetiapine is itself formed and cleared by CYP3A4 (Czech SPC 5.2); the engine forms it from total parent clearance, so its curve does not respond correctly to CYP3A4 inhibitors or inducers."
+      },
+      "protein_binding": {
+        "fu": 0.17,
+        "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0584dda8-bc3c-48fe-1a90-79608f78e8a0",
+        "verified": true,
+        "note": "US Seroquel label 12.3 Distribution: '83% bound to plasma proteins at therapeutic concentrations'. Czech SPC 5.2: approximately 83 %."
+      },
+      "formulations": {
+        "ir": {
+          "name": "Immediate release (tablet)",
+          "name_cs": "S okamžitým uvolňováním (tableta)"
+        },
+        "pr": {
+          "name": "Prolonged release (tablet)",
+          "name_cs": "S prodlouženým uvolňováním (tableta)",
+          "ka_per_h": 0.25,
+          "default_dose_mg": 400,
+          "default_interval_h": 24
+        }
+      },
+      "cv_cl": 0.33,
+      "mec": 0.1,
+      "mtc": 1.0,
+      "concentration_unit": "ug/mL",
+      "dose_conversion": 1.0,
+      "default_dose_mg": 200,
+      "default_interval_h": 12,
+      "dose_basis": "mg kvetiapinu (báze, jako fumarát)",
+      "notes": "Atypické antipsychotikum (antagonista 5-HT2A a D2, silný antagonista H1 a alfa-1). Norkvetiapin, aktivní metabolit (t½ cca 12 h), je simulován jako druhá křivka; vykazovaná koncentrace a terapeutické okno se týkají samotného kvetiapinu. Poločas 7 h (SPC 5.2), zdánlivý distribuční objem 9,4 l/kg (štítek USA: 10 ± 4 l/kg) a F = 1 (absolutní biologická dostupnost není v primárních zdrojích uvedena, proto jsou V a CL zdánlivé, V/F a CL/F). CL/F 65 l/h odpovídá ustálenému stavu u pacientů (Grimm 2006, 300 mg 2× denně, AUCτ 4650 ng·h/ml); zdraví dobrovolníci po jednorázové dávce 25 mg mají CL/F 138 l/h, takže jejich AUC model přeceňuje cca 2×. Jednokompartmentový model podhodnocuje vrcholy v ustáleném stavu zhruba na polovinu (300 mg 2× denně: model 0,58, naměřeno 1,04 µg/ml), průměr a údolní hladiny sedí. Forma s prodlouženým uvolňováním: Tmax cca 6 h (SPC, štítek USA), stejná AUC jako IR. Variabilita cv_cl 0.33 je interindividuální CV clearance z populační farmakokinetiky (Fukushi 2020, 322 pacientů, abstrakt). Terapeutické okno: AGNP 2017 terapeutické referenční rozmezí 100–500 ng/ml (údolní hladina), laboratorní varovná hladina 1000 ng/ml = MTC; tyto hodnoty nebyly ověřeny proti plnému textu konsenzu (nedostupný), jeden sekundární zdroj uvádí dolní mez 150 ng/ml."
+    },
+    {
       "id": "ritalin",
       "name": "Ritalin (methylfenidát)",
       "category": "CNS stimulans / ADHD (inhibitor DAT/NET)",

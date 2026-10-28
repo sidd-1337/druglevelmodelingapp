@@ -315,6 +315,53 @@
       "note": "Health Canada Risperdal monograph Table 1.9: single 1 mg oral dose, young healthy subjects (n=8, median), risperidone + 9-hydroxyrisperidone AUC0-inf 132 ng*h/mL (Cmax 9.1 ng/mL, t1/2 17 h). Replaces cavg_ss 0.028 at 2 mg q12h, derived from a patient TDM norm (C/D 'around 7') stated in passing by a review of long-acting injectables. Inter-individual spread about 20-fold, not explained by CYP2D6."
     },
     {
+      "drug_id": "quetiapine",
+      "metric": "cavg_ss",
+      "dose_mg": 300,
+      "interval_h": 12,
+      "value": 0.3875,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
+      "verified": true,
+      "note": "Grimm 2006 (Br J Clin Pharmacol 61:58) Table 5: quetiapine 300 mg b.i.d. at steady state (day 9), 14 patients with schizophrenia, schizoaffective or bipolar disorder (mean age 44), geometric mean AUCtau-ss 4650 ng*h/mL over the 12 h after the morning dose; cavg = 4650/12 = 387.5 ng/mL. Full text."
+    },
+    {
+      "drug_id": "quetiapine",
+      "metric": "cmin_ss",
+      "dose_mg": 150,
+      "interval_h": 12,
+      "value": 0.0965,
+      "source": "https://pubmed.ncbi.nlm.nih.gov/18948162/",
+      "verified": false,
+      "note": "Figueroa 2009 (Prog Neuropsychopharmacol Biol Psychiatry 33:199), abstract only: quetiapine IR 150 mg b.i.d. at steady state in patients, 'mean concentration at the end of 24 h dosing interval (Cmin)' 96.5 ng/mL (XR 300 mg once daily: 95.3). Not verified: for twice-daily IR the abstract does not say how long after the evening dose that sample was drawn; read here as a 12 h trough. Full text paywalled."
+    },
+    {
+      "drug_id": "quetiapine",
+      "metric": "auc_inf",
+      "dose_mg": 25,
+      "value": 0.181,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
+      "verified": true,
+      "note": "Grimm 2006 Table 4: single 25 mg oral dose after an 8 h fast, 12 healthy men (mean age 33), geometric mean AUC0-inf 181 ng*h/mL (CL/F 138 L/h, apparent t1/2 2.61 h with an LLOQ of 2.5 ng/mL). Known limitation: the preset is fitted to patients at steady state (CL/F 65 L/h), so it over-predicts this healthy-volunteer AUC about 2-fold; the short apparent half-life suggests the terminal phase was also partly missed."
+    },
+    {
+      "drug_id": "quetiapine",
+      "metric": "cmax",
+      "dose_mg": 25,
+      "value": 0.045,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
+      "verified": true,
+      "note": "Grimm 2006 Table 4: same 12 healthy men, geometric mean Cmax 45 ng/mL."
+    },
+    {
+      "drug_id": "quetiapine",
+      "metric": "tmax_h",
+      "dose_mg": 25,
+      "value": 1.25,
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
+      "verified": true,
+      "note": "Grimm 2006 Table 4: median tmax 1.25 h (US label 12.3: peak in 1.5 h; Table 5 steady state: 1.5 h)."
+    },
+    {
       "drug_id": "ritalin",
       "metric": "cmax",
       "dose_mg": 20,

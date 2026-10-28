@@ -272,6 +272,7 @@ The application includes curated pharmacokinetic profiles in [`data/drugs.json`]
 | **Rivotril** | Benzodiazepine (clonazepam) | $35.0$ | $2.30$ | $0.90$ | $1.50$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | High accumulation at steady-state. AGNP range 20–70 ng/mL. |
 | **Mirtazapin** | Antidepressant (NaSSA) | $26.0$ | $10.50$ | $0.50$ | $1.00$ | $0.03$ | $0.15$ | $\mu\text{g/mL}$ | Once-daily dosing; AGNP therapeutic window 30–80 ng/mL. |
 | **Risperidon** | Atypical Antipsychotic | $20.0$ | $1.70$ | $0.70$ | $2.00$ | $0.02$ | $0.08$ | $\mu\text{g/mL}$ | Modeled as total active moiety (risperidone + 9-OH); target 20–60 ng/mL. |
+| **Kvetiapin** | Atypical Antipsychotic (quetiapine) | $7.0$ | $9.40$ | $1.00$ | $2.20$ | $0.10$ | $1.00$ | $\mu\text{g/mL}$ | Parent reported; norquetiapine (12 h) simulated as a second curve. CYP3A4 0.86; IR and prolonged-release forms. AGNP 100–500 ng/mL, alert 1000. |
 | **Ritalin** | CNS Stimulant / ADHD (methylphenidate) | $2.8$ | $3.10$ | $0.15$ | $1.30$ | $0.005$ | $0.030$ | $\mu\text{g/mL}$ | Rapid absorption; short $t_{1/2}$ requires dosing 2–3× daily ($\tau = 8\text{ h}$). Target 5–20 ng/mL. |
 | **Custom Drug** | User-defined | *custom* | *custom* | *custom* | *custom* | *custom* | *custom* | *custom* | Fully configurable for novel molecules and in-vitro data. |
 

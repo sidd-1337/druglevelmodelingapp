@@ -48,6 +48,25 @@
     }
    }
   },
+  "quetiapine": {
+   "effects": {
+    "cns_depressant": {
+     "source": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0584dda8-bc3c-48fe-1a90-79608f78e8a0",
+     "verified": true,
+     "note": "US label 7.1: 'Given the primary CNS effects of SEROQUEL, caution should be used when it is taken in combination with other centrally acting drugs. SEROQUEL potentiated the cognitive and motor effects of alcohol'. Czech SPC 4.4 (somnolence, sedation) agrees."
+    },
+    "qt_prolonging": {
+     "source": "https://prehledy.sukl.cz/prehledy/v1/dokumenty/94657",
+     "verified": true,
+     "note": "Czech SPC QUETIAPIN NEURAXPHARM (preset code 0249090) 4.4, QT prolongation: QT prolongation reported post-marketing at therapeutic doses and in overdose; the same caution applies 'pri soucasnem predepisovani s pripravky, ktere prodluzuji QT interval'. US Seroquel XR label 5.12: avoid with other drugs that prolong the QTc interval."
+    },
+    "serotonergic": {
+     "source": "https://prehledy.sukl.cz/prehledy/v1/dokumenty/94657",
+     "verified": true,
+     "note": "Czech SPC QUETIAPIN NEURAXPHARM 4.4, 'Serotoninovy syndrom': co-administration with other serotonergic agents (MAO inhibitors, SSRIs, SNRIs, tricyclic antidepressants) 'muze vest k serotoninovemu syndromu'. The US labels carry no such warning; tagged because the primary document for the Czech product states it as a combination warning."
+    }
+   }
+  },
   "propranolol": {
    "effects": {}
   },
@@ -246,7 +265,8 @@
   },
   "ketoconazole": {
    "names": [
-    "Ketoconazole 200 mg b.i.d."
+    "Ketoconazole 200 mg b.i.d.",
+    "Ketoconazole 200 mg/day"
    ],
    "effects": {
     "qt_prolonging": {
@@ -307,7 +327,8 @@
   },
   "phenytoin": {
    "names": [
-    "Phenytoin 200 mg/day"
+    "Phenytoin 200 mg/day",
+    "Phenytoin 300 mg/day"
    ],
    "effects": {}
   },

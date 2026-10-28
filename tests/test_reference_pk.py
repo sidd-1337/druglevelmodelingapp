@@ -19,6 +19,8 @@ KNOWN_MISSES = {
                                     "the preset's trough is 19 ng/mL",
     ("paracetamol", "tmax_h", 1000): "measured curves show paracetamol from 5 minutes, so the 0.44 h lag was removed; "
                                      "ka 3.8/h was fitted together with that lag and now peaks at 0.21 h against 0.65",
+    ("quetiapine", "auc_inf", 25): "healthy young men after one 25 mg dose clear quetiapine at 138 L/h; the preset "
+                                   "is fitted to patients at steady state (65 L/h, same study), so it predicts 2.1x",
 }
 
 
