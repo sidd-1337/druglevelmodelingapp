@@ -19,13 +19,19 @@ Write the monograph from `references/monograph-template.md` and the data from
 ## Modes
 
 - **Add** (default): the drug is not in `data/drugs.json`. Do every step below.
-- **Audit**: the drug is already a preset. Do steps 1-4 *blind*. Don't open its
-  `drugs.json`, `reference_pk.json`, `interactions.json` or `pd_effects.json` entries, or
-  its tests, until your own values are written down. Then diff yours against the stored
-  ones in a table: value, yours, stored, source of each, verdict (agree / stored is
-  wrong / mine is wrong / sources conflict). Change stored data only where you can name
-  the primary document that settles it. Report the diff even when everything agrees.
-  The diff is the measurement of this skill's accuracy.
+- **Audit**: the drug is already a preset. Do steps 1-4 *blind*. Until your own values
+  are written down, don't open any file that names the drug: its entries in `data/*.json`,
+  tests in any file (several pin its numbers), `docs/model-development-log.md`, the
+  README tables, `core/sukl_client.py`, and code comments. If `references/app-data.md`
+  names the audited drug as the template to copy, use the other template it names. Use
+  the raw SÚKL route in step 2, not `core.sukl_client`. Then diff yours against the
+  stored values in a table: value, yours, stored, source of each, verdict (agree /
+  stored is wrong / mine is wrong / sources conflict / not comparable). Fitted values
+  (V, ka) are "not comparable": compare their predictions instead, scoring both
+  parameter sets against every primary reference you found. Change stored data only
+  where you can name the primary document that settles it, and only once the person
+  agrees. Report the diff even when everything agrees: it measures this skill's
+  accuracy.
 
 ## Ground rules
 
@@ -41,11 +47,15 @@ this project a wrong number before.
   source.
 - **`verified: true` only after you've read the number in the primary document.** The
   note says where it was read (section, table, page) and quotes or restates it. A value
-  that is derived, calibrated, from conflicting primaries, or with no reachable primary
-  is `verified: false`, and the note says which of these applies.
+  recomputed by plain arithmetic from numbers read in a primary (e.g. AUCτ/τ) may be
+  verified if the note shows the arithmetic. It's `verified: false` when the derivation
+  adds an assumption (no residual activity in poor metabolisers, equal volumes, an oral
+  index substrate), uses an unverified input, or is calibrated or solved; also when
+  primaries conflict or none was reachable. The note says which applies.
 - **Find the definition behind each number.** Fed or fasted, single dose or steady
-  state, trough or average, total or unbound, parent or active moiety, test or reference
-  arm, dose as salt or base, which population. The development log's corrections were
+  state, trough or average, total or unbound, parent or active moiety (and for a sum:
+  plain mass sum, as AGNP and the engine use, or a molar-corrected total active moiety),
+  test or reference arm, dose as salt or base, which population. The development log's corrections were
   almost all definition errors (a fed Cmax stored as fasted, a trough stored as an
   average, a long-acting-injectable average used for tablets).
 - **A published parameter is only valid inside the structure it was fitted in.** A ka
@@ -75,10 +85,11 @@ this project a wrong number before.
   strict known miss.
 - **Therapeutic ranges are AGNP 2017 consensus values.** They are total plasma
   concentrations and, unless stated otherwise, troughs. The preset's MEC is the lower
-  limit of the range. MTC is the level a primary source names as the adverse or toxic
-  threshold. Existing presets use different ones (the AGNP laboratory alert level, the
-  upper range limit, or an EPS threshold), so the `notes` must say which one this preset
-  uses and give the full range.
+  limit of the range. MTC is the AGNP laboratory alert level, unless a primary source
+  names a different adverse threshold for the drug. `mec` and `mtc` have no
+  `source`/`verified` fields, so no test catches an unsourced window: the `notes` must
+  cite the document, give the full range and the alert level, and say which value MTC
+  is and whether it was read in the consensus itself or second-hand.
 - **Units:** `drugs.json` concentrations in µg/mL (= mg/L). Divide ng/mL by 1000. AUC is
   in µg·h/mL.
 
@@ -95,8 +106,11 @@ another substance.
 To list products, POST `{"filtr": "<term>", "pocet": 50, "stranka": 1}` to
 `https://prehledy.sukl.cz/prehledy/v1/dlprc`. The filter matches product names, so
 search the product-name root ("quetiapin", or a brand), not the Czech INN: "KVETIAPIN"
-returned nothing. `core.sukl_client.fetch_sukl_detail(code)` then gives the name, form
-and `spc_url`.
+returned nothing. `GET https://prehledy.sukl.cz/prehledy/v1/dlp/<kodSUKL>` gives the
+product, `jeDodavka` and `dokumenty[]`. The entry with `typDokumentu` "SPC" has the id
+for `GET .../v1/dokumenty/<id>` (a PDF). One SPC usually covers every strength of a
+product. Prefer a supplied product whose SPC section 5.2 is complete; the originator's
+often is, so check it when a generic's is thin.
 
 Before changing anything, run `pytest -q` once and note what already fails. Live SÚKL
 tests can fail on data drift that has nothing to do with your change.
@@ -114,6 +128,12 @@ Collect the URLs before reading anything in detail:
   disagree, and ask the user to confirm it in the report;
 - original PK studies with mean concentration-time tables (for the curve harness),
   mass balance, interaction studies, and receptor binding (Ki) data.
+
+For open-access articles whose PMC or Europe PMC page shows a bot check, the official
+API returns the full text:
+`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pmc&id=<PMCID>&rettype=xml`.
+If it returns a stub saying the publisher doesn't allow downloading, record the value as
+"abstract only".
 
 Keep a scratch list of URL, document type and what it gives. Every value cited later
 must come from this list.
@@ -156,14 +176,23 @@ Decide the structure first, and write the reasoning down in monograph section 7:
 - `formulations` for IR versus PR (the first entry is the default and must match the
   references);
 - `elimination.pathways` under the evidence rule above;
-- `cv_cl` / `cv_f` from a published population spread (for example a population-PK CV
-  or a percentile range of dose-normalised levels), never guessed.
+- `cv_cl` / `cv_f` from a published population spread, never guessed. Prefer a
+  population-PK between-subject CV. A percentile range of dose-normalised levels also
+  works if its percentiles are stated; a min–max range isn't a percentile range. For a
+  sum-reported drug the CV must describe the sum, which is usually dominated by the
+  metabolite's clearance. The band already adds the spread of unstated metaboliser
+  phenotypes, so a CV that includes genotype effects counts them twice.
 
 For a metabolite reported as `parent`, its formation fraction and volume can't be
 separated from plasma data. Set its volume equal to the parent's (an assumption, stated
 in the note), solve the formation fraction from the steady-state metabolite/parent AUC
 ratio, and check the Cmax ratio as the one independent test. Mass and molar ratios
 differ by `molar_ratio`, and labels mix them.
+
+The engine forms a metabolite only from systemic parent, so first-pass formation (as
+with risperidone) can't be represented. When the reported quantity's Cmax and the
+metabolite/parent AUC ratio can't both be met, keep the ratio (it's structural), and
+record the Cmax miss as a strict xfail.
 
 If the summary data show a misfit that only a more complex structure would fix (for
 example, steady-state peaks at half the measured value), don't fit that structure to
@@ -198,7 +227,8 @@ python -m core.validation     # the drug's rows must appear, and misses must be 
 ```
 
 Re-read every `verified: true` and confirm the URL is primary and the note says where
-the number is. Then check the monograph against the data. Every number in section 7
+the number is. Every Cmax, Tmax and AUC printed in a cited document for the default
+formulation should be a reference row, or the monograph should say why it isn't. Then check the monograph against the data. Every number in section 7
 must equal the stored one.
 
 ### 8. Report

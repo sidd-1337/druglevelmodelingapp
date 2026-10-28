@@ -8,11 +8,12 @@ document, `note` says where the value was read, and aggregator domains fail the 
 ## `data/drugs.json`
 
 Copy the shape of the closest existing preset. A metabolite plus CYP pathways is
-`risperidone` or `diazepam`; IR plus PR is `propranolol`. Required fields: `id`, `name`
+`risperidone`, `diazepam` or `quetiapine`; IR plus PR is `propranolol` or `quetiapine`. Required fields: `id`, `name`
 (Czech, as the app shows it), `category`, `t_half_h`, `vd_l_per_kg`, `bioavailability`,
 `ka_per_h`, `mec`, `mtc`. Also give `t_half_range_h`, `concentration_unit`,
-`dose_conversion`, `default_dose_mg`, `default_interval_h`, `dose_basis` and `notes`
-(Czech).
+`dose_conversion`, `default_dose_mg`, `default_interval_h`, `dose_basis` and `notes`.
+Most presets write `notes` in Czech, since the app shows them; a few older ones are in
+English.
 
 | block | fields | rule |
 |---|---|---|
@@ -63,6 +64,17 @@ time course then isn't simulated, but the label is true. Add every new perpetrat
 to its substance's `names` list in `data/pd_effects.json`, so the clash check doesn't
 report it as unassessed. Don't add a new perpetrator to `enzymes.json` as part of a
 preset unless asked; list the pair in the monograph instead.
+
+How the app applies a factor: the co-medication path (`core/regimen.py`) scales the
+victim's **reported** concentration curve by `exposure_factor`, so a measured ratio,
+including an active-moiety ratio, is reproduced exactly and the half-life isn't changed.
+`site` decides only two things: a `bioavailability` factor is skipped for IV dosing and
+capped so F stays ≤ 1. With `bioavailability: 1.0` (unknown absolute F), use `clearance`,
+or the cap removes the effect. The `core/interactions.py` docstring and
+`apply_interactions` (only tests call it) describe an older clearance-scaling behaviour.
+The one exception: when another drug in the regimen inactivates the enzyme (MDMA and
+CYP2D6), a timed registry perpetrator on that enzyme acts through the shared enzyme
+pool, at its mechanistic size.
 
 ## `core/sukl_client.py`
 

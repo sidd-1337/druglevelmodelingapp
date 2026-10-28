@@ -219,8 +219,10 @@ suggests that study missed part of the terminal phase.
   peak, where D2 occupancy and orthostatic hypotension are highest, is the part the
   model draws too low.
 - **Ketoconazole** acts largely before the drug reaches the circulation (the half-life
-  rose only 2.6× while AUC rose 6.2×). Applying it to clearance overstates the
-  half-life change.
+  rose only 2.6× while AUC rose 6.2×). The co-medication tool scales the whole curve by
+  the measured 6.22 and keeps the 7 h half-life, so it reproduces the exposure but not
+  the slower decline. The row's `site` is `clearance` because, with F = 1, a
+  bioavailability factor would be capped at 1.
 - **Norquetiapine** forms from total parent clearance in the engine. Under a CYP3A4
   inhibitor or inducer its curve doesn't change, whereas in reality both its formation
   and its elimination change.

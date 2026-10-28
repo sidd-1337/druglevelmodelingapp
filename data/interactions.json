@@ -83,7 +83,7 @@
       "qualitative": false,
       "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1884989",
       "verified": true,
-      "note": "Grimm 2006 (Br J Clin Pharmacol 61:58) Table 4: ketoconazole 200 mg once daily for 4 days, single 25 mg quetiapine, 12 healthy men, AUC x6.22 (90 % CI 4.93-7.83), Cmax x3.35, CL/F 138 -> 22 L/h, t1/2 2.61 -> 6.76 h. US label Table 17: 6.2-fold; Czech SPC 4.5: 5-8-fold, and strong CYP3A4 inhibitors are contraindicated. Named for the dose actually given, not the registry's 200 mg b.i.d.: the CYP3A4 share of this preset is derived from this study, so it must not also count as an independent back-test pair. Much of the effect is presystemic (half-life rose only 2.6-fold), so applying it to clearance overstates the half-life change. onset_h is an estimate; no source states one."
+      "note": "Grimm 2006 (Br J Clin Pharmacol 61:58) Table 4: ketoconazole 200 mg once daily for 4 days, single 25 mg quetiapine, 12 healthy men, AUC x6.22 (90 % CI 4.93-7.83), Cmax x3.35, CL/F 138 -> 22 L/h, t1/2 2.61 -> 6.76 h. US label Table 17: 6.2-fold; Czech SPC 4.5: 5-8-fold, and strong CYP3A4 inhibitors are contraindicated. Named for the dose actually given, not the registry's 200 mg b.i.d.: the CYP3A4 share of this preset is derived from this study, so it must not also count as an independent back-test pair. Much of the effect is presystemic (half-life rose only 2.6-fold). The co-medication path scales the reported curve by this factor and leaves the half-life alone; site is 'clearance' because with F = 1 a bioavailability factor would be capped at 1. onset_h is an estimate; no source states one."
     },
     {
       "victim_id": "quetiapine",
